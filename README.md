@@ -15,12 +15,12 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 ## Repository Structure
 
 ├── dialplan/           # Dialplan-related files and scripts<br>
-│   ├── sql/            # SQL queries for managing the dialplan in PostgreSQL
-│   └── xml/            # Static XML dialplan snippets (if any)
-├── ivr_menus/          # IVR menu configurations
-├── logs/               # Sample FreeSWITCH logs for debugging
-├── docs/               # Additional documentation and notes
-└── README.md           # This file
+│   ├── sql/            # SQL queries for managing the dialplan in PostgreSQL<br>
+│   └── xml/            # Static XML dialplan snippets (if any)<br>
+├── ivr_menus/          # IVR menu configurations<br>
+├── logs/               # Sample FreeSWITCH logs for debugging<br>
+├── docs/               # Additional documentation and notes<br>
+└── README.md           # This file<br>
 
 
 ## Prerequisites
