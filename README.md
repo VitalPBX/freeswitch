@@ -68,7 +68,6 @@ FreeSWITCH Token.....................> $fs_token
 ## Work in Progress
 - Resolving conflicts with generic extensions (e.g., park) without removing functionality.
 - Ensuring ivr_demo executes reliably with high priority.
-- Adding documentation for each dialplan extension’s purpose.
 
 ## Contributing
 Feel free to fork this repository, submit pull requests, or open issues for suggestions and bug reports. Contributions to improve stability, add features, or enhance documentation are welcome!
