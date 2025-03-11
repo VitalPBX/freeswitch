@@ -14,17 +14,18 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 
 ## Repository Structure
 
-├── migration/          &emsp; &emsp; &emsp; # Dialplan-related files and scripts<br>
-│   ├── directory/      &emsp; &emsp; &emsp; # SQL queries for managing the dialplan in PostgreSQL<br>
-│   └── dialplna/       &emsp; &emsp; &emsp; # Static XML dialplan snippets (if any)<br>
-├── lua/                &emsp; &emsp; &emsp; # Dialplan-related files and scripts<br>
-│   ├── directory/      &emsp; &emsp; &emsp; # SQL queries for managing the dialplan in PostgreSQL<br>
-│   └── dialplna/       &emsp; &emsp; &emsp; # Static XML dialplan snippets (if any)<br>
-├── sql/                &emsp; &emsp; &emsp; # sql script for create database, tables and indixes<br>
-├── logs/               &emsp; &emsp; &emsp; # Sample FreeSWITCH logs for debugging<br>
-├── docs/               &emsp; &emsp; &emsp; # Additional documentation and notes<br>
-└── README.md          &emsp; &emsp; &emsp; # This file<br>
-
+<pre>
+├── migration/           # Dialplan-related files and scripts
+│   ├── directory/       # SQL queries for managing the dialplan in PostgreSQL
+│   └── dialplan/        # Static XML dialplan snippets (if any)
+├── lua/                 # Dialplan-related files and scripts
+│   ├── directory/       # SQL queries for managing the dialplan in PostgreSQL
+│   └── dialplan/        # Static XML dialplan snippets (if any)
+├── sql/                 # SQL script for create database, tables and indices
+├── logs/                # Sample FreeSWITCH logs for debugging
+├── docs/                # Additional documentation and notes
+└── README.md            # This file
+</pre>
 
 ## Prerequisites
 
