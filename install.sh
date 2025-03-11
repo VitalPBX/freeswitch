@@ -132,7 +132,7 @@ sudo systemctl start postgresql
 echo -e "************************************************************"
 echo -e "*                  Create ring2all database                *"
 echo -e "************************************************************"
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql?token=GHSAT0AAAAAADAKQXBY2S6M2V3VHLXIZMXEZ6QWKLQ
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql
 sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_user/$r2a_user/g; \
         s/\$r2a_password/$r2a_password/g" ring2all.sql
@@ -142,7 +142,7 @@ sudo -u postgres psql -d ring2all -f ring2all.sql
 echo -e "************************************************************"
 echo -e "*                Create ring2all_cdr database              *"
 echo -e "************************************************************"
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all_cdr.sql?token=GHSAT0AAAAAADAKQXBYQSFS7N6CZ6H7N46EZ6QWQXA
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all_cdr.sql
 sed -i "s/\$r2a_cdr_database/$r2a_cdr_database/g; s/\$r2a_cdr_user/$r2a_cdr_user/g" ring2all_cdr.sql
 sudo -u postgres psql -d ring2all_cdr -f ring2all_cdr.sql
 
@@ -309,18 +309,11 @@ EOF
 echo -e "************************************************************"
 echo -e "*Download database script, migration scrpts and lus acripts*"
 echo -e "************************************************************"
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql?token=GHSAT0AAAAAADAKQXBY7FUP5FZN6NNTQTTMZ6QJP3Q
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py?token=GHSAT0AAAAAADAKQXBZP3DHQOTDSCRLMRX6Z6QJPKQ
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py?token=GHSAT0AAAAAADAKQXBZTKCEKWXP7PZ5ZS4YZ6QJOVQ
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/main.lua?token=GHSAT0AAAAAADAKQXBYS7TQZJNZBO2B3XI2Z6QJQIQ
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua?token=GHSAT0AAAAAADAKQXBY5W4TLDK2WCXSE6WMZ6QJQQQ
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplna.lua?token=GHSAT0AAAAAADAKQXBYS7TQZJNZBO2B3XI2Z6QJQIQ
-
-# Create database.
-echo -e "************************************************************"
-echo -e "*          Create database, tables and indexes             *"
-echo -e "************************************************************"
-sudo -u postgres psql -d ring2all -f dialplan/sql/setup.sql
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/main.lua
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplna.lua
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
