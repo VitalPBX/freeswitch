@@ -98,6 +98,69 @@ ShowOidColumn       = No
 FakeOidIndex        = No
 EOF
 
+# Download database script, migration scrpts and lus acripts.
+echo -e "************************************************************"
+echo -e "*Download database script, migration scrpts and lus acripts*"
+echo -e "************************************************************"
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql?token=GHSAT0AAAAAADAKQXBY7FUP5FZN6NNTQTTMZ6QJP3Q
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py?token=GHSAT0AAAAAADAKQXBZP3DHQOTDSCRLMRX6Z6QJPKQ
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py?token=GHSAT0AAAAAADAKQXBZTKCEKWXP7PZ5ZS4YZ6QJOVQ
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/main.lua?token=GHSAT0AAAAAADAKQXBYS7TQZJNZBO2B3XI2Z6QJQIQ
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua?token=GHSAT0AAAAAADAKQXBY5W4TLDK2WCXSE6WMZ6QJQQQ
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplna.lua?token=GHSAT0AAAAAADAKQXBYS7TQZJNZBO2B3XI2Z6QJQIQ
+
+# Create database.
+echo -e "************************************************************"
+echo -e "*          Create database, tables and indexes             *"
+echo -e "************************************************************"
+sudo -u postgres psql -d ring2all -f dialplan/sql/setup.sql
+
+# Migrate from XML to Database Directory.
+echo -e "************************************************************"
+echo -e "*       Migrate from XML to Database Directory.            *"
+echo -e "************************************************************"
+chmod +x directory_migrate_to_db.py
+python3 directory_migrate_to_db.py
+
+# Migrate from XML to Database Dialplan.
+echo -e "************************************************************"
+echo -e "*       Migrate from XML to Database Dialplan.             *"
+echo -e "************************************************************"
+chmod +x dialplan_migrate_to_db.py
+python3 dialplan_migrate_to_db.py
+
+# Create main.lua file
+echo -e "************************************************************"
+echo -e "*                   Create main.lua file                   *"
+echo -e "************************************************************"
+mv main.lua /usr/share/freeswitch/scripts/main.lua
+
+# Create Lua Script for management user registration (directory)
+echo -e "************************************************************"
+echo -e "*     Create Lua Script for management user registration   *"
+echo -e "************************************************************"
+mkdir -p /usr/share/freeswitch/scripts/xml_handlers/directory
+mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua
+
+# Create Lua Script for management dialplan (dialplan)
+echo -e "************************************************************"
+echo -e "*         Create Lua Script for management dialplan        *"
+echo -e "************************************************************"
+mkdir -p /usr/share/freeswitch/scripts/xml_handlers/dialplan
+mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
+
+# FreeSWITCH, allowing it to freeswitch manage from Database
+echo -e "************************************************************"
+echo -e "*      Allowing it to freeswitch manage from Database      *"
+echo -e "************************************************************"
+sed -i '/<settings>/a \    <param name="xml-handler-script" value="main.lua xml_handler"/>\n    <param name="xml-handler-bindings" value="directory,dialplan"/>' "/etc/freeswitch/autoload_configs/lua.conf.xml"
+
+# Restart Freeswitch Service
+echo -e "************************************************************"
+echo -e "*                 Restart Freeswitch Service               *"
+echo -e "************************************************************"
+systemctl restart freeswitch
+
 echo -e "************************************************************"
 echo -e "*                 Installation Completed!                  *"
 echo -e "************************************************************"
