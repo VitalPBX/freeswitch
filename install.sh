@@ -21,9 +21,9 @@ echo -e "****************************************************"
 fs_database="freeswitch"
 fs_user="freeswitch"
 fs_password="fs2025"
-fs_cdr_database="cdr"
-fs_cdr_user="freeswitch"
-fs_cdr_password="fs2025"
+fs_cdr_database="ring2all_cdr"
+fs_cdr_user="ring2all"
+fs_cdr_password="r2a2025"
 r2a_database="ring2all"
 r2a_user="ring2all"
 r2a_password="r2a2025"
@@ -128,11 +128,24 @@ sudo apt install -y postgresql postgresql-contrib lua-sql-postgres
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
+# Create ring2all database
+echo -e "************************************************************"
+echo -e "*                  Create ring2all database                *"
+echo -e "************************************************************"
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql?token=GHSAT0AAAAAADAKQXBY2S6M2V3VHLXIZMXEZ6QWKLQ
+sudo -u postgres psql -d ring2all -f ring2all.sql
+
+# Create ring2all_cdr database
+echo -e "************************************************************"
+echo -e "*                Create ring2all_cdr database              *"
+echo -e "************************************************************"
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all_cdr.sql?token=GHSAT0AAAAAADAKQXBYQSFS7N6CZ6H7N46EZ6QWQXA
+sudo -u postgres psql -d ring2all_cdr -f ring2all_cdr.sql
+
 # Download and Install FreeSWITCH
 echo -e "************************************************************"
 echo -e "*          Installing FreeSWITCH version 1.10.12           *"
 echo -e "************************************************************"
-
 # Define your SignalWire authentication token (replace YOUR_TOKEN)
 TOKEN=$fs_token
 
