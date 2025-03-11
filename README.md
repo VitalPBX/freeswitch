@@ -44,21 +44,22 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 3.- **Database Configuration**
 - Create the ring2all database in PostgreSQL (or adjust to your database name).
 - Apply the SQL scripts in dialplan/sql/ to set up tables and initial dialplan data:
-
-psql -U [your-username] -d ring2all -f dialplan/sql/setup.sql
-
+```console
+sudo -u postgres psql -d ring2all -f dialplan/sql/setup.sql
+```
 4. **Deploy IVR Menus**
 - Copy IVR configurations from ivr_menus/ to /usr/share/freeswitch/ivr_menus/ (adjust path based on your FreeSWITCH installation).
 - Reload IVR menus:
-
+```console
 fs_cli -x "reloadxml"
+```
 
 5. **Test the Configuration**
 - Start FreeSWITCH and use fs_cli to monitor logs:
-
+```console
 fs_cli
 console loglevel debug
-
+```
 - Make a test call from extension 1000 to 5000 and check the output.
 
 ## Current Features
