@@ -22,7 +22,6 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 │   ├── directory/       # SQL queries for managing the dialplan in PostgreSQL
 │   └── dialplan/        # Static XML dialplan snippets (if any)
 ├── sql/                 # SQL script for create database, tables and indices
-├── logs/                # Sample FreeSWITCH logs for debugging
 ├── docs/                # Additional documentation and notes
 └── README.md            # This file
 </pre>
