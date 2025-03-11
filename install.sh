@@ -142,19 +142,19 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $fs_database TO $fs_u
 echo -e "************************************************************"
 echo -e "*                  Create ring2all database                *"
 echo -e "************************************************************"
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql /tmp/ring2all.sql
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql ring2all.sql
 sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_user/$r2a_user/g; \
-        s/\$r2a_password/$r2a_password/g" /tmp/ring2all.sql
-sudo -u postgres psql -f /tmp/ring2all.sql
+        s/\$r2a_password/$r2a_password/g" ring2all.sql
+sudo -u postgres psql -f ring2all.sql
 
 # Create ring2all_cdr database
 echo -e "************************************************************"
 echo -e "*                Create ring2all_cdr database              *"
 echo -e "************************************************************"
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all_cdr.sql /tmp/ring2all_cdr.sql
-sed -i "s/\$r2a_cdr_database/$r2a_cdr_database/g; s/\$r2a_cdr_user/$r2a_cdr_user/g" /tmp/ring2all_cdr.sql
-sudo -u postgres psql -f /tmp/ring2all_cdr.sql
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all_cdr.sql ring2all_cdr.sql
+sed -i "s/\$r2a_cdr_database/$r2a_cdr_database/g; s/\$r2a_cdr_user/$r2a_cdr_user/g" ring2all_cdr.sql
+sudo -u postgres psql -f ring2all_cdr.sql
 
 # Download and Install FreeSWITCH
 echo -e "************************************************************"
