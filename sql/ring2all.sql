@@ -1,9 +1,9 @@
 -- sudo -u postgres psql -d ring2all -f create_ring2all.sql
 -- Create the ring2all database as the postgres superuser
-CREATE DATABASE ring2all;
+CREATE DATABASE $r2a_database;
 
 -- Connect to the newly created ring2all database
-\connect ring2all
+\connect $r2a_database;
 
 -- Enable the uuid-ossp extension for UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -133,22 +133,22 @@ ON CONFLICT (name) DO NOTHING;
 -- Create the ring2all role if it doesn't exist and grant privileges
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ring2all') THEN
-        CREATE ROLE ring2all WITH LOGIN PASSWORD 'ring2all';
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
+        CREATE ROLE $r2a_user WITH LOGIN PASSWORD '$r2a_password';
     END IF;
 END $$;
 
-GRANT ALL PRIVILEGES ON DATABASE ring2all TO ring2all;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ring2all;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ring2all;
+GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
 
 -- Set the ring2all user as the owner of all tables
-ALTER TABLE public.tenants OWNER TO ring2all;
-ALTER TABLE public.tenant_settings OWNER TO ring2all;
-ALTER TABLE public.sip_users OWNER TO ring2all;
-ALTER TABLE public.groups OWNER TO ring2all;
-ALTER TABLE public.user_groups OWNER TO ring2all;
-GRANT ALL PRIVILEGES ON SCHEMA public TO ring2all;
+ALTER TABLE public.tenants OWNER TO $r2a_user;
+ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
+ALTER TABLE public.sip_users OWNER TO $r2a_user;
+ALTER TABLE public.groups OWNER TO $r2a_user;
+ALTER TABLE public.user_groups OWNER TO $r2a_user;
+GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
 
 -- Create dialplan_contexts table
 CREATE TABLE public.dialplan_contexts (
@@ -219,13 +219,13 @@ BEFORE UPDATE ON public.dialplan_actions
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Grant privileges to ring2all
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.dialplan_actions TO ring2all;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.dialplan_actions TO $r2a_user;
 
 -- Grant EXECUTE on the trigger function to ring2all
-GRANT EXECUTE ON FUNCTION update_timestamp() TO ring2all;
+GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;;
 
 -- Set the ring2all user as the owner of all tables
-ALTER TABLE public.dialplan_contexts OWNER TO ring2all;
-ALTER TABLE public.dialplan_extensions OWNER TO ring2all;
-ALTER TABLE public.dialplan_conditions OWNER TO ring2all;
-ALTER TABLE public.dialplan_actions OWNER TO ring2all;
+ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
+ALTER TABLE public.dialplan_extensions OWNER TO $r2a_user;
+ALTER TABLE public.dialplan_conditions OWNER TO $r2a_user;
+ALTER TABLE public.dialplan_actions OWNER TO $r2a_user;
