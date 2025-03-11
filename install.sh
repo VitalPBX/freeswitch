@@ -54,6 +54,13 @@ apt update
 apt install -y freeswitch freeswitch-meta-all \
                freeswitch-mod-pgsql freeswitch-mod-cdr-pg-csv
 
+# FreeSWITCH, allowing it to manage SIP user directories and cdr database
+echo -e "************************************************************"
+echo -e "*  FreeSWITCH, allowing it to manage SIP user directories. *"
+echo -e "************************************************************"
+sed -i 's/^\([[:space:]]*\)<!--\(<load module="mod_directory"\/>\)-->/\1\2/' "/etc/freeswitch/autoload_configs/modules.conf.xml"
+sed -i '/<load module="mod_cdr_csv"\/>/a \    <load module="mod_cdr_pg_csv"/>' "/etc/freeswitch/autoload_configs/modules.conf.xml"
+
 # Enable and start FreeSWITCH service
 echo -e "************************************************************"
 echo -e "*           Enabling and starting FreeSWITCH              *"
