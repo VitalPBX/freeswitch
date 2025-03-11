@@ -133,6 +133,7 @@ echo -e "************************************************************"
 echo -e "*          Create the freeswitch database and user.        *"
 echo -e "************************************************************"
 # Create databases and user
+cd /tmp
 sudo -u postgres psql -c "CREATE ROLE $fs_user WITH LOGIN PASSWORD '$fs_password'";
 sudo -u postgres psql -c "CREATE DATABASE $fs_database OWNER $fs_user";
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $fs_database TO $fs_user";
