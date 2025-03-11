@@ -15,14 +15,15 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 ## Repository Structure
 
 <pre>
-├── migration/           # Dialplan-related files and scripts
-│   ├── directory/       # SQL queries for managing the dialplan in PostgreSQL
-│   └── dialplan/        # Static XML dialplan snippets (if any)
-├── lua/                 # Dialplan-related files and scripts
-│   ├── directory/       # SQL queries for managing the dialplan in PostgreSQL
-│   └── dialplan/        # Static XML dialplan snippets (if any)
-├── sql/                 # SQL script for create database, tables and indices
+├── migration/           # Main path for migration scripts.
+│   ├── directory/       # Migration script for directory
+│   └── dialplan/        # Migration script for dialplan
+├── lua/                 # Main path for lua scripts
+│   ├── directory/       # Lua script for directory
+│   └── dialplan/        # Lua script for dialplan
+├── sql/                 # SQL script for create database, tables and indixes
 ├── docs/                # Additional documentation and notes
+├── install.sh           # Installation script
 └── README.md            # This file
 </pre>
 
