@@ -1,9 +1,8 @@
--- sudo -u postgres psql -d ring2all -f create_ring2all.sql
--- Create the ring2all database as the postgres superuser
-CREATE DATABASE ring2all_cdr;
+-- Cretae ring2all_cdr database
+CREATE DATABASE $r2a_cdr_database;
 
 -- Connect to the newly created ring2all_cdr database
-\connect ring2all_cdr
+\connect $r2a_cdr_database
   
 CREATE TABLE public.cdr (
     id SERIAL PRIMARY KEY,
@@ -26,4 +25,5 @@ CREATE TABLE public.cdr (
     write_codec VARCHAR(50)
 );
 
-ALTER TABLE public.cdr OWNER TO $fs_cdr_user;
+GRANT ALL PRIVILEGES ON DATABASE $r2a_cdr_database TO $r2a_cdr_user";
+ALTER TABLE public.cdr OWNER TO $r2a_cdr_user;
