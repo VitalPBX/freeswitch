@@ -1,14 +1,119 @@
 #!/bin/bash
+set -e
 
-# Installation script for development and migration of XML files to a database.
-# Also prepares and applies the database schema.
-# Sets up the Lua structure for extension registration management.
-# Handles dial plan management.
+# Author:      Rodrigo Cuadra
+# Date:        Feb-2024
+# Support:     rcuadra@vitalpbx.com
+# Description: This script automates the installation of FreeSWITCH with PostgreSQL integration from deb.
+
+# Color codes for terminal output
+green="\033[00;32m"
+red="\033[0;31m"
+txtrst="\033[00;0m"
+
+# Welcome message
+echo -e "****************************************************"
+echo -e "*     Welcome to the FreeSWITCH Installation       *"
+echo -e "*         All options are mandatory                *"
+echo -e "****************************************************"
+
+# Set default values for FreeSWITCH configuration
+fs_database="freeswitch"
+fs_user="freeswitch"
+fs_password="fs2025"
+fs_cdr_database="cdr"
+fs_cdr_user="freeswitch"
+fs_cdr_password="fs2025"
+r2a_database="ring2all"
+r2a_user="ring2all"
+r2a_password="r2a2025"
+fs_default_password="fs2026"
+fs_token="pat_T4vJsv4Ks6i3W8ynCoxnWkpD"
+
+# Load configuration from file if it exists
+filename="config.txt"
+if [ -f "$filename" ]; then
+    echo -e "Config file found. Loading settings..."
+    n=1
+    while read -r line; do
+        case $n in
+            1) fs_database=${line:-$fs_database} ;;
+            2) fs_user=${line:-$fs_user} ;;
+            3) fs_password=${line:-$fs_password} ;;
+            4) fs_cdr_database=${line:-$fs_cdr_database} ;;
+            5) fs_cdr_user=${line:-$fs_cdr_user} ;;
+            6) fs_cdr_password=${line:-$fs_cdr_password} ;;
+            7) r2a_database=${line:-$r2a_database} ;;
+            8) r2a_user=${line:-$r2a_user} ;;
+            9) r2a_password=${line:-$r2a_password} ;;
+            10) fs_default_password=${line:-$fs_default_password} ;;
+            11) fs_token=${line:-$fs_token} ;;
+        esac
+        n=$((n+1))
+    done < "$filename"
+fi
+
+# Prompt user to confirm or change default values
+echo -e "Please confirm or change the following configuration settings:"
+read -p "FreeSWITCH Database Name [$fs_database]: " input && fs_database="${input:-$fs_database}"
+read -p "FreeSWITCH User Name [$fs_user]: " input && fs_user="${input:-$fs_user}"
+read -p "FreeSWITCH Password [$fs_password]: " input && fs_password="${input:-$fs_password}"
+read -p "FreeSWITCH CDR Database Name [$fs_cdr_database]: " input && fs_cdr_database="${input:-$fs_cdr_database}"
+read -p "FreeSWITCH CDR User Name [$fs_cdr_user]: " input && fs_cdr_user="${input:-$fs_cdr_user}"
+read -p "FreeSWITCH CDR Password [$fs_cdr_password]: " input && fs_cdr_password="${input:-$fs_cdr_password}"
+read -p "Ring2All Database Name [$r2a_database]: " input && r2a_database="${input:-$r2a_database}"
+read -p "Ring2All User Name [$r2a_user]: " input && r2a_user="${input:-$r2a_user}"
+read -p "Ring2All Password [$r2a_password]: " input && r2a_password="${input:-$r2a_password}"
+read -p "FreeSWITCH Default Password for SIP [$fs_default_password]: " input && fs_default_password="${input:-$fs_default_password}"
+read -p "FreeSWITCH Token [$fs_token]: " input && fs_token="${input:-$fs_token}"
+
+# Display confirmed configuration
+echo -e "Confirmed Configuration:"
+echo -e "FreeSWITCH Database Name.............> $fs_database"
+echo -e "FreeSWITCH User Name.................> $fs_user"
+echo -e "FreeSWITCH Password..................> $fs_password"
+echo -e "FreeSWITCH CDR Database Name.........> $fs_cdr_database"
+echo -e "FreeSWITCH CDR User Name.............> $fs_cdr_user"
+echo -e "FreeSWITCH CDR Password..............> $fs_cdr_password"
+echo -e "Ring2All Database Name...............> $r2a_database"
+echo -e "Ring2All User Name...................> $r2a_user"
+echo -e "Ring2All Password....................> $r2a_password"
+echo -e "FreeSWITCH Default Password for SIP..> $fs_default_password"
+echo -e "FreeSWITCH Token.....................> $fs_token"
+
+# Confirm configuration before proceeding
+echo -e "***************************************************"
+echo -e "*          Check Information                      *"
+echo -e "***************************************************"
+while [[ "$veryfy_info" != "yes" && "$veryfy_info" != "no" ]]; do
+    read -p "Are you sure to continue with these settings? yes,no > " veryfy_info
+done
+
+if [ "$veryfy_info" = "yes" ]; then
+    echo -e "*****************************************"
+    echo -e "*   Starting to run the scripts         *"
+    echo -e "*****************************************"
+else
+    echo -e "*   Exiting the script. Please restart.  *"
+    exit 1
+fi
+
+# Save configuration to file
+echo -e "$fs_database" > config.txt
+echo -e "$fs_user" >> config.txt
+echo -e "$fs_password" >> config.txt
+echo -e "$fs_cdr_database" >> config.txt
+echo -e "$fs_cdr_user" >> config.txt
+echo -e "$fs_cdr_password" >> config.txt
+echo -e "$r2a_database" > config.txt
+echo -e "$r2a_user" >> config.txt
+echo -e "$r2a_password" >> config.txt
+echo -e "$fs_default_password" >> config.txt
+echo -e "$fs_token" >> config.txt
 
 echo -e "************************************************************"
 echo -e "*              Installing essential packages               *"
 echo -e "************************************************************"
-
 # Install basic dependencies
 apt update && apt upgrade -y
 apt install -y sudo gnupg2 wget lsb-release curl
@@ -29,7 +134,7 @@ echo -e "*          Installing FreeSWITCH version 1.10.12           *"
 echo -e "************************************************************"
 
 # Define your SignalWire authentication token (replace YOUR_TOKEN)
-TOKEN="pat_T4vJsv4Ks6i3W8ynCoxnWkpD"
+TOKEN=$fs_token
 
 # Download SignalWire GPG key
 wget --http-user=signalwire --http-password=$TOKEN -O /usr/share/keyrings/signalwire-freeswitch-repo.gpg \
@@ -54,19 +159,65 @@ apt update
 apt install -y freeswitch freeswitch-meta-all \
                freeswitch-mod-pgsql freeswitch-mod-cdr-pg-csv
 
-# FreeSWITCH, allowing it to manage SIP user directories and cdr database
-echo -e "************************************************************"
-echo -e "*  FreeSWITCH, allowing it to manage SIP user directories. *"
-echo -e "************************************************************"
-sed -i 's/^\([[:space:]]*\)<!--\(<load module="mod_directory"\/>\)-->/\1\2/' "/etc/freeswitch/autoload_configs/modules.conf.xml"
-sed -i '/<load module="mod_cdr_csv"\/>/a \    <load module="mod_cdr_pg_csv"/>' "/etc/freeswitch/autoload_configs/modules.conf.xml"
-
 # Enable and start FreeSWITCH service
 echo -e "************************************************************"
 echo -e "*           Enabling and starting FreeSWITCH              *"
 echo -e "************************************************************"
 systemctl enable freeswitch
 systemctl start freeswitch
+
+# Allowing it to log Call Detail Records (CDRs) directly into a PostgreSQL database
+echo -e "************************************************************"
+echo -e "* FreeSWITCH, allowing it to log Call Detail Records (CDRs)*"
+echo -e "*           directly into a PostgreSQL database.           *"
+echo -e "************************************************************"
+modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
+sed -i '/<load module="mod_cdr_csv"\/>/a \    <load module="mod_cdr_pg_csv"/>' "$modules_conf"
+
+# FreeSWITCH, allowing it to manage SIP user directories
+echo -e "************************************************************"
+echo -e "*  FreeSWITCH, allowing it to manage SIP user directories. *"
+echo -e "************************************************************"
+modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
+sed -i 's/^\([[:space:]]*\)<!--\(<load module="mod_directory"\/>\)-->/\1\2/' "$modules_conf"
+
+# Adding database connection data for CDRs
+echo -e "************************************************************"
+echo -e "*          Adding database connection data for CDRs        *"
+echo -e "************************************************************"
+# Path to configuration file
+cdr_pg_csv_conf="/etc/freeswitch/autoload_configs/cdr_pg_csv.conf.xml"
+# Check if file exists before modifying it
+if [ -f "$cdr_pg_csv_conf" ]; then
+  # Adding the Connection lines to the database
+  sed -i '/<settings>/a\ \ \ \ <param name="core-db-dsn" value="freeswitch_cdr" />\n\ \ \ \ <param name="db-table" value="cdr"/>' "$cdr_pg_csv_conf"
+  # Comment out the original connection line
+  sed -i 's#^\(\s*\)<param name="db-info" value="host=localhost dbname=cdr connect_timeout=10" />#\1<!-- <param name="db-info" value="host=localhost dbname=cdr connect_timeout=10" /> -->#' "$cdr_pg_csv_conf"
+  echo "✅ $cdr_pg_csv_conf file updated successfully."
+else
+  echo "❌ The file $cdr_pg_csv_conf does not exist."
+fi
+
+echo -e "************************************************************"
+echo -e "*  Inserting core-db-dsn on line 181 of switch.conf.xml    *"
+echo -e "************************************************************"
+# Path to configuration file
+switch_conf="/etc/freeswitch/autoload_configs/switch.conf.xml"
+# Check if file exists before modifying it
+if [ -f "$switch_conf" ]; then
+  # Adding the Connection lines to the database on line 181
+  sed -i "181i\    <param name=\"core-db-dsn\" value=\"odbc://freeswitch\" />" "$switch_conf"
+  echo "✅ Line successfully inserted on line 181 of $switch_conf."
+else
+  echo "❌ The $switch_conf file does not exist."
+fi
+
+# FreeSWITCH, allowing it to freeswitch manage from Database
+echo -e "************************************************************"
+echo -e "*      Allowing it to freeswitch manage from Database      *"
+echo -e "************************************************************"
+lua_conf="/etc/freeswitch/autoload_configs/lua.conf.xml"
+sed -i '/<settings>/a \    <param name="xml-handler-script" value="main.lua xml_handler"/>\n    <param name="xml-handler-bindings" value="directory,dialplan"/>' "$lua_conf"
 
 # Install Python environment and dependencies
 echo -e "************************************************************"
@@ -88,12 +239,44 @@ echo -e "*    Configuring ODBC for PostgreSQL (odbc.ini setup)     *"
 echo -e "************************************************************"
 
 cat << EOF > /etc/odbc.ini
+[freeswitch]
+Description         = PostgreSQL
+Driver              = PostgreSQL Unicode
+Trace               = No
+TraceFile           = /tmp/psqlodbc.log
+Database            = $fs_database
+Servername          = 127.0.0.1
+UserName            = $fs_user
+Password            = $fs_password
+Port                = 5432
+ReadOnly            = No
+RowVersioning       = No
+ShowSystemTables    = No
+ShowOidColumn       = No
+FakeOidIndex        = No
+
 [ring2all]
 Description         = PostgreSQL
 Driver              = PostgreSQL Unicode
 Trace               = No
 TraceFile           = /tmp/psqlodbc.log
 Database            = ring2all
+Servername          = 127.0.0.1
+UserName            = ring2all
+Password            = ring2all
+Port                = 5432
+ReadOnly            = No
+RowVersioning       = No
+ShowSystemTables    = No
+ShowOidColumn       = No
+FakeOidIndex        = No
+
+[ring2all_cdr]
+Description         = PostgreSQL
+Driver              = PostgreSQL Unicode
+Trace               = No
+TraceFile           = /tmp/psqlodbc.log
+Database            = cdr
 Servername          = 127.0.0.1
 UserName            = ring2all
 Password            = ring2all
@@ -155,12 +338,6 @@ echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/dialplan
 mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
-
-# FreeSWITCH, allowing it to freeswitch manage from Database
-echo -e "************************************************************"
-echo -e "*      Allowing it to freeswitch manage from Database      *"
-echo -e "************************************************************"
-sed -i '/<settings>/a \    <param name="xml-handler-script" value="main.lua xml_handler"/>\n    <param name="xml-handler-bindings" value="directory,dialplan"/>' "/etc/freeswitch/autoload_configs/lua.conf.xml"
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
