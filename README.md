@@ -34,8 +34,8 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/[your-username]/[your-repo-name].git
-   cd [your-repo-name]
+   git clone https://github.com/vitalpbx/freeswitch.git
+   cd freeswitch
    
 2. **Set Up FreeSWITCH**
 - Ensure FreeSWITCH is installed and configured with PostgreSQL integration.
