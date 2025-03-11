@@ -21,9 +21,9 @@ echo -e "****************************************************"
 fs_database="freeswitch"
 fs_user="freeswitch"
 fs_password="fs2025"
-fs_cdr_database="ring2all_cdr"
-fs_cdr_user="ring2all"
-fs_cdr_password="r2a2025"
+r2a_cdr_database="ring2all_cdr"
+r2a_cdr_user="ring2all"
+r2a_cdr_password="r2a2025"
 r2a_database="ring2all"
 r2a_user="ring2all"
 r2a_password="r2a2025"
@@ -40,9 +40,9 @@ if [ -f "$filename" ]; then
             1) fs_database=${line:-$fs_database} ;;
             2) fs_user=${line:-$fs_user} ;;
             3) fs_password=${line:-$fs_password} ;;
-            4) fs_cdr_database=${line:-$fs_cdr_database} ;;
-            5) fs_cdr_user=${line:-$fs_cdr_user} ;;
-            6) fs_cdr_password=${line:-$fs_cdr_password} ;;
+            4) r2a_cdr_database=${line:-$r2a_cdr_database} ;;
+            5) r2a_cdr_user=${line:-$r2a_cdr_user} ;;
+            6) r2a_cdr_password=${line:-$r2a_cdr_password} ;;
             7) r2a_database=${line:-$r2a_database} ;;
             8) r2a_user=${line:-$r2a_user} ;;
             9) r2a_password=${line:-$r2a_password} ;;
@@ -58,9 +58,9 @@ echo -e "Please confirm or change the following configuration settings:"
 read -p "FreeSWITCH Database Name [$fs_database]: " input && fs_database="${input:-$fs_database}"
 read -p "FreeSWITCH User Name [$fs_user]: " input && fs_user="${input:-$fs_user}"
 read -p "FreeSWITCH Password [$fs_password]: " input && fs_password="${input:-$fs_password}"
-read -p "FreeSWITCH CDR Database Name [$fs_cdr_database]: " input && fs_cdr_database="${input:-$fs_cdr_database}"
-read -p "FreeSWITCH CDR User Name [$fs_cdr_user]: " input && fs_cdr_user="${input:-$fs_cdr_user}"
-read -p "FreeSWITCH CDR Password [$fs_cdr_password]: " input && fs_cdr_password="${input:-$fs_cdr_password}"
+read -p "Ring2All CDR Database Name [$r2a_cdr_database]: " input && r2a_cdr_database="${input:-$r2a_cdr_database}"
+read -p "Ring2All CDR User Name [$r2a_cdr_user]: " input && r2a_cdr_user="${input:-$r2a_cdr_user}"
+read -p "Ring2All CDR Password [$r2a_cdr_password]: " input && r2a_cdr_password="${input:-$r2a_cdr_password}"
 read -p "Ring2All Database Name [$r2a_database]: " input && r2a_database="${input:-$r2a_database}"
 read -p "Ring2All User Name [$r2a_user]: " input && r2a_user="${input:-$r2a_user}"
 read -p "Ring2All Password [$r2a_password]: " input && r2a_password="${input:-$r2a_password}"
@@ -72,9 +72,9 @@ echo -e "Confirmed Configuration:"
 echo -e "FreeSWITCH Database Name.............> $fs_database"
 echo -e "FreeSWITCH User Name.................> $fs_user"
 echo -e "FreeSWITCH Password..................> $fs_password"
-echo -e "FreeSWITCH CDR Database Name.........> $fs_cdr_database"
-echo -e "FreeSWITCH CDR User Name.............> $fs_cdr_user"
-echo -e "FreeSWITCH CDR Password..............> $fs_cdr_password"
+echo -e "Ring2All CDR Database Name...........> $r2a_cdr_database"
+echo -e "Ring2All CDR User Name...............> $r2a_cdr_user"
+echo -e "Ring2All CDR Password................> $r2a_cdr_password"
 echo -e "Ring2All Database Name...............> $r2a_database"
 echo -e "Ring2All User Name...................> $r2a_user"
 echo -e "Ring2All Password....................> $r2a_password"
