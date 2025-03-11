@@ -66,17 +66,17 @@ console loglevel debug
 - Dynamic dialplan generation using Lua and PostgreSQL.
 - Troubleshooting logs and SQL fixes for common dialplan conflicts.
 
-##Work in Progress
+## Work in Progress
 - Resolving conflicts with generic extensions (e.g., park) without removing functionality.
 - Ensuring ivr_demo executes reliably with high priority.
 - Adding documentation for each dialplan extension’s purpose.
 
-##Contributing
+## Contributing
 Feel free to fork this repository, submit pull requests, or open issues for suggestions and bug reports. Contributions to improve stability, add features, or enhance documentation are welcome!
 
-##License
+## License
 This project is licensed under the MIT License (or choose another license if preferred).
 
-##Acknowledgments
+## Acknowledgments
 - Built with assistance from Grok 3 by xAI for troubleshooting and code suggestions.
 - Inspired by FreeSWITCH community documentation and examples.
