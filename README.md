@@ -38,7 +38,10 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 
 1. **Get install.sh**
 ```console
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/install.sh?token=GHSAT0AAAAAADAKQXBY743WLMZVZIQL6QW4Z6QXJQA
+wget --header="Authorization: GHSAT0AAAAAADAKQXBY743WLMZVZIQL6QW4Z6QXJQA" \
+     --header="Accept: application/vnd.github.v3.raw" \
+     -O archivo_destino.txt \
+     [https://api.github.com/repos/OWNER/REPO/contents/RUTA/AL/ARCHIVO](https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/install.sh)
 chmod +x install.sh
 ```
 2. **Execute install.sh**
