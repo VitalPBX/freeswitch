@@ -14,7 +14,7 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 
 ## Repository Structure
 
-├── migration/          ensp # Dialplan-related files and scripts<br>
+├── migration/          &ensp; # Dialplan-related files and scripts<br>
 │   ├── directory/      # SQL queries for managing the dialplan in PostgreSQL<br>
 │   └── dialplna/       # Static XML dialplan snippets (if any)<br>
 ├── lua/                # Dialplan-related files and scripts<br>
