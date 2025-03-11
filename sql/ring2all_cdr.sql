@@ -3,7 +3,7 @@
 CREATE DATABASE ring2all_cdr;
 
 -- Connect to the newly created ring2all_cdr database
-\connect ring2all
+\connect ring2all_cdr
   
 CREATE TABLE public.cdr (
     id SERIAL PRIMARY KEY,
