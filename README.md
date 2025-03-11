@@ -36,36 +36,30 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 
 ## Getting Started
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/vitalpbx/freeswitch.git
-   cd freeswitch
-   
-2. **Set Up FreeSWITCH**
-- Ensure FreeSWITCH is installed and configured with PostgreSQL integration.
-- Update conf/autoload_configs/lua.conf.xml to point to your Lua scripts if customized.
-
-3.- **Database Configuration**
-- Create the ring2all database in PostgreSQL (or adjust to your database name).
-- Apply the SQL scripts in dialplan/sql/ to set up tables and initial dialplan data:
+1. **Get install.sh**
 ```console
-sudo -u postgres psql -d ring2all -f dialplan/sql/setup.sql
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/install.sh?token=GHSAT0AAAAAADAKQXBY743WLMZVZIQL6QW4Z6QXJQA
+chmod +x install.sh
 ```
-4. **Deploy IVR Menus**
-- Copy IVR configurations from ivr_menus/ to /usr/share/freeswitch/ivr_menus/ (adjust path based on your FreeSWITCH installation).
-- Reload IVR menus:
+2. **Execute install.sh**
 ```console
-fs_cli -x "reloadxml"
+./install.sh
 ```
-
-5. **Test the Configuration**
-- Start FreeSWITCH and use fs_cli to monitor logs:
+3.- **Fill in the information or you can leave the default values.**
 ```console
-fs_cli
-console loglevel debug
+Confirmed Configuration:
+FreeSWITCH Database Name.............> $fs_database
+FreeSWITCH User Name.................> $fs_user
+FreeSWITCH Password..................> $fs_password
+Ring2All CDR Database Name...........> $r2a_cdr_database
+Ring2All CDR User Name...............> $r2a_cdr_user
+Ring2All CDR Password................> $r2a_cdr_password
+Ring2All Database Name...............> $r2a_database
+Ring2All User Name...................> $r2a_user
+Ring2All Password....................> $r2a_password
+FreeSWITCH Default Password for SIP..> $fs_default_password
+FreeSWITCH Token.....................> $fs_token
 ```
-- Make a test call from extension 1000 to 5000 and check the output.
-
 ## Current Features
 - Custom IVR for extension 5000 (ivr_demo) with answer, sleep, and ivr actions.
 - Dynamic dialplan generation using Lua and PostgreSQL.
