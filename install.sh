@@ -325,6 +325,7 @@ echo -e "************************************************************"
 wget -O directory_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py
 wget -O dialplan_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
+wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/settings.lua
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplan.lua
 
@@ -353,6 +354,7 @@ echo -e "************************************************************"
 echo -e "*                   Create main.lua file                   *"
 echo -e "************************************************************"
 mv main.lua /usr/share/freeswitch/scripts/main.lua
+mv settings.lua /usr/share/freeswitch/scripts/settings.lua
 
 # Create Lua Script for management user registration (directory)
 echo -e "************************************************************"
