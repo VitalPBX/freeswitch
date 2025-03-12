@@ -331,6 +331,9 @@ echo -e "************************************************************"
 echo -e "*       Migrate from XML to Database Directory.            *"
 echo -e "************************************************************"
 chmod +x directory_migrate_to_db.py
+sed -i "s/\$r2a_database/$r2a_database/g; \
+        s/\$r2a_user/$r2a_user/g; \
+        s/\$r2a_password/$r2a_password/g" directory_migrate_to_db.py
 python3 directory_migrate_to_db.py
 
 # Migrate from XML to Database Dialplan.
@@ -338,6 +341,9 @@ echo -e "************************************************************"
 echo -e "*       Migrate from XML to Database Dialplan.             *"
 echo -e "************************************************************"
 chmod +x dialplan_migrate_to_db.py
+sed -i "s/\$r2a_database/$r2a_database/g; \
+        s/\$r2a_user/$r2a_user/g; \
+        s/\$r2a_password/$r2a_password/g" dialplan_migrate_to_db.py
 python3 dialplan_migrate_to_db.py
 
 # Create main.lua file
