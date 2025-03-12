@@ -15,7 +15,7 @@ return function(settings)
     end
 
     -- Try connecting via ODBC first
-    local dbh = freeswitch.Dbh("odbc://ring2all")
+    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
     
     if not dbh:connected() then
         log("WARNING", "ODBC connection failed. Falling back to LuaSQL.")
