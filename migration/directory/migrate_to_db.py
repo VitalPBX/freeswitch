@@ -5,9 +5,9 @@ from psycopg2 import sql
 
 # Database connection configuration
 db_config = {
-    "dbname": "ring2all",
-    "user": "ring2all",
-    "password": "ring2all",
+    "dbname": "$r2a_database",
+    "user": "$r2al_user",
+    "password": "r2a_password",
     "host": "localhost",
     "port": "5432"
 }
