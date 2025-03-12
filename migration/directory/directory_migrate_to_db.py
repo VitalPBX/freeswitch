@@ -66,7 +66,7 @@ def process_user_xml(file_path):
             logging.info(f"Processed user XML for {user_id}")
             return {
                 "username": user_id,
-                "password": password,  # Password will be the extension number unless explicitly set in XML
+                "password": password,
                 "vm_password": params.get("vm-password", user_id),  # Use user_id as vm-password if not defined
                 "extension": user_id,
                 "toll_allow": variables.get("toll_allow"),
@@ -105,7 +105,7 @@ for filename in os.listdir(user_dir):
         user_data = process_user_xml(file_path)
         if user_data:
             try:
-                # Insert user data into sip_users table
+                # Insert or update user data into sip_users table
                 cur.execute(
                     sql.SQL("""
                         INSERT INTO public.sip_users (
@@ -113,7 +113,16 @@ for filename in os.listdir(user_dir):
                             toll_allow, accountcode, user_context,
                             effective_caller_id_name, effective_caller_id_number, insert_user
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (username) DO NOTHING
+                        ON CONFLICT (username) 
+                        DO UPDATE SET 
+                            password = EXCLUDED.password,
+                            vm_password = EXCLUDED.vm_password,
+                            extension = EXCLUDED.extension,
+                            toll_allow = EXCLUDED.toll_allow,
+                            accountcode = EXCLUDED.accountcode,
+                            user_context = EXCLUDED.user_context,
+                            effective_caller_id_name = EXCLUDED.effective_caller_id_name,
+                            effective_caller_id_number = EXCLUDED.effective_caller_id_number
                         RETURNING sip_user_uuid
                     """),
                     (
@@ -124,7 +133,7 @@ for filename in os.listdir(user_dir):
                     )
                 )
                 sip_user_uuid = cur.fetchone()[0]
-                logging.info(f"Inserted user: {user_data['username']} with UUID {sip_user_uuid}")
+                logging.info(f"Inserted/Updated user: {user_data['username']} with UUID {sip_user_uuid}")
 
                 # Associate the user with the "default" group
                 cur.execute(
@@ -142,7 +151,7 @@ for filename in os.listdir(user_dir):
                 )
                 logging.info(f"Associated user {user_data['username']} with default group")
             except Exception as e:
-                logging.error(f"Error inserting user {user_data['username']}: {e}")
+                logging.error(f"Error inserting/updating user {user_data['username']}: {e}")
 
 # Process specific group assignments from default.xml
 default_xml_path = "/etc/freeswitch/directory/default.xml"
