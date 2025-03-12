@@ -1,50 +1,49 @@
---[[
-    handler.lua (directory)
-    Handles FreeSWITCH directory requests (e.g., user registration authentication).
-    Uses ODBC connection via FreeSWITCH Dbh and receives settings from main.lua to control debug logging.
+--[[ 
+    sip_register.lua (directory) 
+    Handles FreeSWITCH directory requests for user authentication.
+    Uses ODBC via FreeSWITCH Dbh and logs based on debug settings.
 --]]
 
 return function(settings)
-    --- Logs messages based on the debug setting.
-    -- @param level The log level (e.g., "DEBUG", "NOTICE", "ERROR").
-    -- @param message The message to log.
+    -- Logging function with respect to debug settings
     local function log(level, message)
         if level == "debug" and not settings.debug then
-            return  -- Skip debug messages if debug is disabled
+            return  -- Skip debug messages if debug is false
         end
-        if settings.debug or level ~= "DEBUG" then
-            freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
-        end
+        freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
     end
 
-    -- Log script execution
-    log("NOTICE", "xml_handlers/directory/handler.lua called")
-
-    -- Establish ODBC database connection
+    -- Establish ODBC database connection using FreeSWITCH Dbh
     local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
 
     -- Retrieve user and domain from SIP request headers
-    local username = params:getHeader("user")
-    local domain = params:getHeader("domain")
+    local username = params:getHeader("user") or ""
+    local domain = params:getHeader("domain") or ""
 
-    -- Log extracted values for debugging
-    log("DEBUG", "Username: " .. (username or "nil"))
-    log("DEBUG", "Domain: " .. (domain or "nil"))
+    -- Debugging logs (only if debug is enabled)
+    log("debug", "Received username: " .. username)
+    log("debug", "Received domain: " .. domain)
 
-    -- Construct SQL query
-    local query = string.format(
-        "SELECT su.username, su.password, t.domain_name " ..
-        "FROM public.sip_users su " ..
-        "JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid " ..
-        "WHERE su.username = '%s' AND t.domain_name = '%s'",
-        username, domain
-    )
-    log("DEBUG", "Executing query: " .. query)
+    -- Validate input to avoid SQL errors
+    if username == "" or domain == "" then
+        log("warning", "Invalid request: Missing username or domain.")
+        return
+    end
+
+    -- SQL query to fetch authentication details
+    local query = string.format([[
+        SELECT su.username, su.password, t.domain_name 
+        FROM public.sip_users su 
+        JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid 
+        WHERE su.username = '%s' AND t.domain_name = '%s'
+    ]], username, domain)
+
+    log("debug", "Executing SQL query: " .. query)
 
     -- Variable to store query result
     local row = nil
 
-    -- Execute query and fetch result
+    -- Execute query and store the result
     local success, err = pcall(function()
         dbh:query(query, function(result)
             row = {
@@ -55,51 +54,53 @@ return function(settings)
         end)
     end)
 
-    -- Log error if query fails
+    -- Handle SQL execution errors
     if not success then
-        log("ERROR", "SQL query execution error: " .. (err or "Unknown error"))
+        log("error", "Database query execution failed: " .. (err or "Unknown error"))
+        return
     end
 
-    -- Verify if user was found
+    -- Check if the user was found
     if row then
-        log("DEBUG", "User authenticated successfully: " .. row.username)
+        log("info", string.format("Extension %s registered successfully for domain %s", row.username, row.domain_name))
     else
-        log("WARNING", "User not found in the database")
+        log("warning", "Authentication failed: User not found in the database")
     end
 
-    -- Generate XML response
+    -- Generate XML response for FreeSWITCH
     local xml
     if row then
-        xml = string.format(
-            [[<?xml version="1.0" encoding="utf-8"?>
-<document type="freeswitch/xml">
-  <section name="directory">
-    <domain name="%s">
-      <user id="%s">
-        <params>
-          <param name="password" value="%s"/>
-        </params>
-      </user>
-    </domain>
-  </section>
-</document>]],
-            row.domain_name, row.username, row.password
-        )
+        xml = string.format([[
+            <?xml version="1.0" encoding="utf-8"?>
+            <document type="freeswitch/xml">
+              <section name="directory">
+                <domain name="%s">
+                  <user id="%s">
+                    <params>
+                      <param name="password" value="%s"/>
+                    </params>
+                  </user>
+                </domain>
+              </section>
+            </document>
+        ]], row.domain_name, row.username, row.password)
     else
-        xml = [[<?xml version="1.0" encoding="utf-8"?>
-<document type="freeswitch/xml">
-  <section name="directory">
-    <result status="not found"/>
-  </section>
-</document>]]
+        xml = [[
+            <?xml version="1.0" encoding="utf-8"?>
+            <document type="freeswitch/xml">
+              <section name="directory">
+                <result status="not found"/>
+              </section>
+            </document>
+        ]]
     end
 
-    -- Log generated XML
-    log("DEBUG", "Generated XML: " .. xml)
+    -- Log XML output only if debugging is enabled
+    log("debug", "Generated XML: " .. xml)
 
-    -- Set the XML response for FreeSWITCH
+    -- Return XML response to FreeSWITCH
     XML_STRING = xml
 
-    -- Release database handle
+    -- Release the database connection
     dbh:release()
 end
