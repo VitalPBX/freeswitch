@@ -123,6 +123,8 @@ echo -e "************************************************************"
 echo -e "*                    Installing PostgreSQL                 *"
 echo -e "************************************************************"
 sudo apt install -y postgresql postgresql-contrib lua-sql-postgres
+sudo apt install -y odbc-postgresql
+sudo apt install -y unixodbc
 
 # Enable and start PostgreSQL service
 sudo systemctl enable postgresql
@@ -218,7 +220,7 @@ cdr_pg_csv_conf="/etc/freeswitch/autoload_configs/cdr_pg_csv.conf.xml"
 # Check if file exists before modifying it
 if [ -f "$cdr_pg_csv_conf" ]; then
   # Adding the Connection lines to the database
-  sed -i '/<settings>/a\ \ \ \ <param name="core-db-dsn" value="freeswitch_cdr" />\n\ \ \ \ <param name="db-table" value="cdr"/>' "$cdr_pg_csv_conf"
+  sed -i '/<settings>/a\ \ \ \ <param name="core-db-dsn" value="$r2a_cdr_database" />\n\ \ \ \ <param name="db-table" value="cdr"/>' "$cdr_pg_csv_conf"
   # Comment out the original connection line
   sed -i 's#^\(\s*\)<param name="db-info" value="host=localhost dbname=cdr connect_timeout=10" />#\1<!-- <param name="db-info" value="host=localhost dbname=cdr connect_timeout=10" /> -->#' "$cdr_pg_csv_conf"
   echo "✅ $cdr_pg_csv_conf file updated successfully."
