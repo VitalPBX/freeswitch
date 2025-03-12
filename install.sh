@@ -153,8 +153,8 @@ echo -e "************************************************************"
 echo -e "*                Create ring2all_cdr database              *"
 echo -e "************************************************************"
 wget -O ring2all_cdr.sql https://raw.githubusercontent.com/VitalPBX/freeswitch/main/sql/ring2all_cdr.sql
-sed -i "s/\$r2a_cdr_database/$r2a_cdr_database/g; \
-        s/\$r2a_cdr_user/$r2a_cdr_user/g" ring2all_cdr.sql
+sed -i "s/\\\$r2a_cdr_database/$r2a_cdr_database/g; \
+        s/\\\$r2a_cdr_user/$r2a_cdr_user/g" ring2all_cdr.sql
 sudo -u postgres psql -f ring2all_cdr.sql
 
 # Download and Install FreeSWITCH
