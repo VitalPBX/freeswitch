@@ -324,6 +324,7 @@ echo -e "*Download database script, migration scrpts and lus acripts*"
 echo -e "************************************************************"
 wget -O directory_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py
 wget -O dialplan_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py
+wget -O sip_profiles_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/sip_profiles/sip_profiles_migrate_to_db.py
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
 wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/settings.lua
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua
@@ -348,6 +349,16 @@ sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_user/$r2a_user/g; \
         s/\$r2a_password/$r2a_password/g" dialplan_migrate_to_db.py
 python3 dialplan_migrate_to_db.py
+
+# Migrate from XML to Database Sip Profiles.
+echo -e "************************************************************"
+echo -e "*      Migrate from XML to Database Sip Profiles.          *"
+echo -e "************************************************************"
+chmod +x sip_profiles_migrate_to_db.py
+sed -i "s/\$r2a_database/$r2a_database/g; \
+        s/\$r2a_user/$r2a_user/g; \
+        s/\$r2a_password/$r2a_password/g" sip_profiles_migrate_to_db.py
+python3 sip_profiles_migrate_to_db.py
 
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
