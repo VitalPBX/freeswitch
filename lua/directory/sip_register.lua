@@ -12,7 +12,9 @@ return function(settings)
         if level == "debug" and not settings.debug then
             return  -- Skip debug messages if debug is disabled
         end
-        freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
+        if settings.debug or level ~= "DEBUG" then
+            freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
+        end
     end
 
     -- Log script execution
