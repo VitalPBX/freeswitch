@@ -407,7 +407,7 @@ echo -e "************************************************************"
 echo -e "*      Allowing it to freeswitch manage from Database      *"
 echo -e "************************************************************"
 mv sofia.conf.xml /etc/freeswitch/autoload_configs/sofia.conf.xml
-chown freeswitch:freeswitch sofia.conf.xml
+chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/sofia.conf.xml
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
