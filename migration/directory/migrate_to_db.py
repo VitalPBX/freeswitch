@@ -6,7 +6,7 @@ from psycopg2 import sql
 # Database connection configuration
 db_config = {
     "dbname": "$r2a_database",
-    "user": "$r2l_user",
+    "user": "$r2a_user",
     "password": "$r2a_password",
     "host": "localhost",
     "port": "5432"
