@@ -20,9 +20,9 @@ return function(settings)
     -- Establish ODBC database connection using FreeSWITCH Dbh
     local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
 
-    -- Retrieve parameters passed by FreeSWITCH
-    local username = argv[1] or freeswitch.getGlobalVariable("username") or ""  -- Username from the registration request
-    local domain = argv[2] or freeswitch.getGlobalVariable("domain") -- Domain from the registration request
+    -- Retrieve user and domain from SIP request headers
+    local username   = params:getHeader("user")
+    local domain = params:getHeader("domain")
 
     -- Log the extracted username and domain for debugging
     log("DEBUG", "Username: " .. username)
