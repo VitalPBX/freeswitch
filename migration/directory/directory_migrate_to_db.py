@@ -49,6 +49,20 @@ except Exception as e:
     logging.error(f"Error fetching tenant UUID: {e}")
     raise
 
+# Check the current state of user 1000 before migration
+try:
+    cur.execute(
+        sql.SQL("SELECT username, password FROM public.sip_users WHERE username = '1000' AND tenant_uuid = %s"),
+        (tenant_uuid,)
+    )
+    current_user = cur.fetchone()
+    if current_user:
+        logging.info(f"Before migration - User 1000: username={current_user[0]}, password={current_user[1]}")
+    else:
+        logging.info("Before migration - User 1000 not found in sip_users")
+except Exception as e:
+    logging.error(f"Error checking user 1000 before migration: {e}")
+
 # Function to parse a user XML file and extract relevant data
 def process_user_xml(file_path):
     try:
@@ -58,7 +72,7 @@ def process_user_xml(file_path):
         if user is not None:
             user_id = user.get("id")
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
-            variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}
+            variables = {var.get("name"): param.get("value") for param in user.findall(".//variable")}
             # Use the user_id (extension number) as the password, overriding any existing value
             password = params.get("password")
             if password is None or password.startswith("${"):  # Force password to user_id
@@ -134,7 +148,7 @@ for filename in os.listdir(user_dir):
                 )
                 sip_user_uuid = cur.fetchone()[0]
                 logging.info(f"Inserted/Updated user: {user_data['username']} with UUID {sip_user_uuid}, password set to {user_data['password']}")
-
+                
                 # Associate the user with the "default" group
                 cur.execute(
                     sql.SQL("SELECT group_uuid FROM public.groups WHERE group_name = 'default' AND tenant_uuid = %s"),
@@ -208,9 +222,39 @@ try:
         """),
         (tenant_uuid,)
     )
-    logging.info("Updated all existing users' passwords to their extension numbers where applicable")
+    affected_rows = cur.rowcount  # Get the number of rows affected
+    logging.info(f"Updated {affected_rows} existing users' passwords to their extension numbers")
 except Exception as e:
     logging.error(f"Error updating passwords for existing users: {e}")
+
+# Force update password for user 1000 to ensure it’s set correctly
+try:
+    cur.execute(
+        sql.SQL("""
+            UPDATE public.sip_users 
+            SET password = '1000' 
+            WHERE username = '1000' AND tenant_uuid = %s
+        """),
+        (tenant_uuid,)
+    )
+    affected_rows = cur.rowcount
+    logging.info(f"Forced password update for user 1000 to '1000', affected {affected_rows} rows")
+except Exception as e:
+    logging.error(f"Error forcing password update for user 1000: {e}")
+
+# Verify the final state of user 1000
+try:
+    cur.execute(
+        sql.SQL("SELECT username, password FROM public.sip_users WHERE username = '1000' AND tenant_uuid = %s"),
+        (tenant_uuid,)
+    )
+    final_user = cur.fetchone()
+    if final_user:
+        logging.info(f"After migration - User 1000: username={final_user[0]}, password={final_user[1]}")
+    else:
+        logging.info("After migration - User 1000 not found in sip_users")
+except Exception as e:
+    logging.error(f"Error verifying user 1000 after migration: {e}")
 
 # Commit the changes and close the connection
 try:
