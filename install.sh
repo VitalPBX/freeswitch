@@ -254,7 +254,19 @@ echo -e "************************************************************"
 echo -e "*      Allowing it to freeswitch manage from Database      *"
 echo -e "************************************************************"
 sofia_conf="/etc/freeswitch/autoload_configs/sofia.conf.xml"
-sudo sed -i '/<configuration name="sofia.conf" description="Sofia Endpoint">/,/<\/configuration>/c\<configuration name="sofia.conf" description="Sofia Endpoint">  <!-- Disable static profile loading from XML files -->  <!-- <profiles> -->  <!--   <X-PRE-PROCESS cmd="include" data="..\/sip_profiles\/*.xml"\/> -->  <!-- <\/profiles> -->\n  <!-- Use Lua script to generate profiles dynamically -->  <global_settings>    <param name="xml_handler_script" value="xml_handlers\/sip_profiles\/sip_profiles.lua"\/>  <\/global_settings><\/configuration>' ""$lua_conf""
+sudo sed -i '
+  /<configuration name="sofia.conf" description="Sofia Endpoint">/,/<\/configuration>/c\
+  <configuration name="sofia.conf" description="Sofia Endpoint">\
+    <!-- Disable static profile loading from XML files -->\
+    <!-- <profiles> -->\
+    <!--   <X-PRE-PROCESS cmd="include" data="..\/sip_profiles\/*.xml"\/> -->\
+    <!-- <\/profiles> -->\n\
+    <!-- Use Lua script to generate profiles dynamically -->\
+    <global_settings>\
+    <param name="xml_handler_script" value="xml_handlers\/sip_profiles\/sip_profiles.lua"\/>\
+    <\/global_settings>\
+  <\/configuration>
+' "$sofia_conf"
 
 # Install Python environment and dependencies
 echo -e "************************************************************"
