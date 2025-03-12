@@ -60,11 +60,22 @@ return function(settings)
         return
     end
 
-    -- Check if the user was found
+    -- Check if the user was found and password is correct
     if row then
-        if not row.logged then
-            log("info", string.format("Extension %s registered successfully for domain %s", row.username, row.domain_name))
-            row.logged = true -- Prevent duplicate log messages
+        -- Retrieve the password sent in the SIP REGISTER request
+        local provided_password = params:getHeader("sip_auth_password") or ""
+
+        -- Debugging: log the provided password only if debugging is enabled (avoid security risks)
+        log("debug", "Password provided: " .. provided_password)
+
+        -- Validate the password before confirming the registration
+        if row.password == provided_password then
+            if not row.logged then
+                log("info", string.format("Extension %s registered successfully for domain %s", row.username, row.domain_name))
+                row.logged = true -- Prevent duplicate log messages
+            end
+        else
+            log("warning", string.format("Authentication failed: Incorrect password for extension %s", row.username))
         end
     else
         log("warning", "Authentication failed: User not found in the database")
