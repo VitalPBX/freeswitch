@@ -1,11 +1,8 @@
 --[[
     handler.lua (directory)
     Handles FreeSWITCH directory requests (e.g., user registration authentication).
-    Receives settings from main.lua to control debug logging.
+    Uses ODBC connection via FreeSWITCH Dbh and receives settings from main.lua to control debug logging.
 --]]
-
--- Load PostgreSQL LuaSQL library
-local luasql = require "luasql.postgres"
 
 -- Return a function that accepts settings as a parameter
 return function(settings)
@@ -20,9 +17,8 @@ return function(settings)
     -- Log that the script has been called
     log("NOTICE", "xml_handlers/directory/handler.lua called")
 
-    -- Establish database connection
-    local env = assert(luasql.postgres())
-    local conn = assert(env:connect("ring2all", "ring2all", "ring2all", "localhost", 5432))
+    -- Establish ODBC database connection using FreeSWITCH Dbh
+    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
 
     -- Extract username and domain from request parameters
     local username = params:getHeader("User-Name") or ""
@@ -32,17 +28,27 @@ return function(settings)
     log("DEBUG", "Username: " .. username)
     log("DEBUG", "Domain: " .. domain)
 
-    -- Query to fetch user authentication data
-    local query = string.format([[
-        SELECT su.username, su.password, t.domain_name
-        FROM public.sip_users su
-        JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid
-        WHERE su.username = '%s' AND t.domain_name = '%s'
-    ]], username, domain)
+    -- Query to fetch user authentication data (using placeholders to prevent SQL injection)
+    local query = "SELECT su.username, su.password, t.domain_name " ..
+                  "FROM public.sip_users su " ..
+                  "JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid " ..
+                  "WHERE su.username = ? AND t.domain_name = ?"
 
-    -- Execute the query and fetch the result
-    local cur = assert(conn:execute(query))
-    local row = cur:fetch({}, "a")
+    -- Execute the query with parameters and fetch the result
+    local success, result = pcall(function()
+        assert(dbh:query(query, {username, domain}, function(row)
+            -- Store the first row (assuming single result)
+            return row
+        end))
+    end)
+
+    -- Check if query was successful and a row was returned
+    local row
+    if success and result then
+        row = result  -- Dbh:query returns the row directly when a callback is used
+    else
+        log("DEBUG", "No result or query failed")
+    end
 
     -- Generate XML response based on query result
     local xml
@@ -74,8 +80,6 @@ return function(settings)
     -- Set the XML response for FreeSWITCH
     XML_STRING = xml
 
-    -- Close database connections
-    cur:close()
-    conn:close()
-    env:close()
+    -- Release the database handle (Dbh automatically closes when out of scope, but explicit release is good practice)
+    dbh:release()
 end
