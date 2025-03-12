@@ -59,11 +59,11 @@ def process_user_xml(file_path):
             user_id = user.get("id")
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
             variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}
-            # Use the user_id (extension number) as the default password
+            # Use the user_id (extension number) as the password, overriding any existing value
             password = params.get("password")
-            if password is None or password.startswith("${"):  # Avoid variables like $${default_password}
-                password = user_id  # Set password to extension number
-            logging.info(f"Processed user XML for {user_id}")
+            if password is None or password.startswith("${"):  # Force password to user_id
+                password = user_id
+            logging.info(f"Processed user XML for {user_id}, setting password to {password}")
             return {
                 "username": user_id,
                 "password": password,
@@ -133,7 +133,7 @@ for filename in os.listdir(user_dir):
                     )
                 )
                 sip_user_uuid = cur.fetchone()[0]
-                logging.info(f"Inserted/Updated user: {user_data['username']} with UUID {sip_user_uuid}")
+                logging.info(f"Inserted/Updated user: {user_data['username']} with UUID {sip_user_uuid}, password set to {user_data['password']}")
 
                 # Associate the user with the "default" group
                 cur.execute(
@@ -197,6 +197,20 @@ for group_name, users in group_users.items():
                     logging.info(f"Assigned user {user_id} to group {group_name}")
     except Exception as e:
         logging.error(f"Error assigning users to group {group_name}: {e}")
+
+# Explicitly update all existing users to set password to their extension number
+try:
+    cur.execute(
+        sql.SQL("""
+            UPDATE public.sip_users 
+            SET password = username 
+            WHERE tenant_uuid = %s AND (password IS NULL OR password LIKE '%${{default_password}}%')
+        """),
+        (tenant_uuid,)
+    )
+    logging.info("Updated all existing users' passwords to their extension numbers where applicable")
+except Exception as e:
+    logging.error(f"Error updating passwords for existing users: {e}")
 
 # Commit the changes and close the connection
 try:
