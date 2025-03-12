@@ -331,8 +331,8 @@ wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplan.lua
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/sip_profiles.lua
-wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
-wget -O sofia.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/sofia.conf.xml
+# wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
+# wget -O sofia.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/sofia.conf.xml
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
@@ -404,15 +404,15 @@ mv sip_profiles.lua /usr/share/freeswitch/scripts/xml_handlers/sip_profiles/sip_
 echo -e "************************************************************"
 echo -e "*      Allowing it to freeswitch manage from Database      *"
 echo -e "************************************************************"
-mv lua.conf.xml /etc/freeswitch/autoload_configs/lua.conf.xml
-chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/lua.conf.xml
+# mv lua.conf.xml /etc/freeswitch/autoload_configs/lua.conf.xml
+# chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/lua.conf.xml
 
 # FreeSWITCH, allowing it to freeswitch manage from Database
 echo -e "************************************************************"
 echo -e "*      Allowing it to freeswitch manage from Database      *"
 echo -e "************************************************************"
-mv sofia.conf.xml /etc/freeswitch/autoload_configs/sofia.conf.xml
-chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/sofia.conf.xml
+# mv sofia.conf.xml /etc/freeswitch/autoload_configs/sofia.conf.xml
+# chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/sofia.conf.xml
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
