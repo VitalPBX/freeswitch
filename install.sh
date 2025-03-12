@@ -247,7 +247,7 @@ echo -e "************************************************************"
 echo -e "*      Allowing it to freeswitch manage from Database      *"
 echo -e "************************************************************"
 lua_conf="/etc/freeswitch/autoload_configs/lua.conf.xml"
-sed -i '/<settings>/a \    <param name="xml-handler-script" value="main.lua xml_handler"/>\n    <param name="xml-handler-bindings" value="directory,dialplan"/>' "$lua_conf"
+sed -i '/<settings>/a \    <param name="xml-handler-script" value="main.lua xml_handlers"/>\n    <param name="xml-handler-bindings" value="directory,dialplan"/>' "$lua_conf"
 
 # Install Python environment and dependencies
 echo -e "************************************************************"
