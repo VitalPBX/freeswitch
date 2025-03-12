@@ -72,16 +72,14 @@ def process_user_xml(file_path):
         if user is not None:
             user_id = user.get("id")
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
-            variables = {var.get("name"): param.get("value") for param in user.findall(".//variable")}
-            # Use the user_id (extension number) as the password, overriding any existing value
-            password = params.get("password")
-            if password is None or password.startswith("${"):  # Force password to user_id
-                password = user_id
+            variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}  # Fixed typo: param -> var
+            # Always use the user_id (extension number) as the password
+            password = user_id  # Force password to user_id, ignoring XML value
             logging.info(f"Processed user XML for {user_id}, setting password to {password}")
             return {
                 "username": user_id,
                 "password": password,
-                "vm_password": params.get("vm-password", user_id),  # Use user_id as vm-password if not defined
+                "vm_password": params.get("vm-password", user_id),
                 "extension": user_id,
                 "toll_allow": variables.get("toll_allow"),
                 "accountcode": variables.get("accountcode"),
@@ -209,6 +207,8 @@ for group_name, users in group_users.items():
                         (result[0], group_uuid, tenant_uuid, INSERT_USER)
                     )
                     logging.info(f"Assigned user {user_id} to group {group_name}")
+                else:
+                    logging.warning(f"User {user_id} not found in sip_users for group {group_name}")
     except Exception as e:
         logging.error(f"Error assigning users to group {group_name}: {e}")
 
@@ -218,11 +218,11 @@ try:
         sql.SQL("""
             UPDATE public.sip_users 
             SET password = username 
-            WHERE tenant_uuid = %s AND (password IS NULL OR password LIKE '%${{default_password}}%')
+            WHERE tenant_uuid = %s
         """),
         (tenant_uuid,)
     )
-    affected_rows = cur.rowcount  # Get the number of rows affected
+    affected_rows = cur.rowcount
     logging.info(f"Updated {affected_rows} existing users' passwords to their extension numbers")
 except Exception as e:
     logging.error(f"Error updating passwords for existing users: {e}")
