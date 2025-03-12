@@ -54,24 +54,24 @@ return function(settings)
     local xml
     if row then
         xml = [[<?xml version="1.0" encoding="utf-8"?>
-<document type="freeswitch/xml">
-  <section name="directory">
-    <domain name="]] .. row.domain_name .. [[">
-      <user id="]] .. row.username .. [[">
-        <params>
-          <param name="password" value="]] .. row.password .. [["/>
-        </params>
-      </user>
-    </domain>
-  </section>
-</document>]]
+              <document type="freeswitch/xml">
+                <section name="directory">
+                  <domain name="]] .. row.domain_name .. [[">
+                    <user id="]] .. row.username .. [[">
+                      <params>
+                        <param name="password" value="]] .. row.password .. [["/>
+                      </params>
+                    </user>
+                  </domain>
+                </section>
+              </document>]]
     else
         xml = [[<?xml version="1.0" encoding="utf-8"?>
-<document type="freeswitch/xml">
-  <section name="directory">
-    <result status="not found"/>
-  </section>
-</document>]]
+        <document type="freeswitch/xml">
+          <section name="directory">
+             <result status="not found"/>
+          </section>
+        </document>]]
     end
 
     -- Log the generated XML for debugging
