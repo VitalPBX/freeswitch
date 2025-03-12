@@ -224,12 +224,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.dialplan_actions TO $r2a_user;
 -- Grant EXECUTE on the trigger function to ring2all
 GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;;
 
--- Table to store SIP profiles
+-- Table to store SIP profiles (without settings)
 CREATE TABLE public.sip_profiles (
     profile_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_uuid UUID REFERENCES public.tenants(tenant_uuid),
     profile_name VARCHAR(255) NOT NULL,
-    settings JSONB NOT NULL,
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     insert_user UUID,
     update_date TIMESTAMP WITH TIME ZONE,
@@ -245,12 +244,25 @@ CREATE TRIGGER trigger_update_sip_profiles
 BEFORE UPDATE ON public.sip_profiles
 FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
+-- New table to store individual settings for SIP profiles
+CREATE TABLE public.sip_profile_settings (
+    setting_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_uuid UUID REFERENCES public.sip_profiles(profile_uuid) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    value TEXT NOT NULL,
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    insert_user UUID,
+    CONSTRAINT unique_sip_profile_setting UNIQUE (profile_uuid, name)
+);
+
+-- Index to improve queries by profile_uuid and name
+CREATE INDEX idx_sip_profile_settings_profile_uuid_name ON public.sip_profile_settings (profile_uuid, name);
+
 -- Table to store gateways associated with SIP profiles
 CREATE TABLE public.sip_profile_gateways (
     gateway_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_uuid UUID REFERENCES public.sip_profiles(profile_uuid) ON DELETE CASCADE,
     gateway_name VARCHAR(255) NOT NULL,
-    gateway_settings JSONB NOT NULL,
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     insert_user UUID,
     CONSTRAINT unique_sip_profile_gateway UNIQUE (profile_uuid, gateway_name)
@@ -259,10 +271,26 @@ CREATE TABLE public.sip_profile_gateways (
 -- Index to improve queries by profile_uuid and gateway_name
 CREATE INDEX idx_sip_profile_gateways_profile_uuid_gateway_name ON public.sip_profile_gateways (profile_uuid, gateway_name);
 
+-- New table to store individual settings for gateways
+CREATE TABLE public.sip_profile_gateway_settings (
+    setting_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    gateway_uuid UUID REFERENCES public.sip_profile_gateways(gateway_uuid) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    value TEXT NOT NULL,
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    insert_user UUID,
+    CONSTRAINT unique_sip_profile_gateway_setting UNIQUE (gateway_uuid, name)
+);
+
+-- Index to improve queries by gateway_uuid and name
+CREATE INDEX idx_sip_profile_gateway_settings_gateway_uuid_name ON public.sip_profile_gateway_settings (gateway_uuid, name);
+
 -- Set the ring2all user as the owner of all tables
 ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_extensions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_conditions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_actions OWNER TO $r2a_user;
 ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
+ALTER TABLE public.sip_profile_settings OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_gateways OWNER TO $r2a_user;
+ALTER TABLE public.sip_profile_gateway_settings OWNER TO $r2a_user;
