@@ -324,7 +324,7 @@ wget -O directory_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/fr
 wget -O dialplan_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua
-wget -O dialplna.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplna.lua
+wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplan.lua
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
@@ -364,7 +364,7 @@ echo -e "************************************************************"
 echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/dialplan
-mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
+mv dialplan.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
