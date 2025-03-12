@@ -10,8 +10,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 db_config = {
     "dbname": "$r2a_database",
-    "user": "$r2al_user",
-    "password": "r2a_password",
+    "user": "$r2l_user",
+    "password": "$r2a_password",
     "host": "localhost",
     "port": "5432"
 }
