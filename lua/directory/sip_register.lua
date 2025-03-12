@@ -62,11 +62,14 @@ return function(settings)
 
     -- Check if the user was found
     if row then
-        log("info", string.format("Extension %s registered successfully for domain %s", row.username, row.domain_name))
+        if not row.logged then
+            log("info", string.format("Extension %s registered successfully for domain %s", row.username, row.domain_name))
+            row.logged = true -- Prevent duplicate log messages
+        end
     else
         log("warning", "Authentication failed: User not found in the database")
     end
-
+    
     -- Generate XML response for FreeSWITCH
     local xml
     if row then
