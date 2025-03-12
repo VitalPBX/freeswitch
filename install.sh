@@ -2,7 +2,7 @@
 set -e
 
 # Author:      Rodrigo Cuadra
-# Date:        Feb-2024
+# Date:        Feb-2025
 # Support:     rcuadra@vitalpbx.com
 # Description: This script automates the installation of FreeSWITCH with PostgreSQL integration from deb.
 
@@ -255,17 +255,13 @@ echo -e "*      Allowing it to freeswitch manage from Database      *"
 echo -e "************************************************************"
 sofia_conf="/etc/freeswitch/autoload_configs/sofia.conf.xml"
 sudo sed -i '
-  /<configuration name="sofia.conf" description="Sofia Endpoint">/,/<\/configuration>/c\
-  <configuration name="sofia.conf" description="Sofia Endpoint">\
-    <!-- Disable static profile loading from XML files -->\
-    <!-- <profiles> -->\
-    <!--   <X-PRE-PROCESS cmd="include" data="..\/sip_profiles\/*.xml"\/> -->\
-    <!-- <\/profiles> -->\n\
-    <!-- Use Lua script to generate profiles dynamically -->\
-    <global_settings>\
-    <param name="xml_handler_script" value="xml_handlers\/sip_profiles\/sip_profiles.lua"\/>\
-    <\/global_settings>\
-  <\/configuration>
+  # Comment out the <profiles> section
+  /<profiles>/s/^/<!-- /; 
+  /<X-PRE-PROCESS cmd="include" data="..\/sip_profiles\/\*.xml"\/>/s/$/ -->/;
+  /<\/profiles>/s/^/<!-- /; /<\/profiles>/s/$/ -->/;
+  # Add the xml_handler_script param before </global_settings>
+  /<\/global_settings>/i\
+    <param name="xml_handler_script" value="xml_handlers\/sip_profiles\/sip_profiles.lua"\/>
 ' "$sofia_conf"
 
 # Install Python environment and dependencies
