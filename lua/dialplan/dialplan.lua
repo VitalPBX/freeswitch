@@ -4,37 +4,44 @@
     Supports connection via ODBC or LuaSQL for PostgreSQL.
 --]]
 
--- Return a function that accepts settings as a parameter
 return function(settings)
-    -- Define a logging function that respects the debug setting from settings
+    -- Logging function
     local function log(level, message)
         if level == "debug" and not settings.debug then
-            return  -- Skip debug messages if debug is false
+            return
         end
         freeswitch.consoleLog(level, "[Dialplan] " .. message .. "\n")
     end
 
-    -- Try connecting via ODBC first
-    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
+    -- Attempt to connect via ODBC
+    local dbh = freeswitch.Dbh("odbc://ring2all")
     
     if not dbh:connected() then
-        log("WARNING", "ODBC connection failed. Falling back to LuaSQL.")
-        
-        -- Load PostgreSQL LuaSQL library as a fallback
+        log("WARNING", "ODBC connection failed. Trying LuaSQL...")
+
+        -- Load LuaSQL for PostgreSQL
         local luasql = require "luasql.postgres"
-        local env = assert(luasql.postgres(), "Failed to initialize PostgreSQL environment")
-        dbh = assert(env:connect("ring2all", "ring2all", "ring2all", "localhost", 5432), "Failed to connect to PostgreSQL via LuaSQL")
+        local env = luasql.postgres()
+        if not env then
+            log("ERROR", "Failed to initialize PostgreSQL environment")
+            return
+        end
+        dbh = env:connect("ring2all", "ring2all", "ring2all", "localhost", 5432)
+        
+        if not dbh then
+            log("ERROR", "Failed to connect to PostgreSQL via LuaSQL")
+            return
+        end
     end
 
-    -- Extract context and destination from request parameters
+    -- Extract context and destination
     local context = params:getHeader("Hunt-Context") or params:getHeader("Caller-Context") or "default"
     local destination = params:getHeader("Caller-Destination-Number") or ""
 
-    -- Log the extracted context and destination for debugging
     log("DEBUG", "Context: " .. context)
     log("DEBUG", "Destination: " .. destination)
 
-    -- SQL Query to fetch dialplan data
+    -- SQL Query
     local query = string.format([[
         SELECT dc.context_name, de.extension_name, de.continue, 
                dc2.field, dc2.expression, dc2.break_on_match, dc2.condition_order,
@@ -47,17 +54,24 @@ return function(settings)
         ORDER BY de.priority, dc2.condition_order, da.action_order
     ]], context)
 
-    -- Log the SQL query for debugging
     log("DEBUG", "Executing SQL Query: " .. query)
 
-    -- Execute query and fetch results
-    local row, cur = nil, nil
-    if dbh:connected() then
-        cur = dbh:query(query, function(result)
-            row = result
-        end)
-    else
-        cur = assert(dbh:execute(query), "SQL execution failed")
+    -- Execute query and check for errors
+    local cur
+    local success, err = pcall(function()
+        cur = dbh:query(query)
+    end)
+
+    if not success or not cur then
+        log("ERROR", "SQL execution failed: " .. (err or "Unknown error"))
+        return
+    end
+
+    -- Check if the query returned results
+    local row = cur:fetch({}, "a")
+    if not row then
+        log("WARNING", "No results found for context: " .. context)
+        return
     end
 
     -- Build XML response
@@ -108,6 +122,6 @@ return function(settings)
     XML_STRING = xml
 
     -- Close database connections
-    if cur then cur:close() end
+    if cur and cur.close then cur:close() end
     if dbh and dbh.close then dbh:close() end
 end
