@@ -349,6 +349,13 @@ sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_password/$r2a_password/g" dialplan_migrate_to_db.py
 python3 dialplan_migrate_to_db.py
 
+#Update the Domain for Tenant=Default
+echo -e "************************************************************"
+echo -e "*        Update the Domain for Tenant=Default.             *"
+echo -e "************************************************************"
+LOCAL_IP=$(hostname -I | awk '{print $1}')
+sudo -u postgres psql ring2all -c "UPDATE tenants SET domain_name='$LOCAL_IP' WHERE name='Default';"
+
 # Create main.lua file
 echo -e "************************************************************"
 echo -e "*                   Create main.lua file                   *"
