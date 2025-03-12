@@ -1,11 +1,8 @@
 --[[
     handler.lua (dialplan)
     Handles FreeSWITCH dialplan requests (e.g., call routing).
-    Receives settings from main.lua to control debug logging.
+    Supports connection via ODBC or LuaSQL for PostgreSQL.
 --]]
-
--- Load PostgreSQL LuaSQL library
-local luasql = require "luasql.postgres"
 
 -- Return a function that accepts settings as a parameter
 return function(settings)
@@ -17,12 +14,17 @@ return function(settings)
         freeswitch.consoleLog(level, "[Dialplan] " .. message .. "\n")
     end
 
-    -- Log that the script has been called
-    log("NOTICE", "xml_handlers/dialplan/handler.lua called")
-
-    -- Establish database connection
-    local env = assert(luasql.postgres())
-    local conn = assert(env:connect("ring2all", "ring2all", "ring2all", "localhost", 5432))
+    -- Try connecting via ODBC first
+    local dbh = freeswitch.Dbh("odbc://ring2all")
+    
+    if not dbh:connected() then
+        log("WARNING", "ODBC connection failed. Falling back to LuaSQL.")
+        
+        -- Load PostgreSQL LuaSQL library as a fallback
+        local luasql = require "luasql.postgres"
+        local env = assert(luasql.postgres(), "Failed to initialize PostgreSQL environment")
+        dbh = assert(env:connect("ring2all", "ring2all", "ring2all", "localhost", 5432), "Failed to connect to PostgreSQL via LuaSQL")
+    end
 
     -- Extract context and destination from request parameters
     local context = params:getHeader("Hunt-Context") or params:getHeader("Caller-Context") or "default"
@@ -32,7 +34,7 @@ return function(settings)
     log("DEBUG", "Context: " .. context)
     log("DEBUG", "Destination: " .. destination)
 
-    -- Query to fetch dialplan data
+    -- SQL Query to fetch dialplan data
     local query = string.format([[
         SELECT dc.context_name, de.extension_name, de.continue, 
                dc2.field, dc2.expression, dc2.break_on_match, dc2.condition_order,
@@ -46,10 +48,19 @@ return function(settings)
     ]], context)
 
     -- Log the SQL query for debugging
-    log("DEBUG", "SQL query: " .. query)
+    log("DEBUG", "Executing SQL Query: " .. query)
 
-    -- Execute query and build XML
-    local cur = assert(conn:execute(query))
+    -- Execute query and fetch results
+    local row, cur = nil, nil
+    if dbh:connected() then
+        cur = dbh:query(query, function(result)
+            row = result
+        end)
+    else
+        cur = assert(dbh:execute(query), "SQL execution failed")
+    end
+
+    -- Build XML response
     local xml = [[<?xml version="1.0" encoding="utf-8"?>
 <document type="freeswitch/xml">
   <section name="dialplan" description="Dynamic Dialplan">
@@ -57,46 +68,33 @@ return function(settings)
 
     local current_ext_name = nil
     local current_cond_order = nil
-    local row = cur:fetch({}, "a")
 
-    -- Build XML structure dynamically based on query results
     while row do
+        -- Open a new extension block if needed
         if current_ext_name ~= row.extension_name then
-            if current_ext_name then
-                xml = xml .. [[
-      </extension>]]
-            end
-            xml = xml .. [[
-      <extension name="]] .. row.extension_name .. [[" continue="]] .. (row.continue == "t" and "true" or "false") .. [[">]]
+            if current_ext_name then xml = xml .. [[</extension>]] end
+            xml = xml .. [[<extension name="]] .. row.extension_name .. [[" continue="]] .. (row.continue == "t" and "true" or "false") .. [[">]]
             current_ext_name = row.extension_name
             current_cond_order = nil
         end
 
+        -- Open a new condition block if needed
         if current_cond_order ~= row.condition_order then
-            if current_cond_order then
-                xml = xml .. [[
-        </condition>]]
-            end
-            xml = xml .. [[
-        <condition field="]] .. row.field .. [[" expression="]] .. row.expression .. [[" break="]] .. row.break_on_match .. [[">]]
+            if current_cond_order then xml = xml .. [[</condition>]] end
+            xml = xml .. [[<condition field="]] .. row.field .. [[" expression="]] .. row.expression .. [[" break="]] .. row.break_on_match .. [[">]]
             current_cond_order = row.condition_order
         end
 
-        xml = xml .. [[
-          <]] .. row.action_type .. [[ application="]] .. row.application .. [[" data="]] .. row.data .. [["/>]]
+        -- Add action
+        xml = xml .. [[<]] .. row.action_type .. [[ application="]] .. row.application .. [[" data="]] .. row.data .. [["/>]]
 
+        -- Fetch next row
         row = cur:fetch({}, "a")
     end
 
     -- Close any open condition or extension tags
-    if current_cond_order then
-        xml = xml .. [[
-        </condition>]]
-    end
-    if current_ext_name then
-        xml = xml .. [[
-      </extension>]]
-    end
+    if current_cond_order then xml = xml .. [[</condition>]] end
+    if current_ext_name then xml = xml .. [[</extension>]] end
 
     xml = xml .. [[
     </context>
@@ -110,7 +108,6 @@ return function(settings)
     XML_STRING = xml
 
     -- Close database connections
-    cur:close()
-    conn:close()
-    env:close()
+    if cur then cur:close() end
+    if dbh and dbh.close then dbh:close() end
 end
