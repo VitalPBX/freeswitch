@@ -59,14 +59,14 @@ def process_user_xml(file_path):
             user_id = user.get("id")
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
             variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}
-            # Use the user_id as the default password if not specified in XML
+            # Use the user_id (extension number) as the default password
             password = params.get("password")
             if password is None or password.startswith("${"):  # Avoid variables like $${default_password}
-                password = user_id  # Use username as default password
+                password = user_id  # Set password to extension number
             logging.info(f"Processed user XML for {user_id}")
             return {
                 "username": user_id,
-                "password": password,
+                "password": password,  # Password will be the extension number unless explicitly set in XML
                 "vm_password": params.get("vm-password", user_id),  # Use user_id as vm-password if not defined
                 "extension": user_id,
                 "toll_allow": variables.get("toll_allow"),
@@ -188,20 +188,6 @@ for group_name, users in group_users.items():
                     logging.info(f"Assigned user {user_id} to group {group_name}")
     except Exception as e:
         logging.error(f"Error assigning users to group {group_name}: {e}")
-
-# Update the password for user 1000 to "1234"
-try:
-    cur.execute(
-        sql.SQL("""
-            UPDATE public.sip_users 
-            SET password = %s 
-            WHERE username = %s AND tenant_uuid = %s
-        """),
-        ("1234", "1000", tenant_uuid)
-    )
-    logging.info("Updated password for user 1000 to '1234'")
-except Exception as e:
-    logging.error(f"Error updating password for user 1000: {e}")
 
 # Commit the changes and close the connection
 try:
