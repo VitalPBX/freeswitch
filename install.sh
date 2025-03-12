@@ -211,6 +211,14 @@ echo -e "************************************************************"
 modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
 sed -i 's/^\([[:space:]]*\)<!--\(<load module="mod_directory"\/>\)-->/\1\2/' "$modules_conf"
 
+# Disable the module to prevent unnecessary SignalWire connection attempts and resource usage.
+echo -e "************************************************************"
+echo -e "*  Disable the module to prevent unnecessary SignalWire    *"
+echo -e "*          connection attempts and resource usage.         *"
+echo -e "************************************************************"
+modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
+sed -i 's|<load module="mod_signalwire"/>|<!-- <load module="mod_signalwire"/> -->|' "$modules_conf"
+
 # Adding database connection data for CDRs
 echo -e "************************************************************"
 echo -e "*          Adding database connection data for CDRs        *"
@@ -370,7 +378,6 @@ echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/resources/settings
 mv main.lua /usr/share/freeswitch/scripts/main.lua
 mv settings.lua /usr/share/freeswitch/scripts/resources/settings/settings.lua
-chown freeswitch:freeswitch /usr/share/freeswitch/scripts/resources/settings/settings.lua
 
 # Create Lua Script for management user registration (directory)
 echo -e "************************************************************"
@@ -378,7 +385,6 @@ echo -e "*     Create Lua Script for management user registration   *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/directory
 mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua
-chown freeswitch:freeswitch /usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua
 
 # Create Lua Script for management dialplan (dialplan)
 echo -e "************************************************************"
@@ -386,7 +392,6 @@ echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/dialplan
 mv dialplan.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
-chown freeswitch:freeswitch /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
 
 # Create Lua Script for management dialplan (dialplan)
 echo -e "************************************************************"
