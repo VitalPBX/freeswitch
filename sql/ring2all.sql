@@ -224,8 +224,45 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.dialplan_actions TO $r2a_user;
 -- Grant EXECUTE on the trigger function to ring2all
 GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;;
 
+-- Table to store SIP profiles
+CREATE TABLE public.sip_profiles (
+    profile_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_uuid UUID REFERENCES public.tenants(tenant_uuid),
+    profile_name VARCHAR(255) NOT NULL,
+    settings JSONB NOT NULL,
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user UUID,
+    CONSTRAINT unique_sip_profile UNIQUE (tenant_uuid, profile_name)
+);
+
+-- Index to improve queries by tenant_uuid and profile_name
+CREATE INDEX idx_sip_profiles_tenant_uuid_profile_name ON public.sip_profiles (tenant_uuid, profile_name);
+
+-- Trigger to auto-update update_date on sip_profiles
+CREATE TRIGGER trigger_update_sip_profiles
+BEFORE UPDATE ON public.sip_profiles
+FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
+-- Table to store gateways associated with SIP profiles
+CREATE TABLE public.sip_profile_gateways (
+    gateway_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_uuid UUID REFERENCES public.sip_profiles(profile_uuid) ON DELETE CASCADE,
+    gateway_name VARCHAR(255) NOT NULL,
+    gateway_settings JSONB NOT NULL,
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    insert_user UUID,
+    CONSTRAINT unique_sip_profile_gateway UNIQUE (profile_uuid, gateway_name)
+);
+
+-- Index to improve queries by profile_uuid and gateway_name
+CREATE INDEX idx_sip_profile_gateways_profile_uuid_gateway_name ON public.sip_profile_gateways (profile_uuid, gateway_name);
+
 -- Set the ring2all user as the owner of all tables
 ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_extensions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_conditions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_actions OWNER TO $r2a_user;
+ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
+ALTER TABLE public.sip_profile_gateways OWNER TO $r2a_user;
