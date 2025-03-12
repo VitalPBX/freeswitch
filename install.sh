@@ -143,9 +143,9 @@ echo -e "************************************************************"
 echo -e "*                  Create ring2all database                *"
 echo -e "************************************************************"
 wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/sql/ring2all.sql ring2all.sql
-sed -i "s/\$r2a_database/$r2a_database/g; \
-        s/\$r2a_user/$r2a_user/g; \
-        s/\$r2a_password/$r2a_password/g" ring2all.sql
+sed -i "s/\\\$r2a_database/$r2a_database/g; \
+        s/\\\$r2a_user/$r2a_user/g; \
+        s/\\\$r2a_password/$r2a_password/g" ring2all.sql
 sudo -u postgres psql -f ring2all.sql
 
 # Create ring2all_cdr database
