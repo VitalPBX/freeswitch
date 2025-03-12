@@ -242,28 +242,6 @@ else
   echo "❌ The $switch_conf file does not exist."
 fi
 
-# FreeSWITCH, allowing it to freeswitch manage from Database
-echo -e "************************************************************"
-echo -e "*      Allowing it to freeswitch manage from Database      *"
-echo -e "************************************************************"
-lua_conf="/etc/freeswitch/autoload_configs/lua.conf.xml"
-sed -i '/<settings>/a \    <param name="xml-handler-script" value="main.lua xml_handlers"/>\n    <param name="xml-handler-bindings" value="directory,dialplan"/>' "$lua_conf"
-
-# FreeSWITCH, allowing it to freeswitch manage from Database
-echo -e "************************************************************"
-echo -e "*      Allowing it to freeswitch manage from Database      *"
-echo -e "************************************************************"
-sofia_conf="/etc/freeswitch/autoload_configs/sofia.conf.xml"
-sudo sed -i '
-  # Comment out the <profiles> section
-  /<profiles>/s/^/<!-- /; 
-  /<X-PRE-PROCESS cmd="include" data="..\/sip_profiles\/\*.xml"\/>/s/$/ -->/;
-  /<\/profiles>/s/^/<!-- /; /<\/profiles>/s/$/ -->/;
-  # Add the xml_handler_script param before </global_settings>
-  /<\/global_settings>/i\
-    <param name="xml_handler_script" value="xml_handlers\/sip_profiles\/sip_profiles.lua"\/>
-' "$sofia_conf"
-
 # Install Python environment and dependencies
 echo -e "************************************************************"
 echo -e "*         Setting up Python virtual environment           *"
@@ -345,6 +323,8 @@ wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/directory/sip_register.lua
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplan.lua
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/sip_profiles.lua
+wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
+wget -O sofia.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/sofia.conf.xml
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
@@ -378,7 +358,7 @@ python3 sip_profiles_migrate_to_db.py
 
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
-echo -e "*        Update the Domain for Tenant=Default.             *"
+echo -e "*        Update the Domain for Tenant=default.             *"
 echo -e "************************************************************"
 LOCAL_IP=$(hostname -I | awk '{print $1}')
 sudo -u postgres psql ring2all -c "UPDATE tenants SET domain_name='$LOCAL_IP' WHERE name='Default';"
@@ -390,6 +370,7 @@ echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/resources/settings
 mv main.lua /usr/share/freeswitch/scripts/main.lua
 mv settings.lua /usr/share/freeswitch/scripts/resources/settings/settings.lua
+chown freeswitch:freeswitch /usr/share/freeswitch/scripts/resources/settings/settings.lua
 
 # Create Lua Script for management user registration (directory)
 echo -e "************************************************************"
@@ -397,6 +378,7 @@ echo -e "*     Create Lua Script for management user registration   *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/directory
 mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua
+chown freeswitch:freeswitch /usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua
 
 # Create Lua Script for management dialplan (dialplan)
 echo -e "************************************************************"
@@ -404,6 +386,7 @@ echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/dialplan
 mv dialplan.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
+chown freeswitch:freeswitch /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
 
 # Create Lua Script for management dialplan (dialplan)
 echo -e "************************************************************"
@@ -411,6 +394,20 @@ echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/xml_handlers/sip_profiles
 mv sip_profiles.lua /usr/share/freeswitch/scripts/xml_handlers/sip_profiles/sip_profiles.lua
+
+# FreeSWITCH, allowing it to freeswitch manage from Database
+echo -e "************************************************************"
+echo -e "*      Allowing it to freeswitch manage from Database      *"
+echo -e "************************************************************"
+mv lua.conf.xml /etc/freeswitch/autoload_configs/lua.conf.xml
+chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/lua.conf.xml
+
+# FreeSWITCH, allowing it to freeswitch manage from Database
+echo -e "************************************************************"
+echo -e "*      Allowing it to freeswitch manage from Database      *"
+echo -e "************************************************************"
+mv sofia.conf.xml /etc/freeswitch/autoload_configs/sofia.conf.xml
+chown freeswitch:freeswitch sofia.conf.xml
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
