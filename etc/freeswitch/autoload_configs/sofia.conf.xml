@@ -1,7 +1,0 @@
-<configuration name="sofia.conf" description="sofia Endpoint">
-  <global_settings>
-    <param name="log-level" value="0"/>
-    <param name="debug-presence" value="0"/>
-    <param name="xml_handler_script" value="xml_handlers/sip_profiles/sip_profiles.lua"/>
-  </global_settings>
-</configuration>
