@@ -7,12 +7,8 @@
 
 -- Create the ring2all_cdr database if it does not exist
 -- Note: This assumes execution as the postgres superuser
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '$r2a_cdr_database') THEN
-        EXECUTE 'CREATE DATABASE ' || quote_ident('$r2a_cdr_database');
-    END IF;
-END $$;
+
+CREATE DATABASE $r2a_cdr_database;
 
 -- Connect to the newly created ring2all_cdr database
 \connect $r2a_cdr_database
