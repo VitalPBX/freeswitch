@@ -428,12 +428,14 @@ echo -e "************************************************************"
 mv lua.conf.xml /etc/freeswitch/autoload_configs/lua.conf.xml
 chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/lua.conf.xml
 
-# FreeSWITCH, allowing it to freeswitch manage from Database
+# Create Freeswitch certificate for TLS handling
 echo -e "************************************************************"
-echo -e "*      Allowing it to freeswitch manage from Database      *"
+echo -e "*      Create Freeswitch certificate for TLS handling      *"
 echo -e "************************************************************"
-# mv sofia.conf.xml /etc/freeswitch/autoload_configs/sofia.conf.xml
-# chown freeswitch:freeswitch /etc/freeswitch/autoload_configs/sofia.conf.xml
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/freeswitch/tls/wss.pem \
+    -out /etc/freeswitch/tls/wss.pem \
+    -subj "/C=US/ST=FL/L=Miami/O=Ring2All/OU=Unit/CN=freeswitch"
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
