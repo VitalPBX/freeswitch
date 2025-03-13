@@ -7,12 +7,8 @@
 
 -- Create the ring2all database if it does not exist
 -- Note: This assumes execution as the postgres superuser
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '$r2a_database') THEN
-        EXECUTE 'CREATE DATABASE ' || quote_ident('$r2a_database');
-    END IF;
-END $$;
+
+CREATE DATABASE '$r2a_database';
 
 -- Connect to the ring2all database
 \connect $r2a_database
