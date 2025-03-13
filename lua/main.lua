@@ -11,7 +11,7 @@ local source = argv[1] or "unknown"
 local section = XML_REQUEST["section"]
 
 -- Load the settings.lua file containing configuration variables (e.g., debug)
-local settings = require("/usr/share/freeswitch/scripts/resources/settings/settings.lua")
+local settings = require("resources.settings.settings")
 
 -- Define a logging function to output messages to the FreeSWITCH console, respecting the debug setting
 function log(level, message)
