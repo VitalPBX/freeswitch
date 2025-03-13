@@ -20,7 +20,7 @@ function log(level, message)
 end
 
 -- Log an info message indicating the script is running
-log("INFO", "Main.lua is handling XML request for section: " .. section .. ", source: " .. source)
+log("INFO", "Main.lua is handling XML request for section: " .. section)
 
     if section == "directory" then
         -- Load the SIP registration handler script and pass settings as an argument
