@@ -27,6 +27,8 @@ return function(settings)
     -- Validate input to avoid SQL errors
     if username == "" or domain == "" then
         log("warning", "Invalid request: Missing username or domain.")
+        XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
+        dbh:release()
         return
     end
 
@@ -57,34 +59,15 @@ return function(settings)
     -- Handle SQL execution errors
     if not success then
         log("error", "Database query execution failed: " .. (err or "Unknown error"))
+        XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
+        dbh:release()
         return
     end
 
-    -- Check if the user was found and password is correct
-    if row then
-        -- Retrieve the password sent in the SIP REGISTER request
-        local provided_password = params:getHeader("sip_auth_password") or ""
-
-        -- Debugging: log the provided password only if debugging is enabled (avoid security risks)
-        log("debug", "Password provided: " .. provided_password)
-
-        -- Validate the password before confirming the registration
-        if row.password == provided_password then
-            if not row.logged then
-                log("info", string.format("Extension %s registered successfully for domain %s", row.username, row.domain_name))
-                row.logged = true -- Prevent duplicate log messages
-            end
-        else
-            log("warning", string.format("Authentication failed: Incorrect password for extension %s", row.username))
-        end
-    else
-        log("warning", "Authentication failed: User not found in the database")
-    end
-    
     -- Generate XML response for FreeSWITCH
-    local xml
     if row then
-        xml = string.format([[
+        log("info", string.format("Generating directory entry for extension %s in domain %s", row.username, row.domain_name))
+        XML_STRING = string.format([[
             <?xml version="1.0" encoding="utf-8"?>
             <document type="freeswitch/xml">
               <section name="directory">
@@ -99,21 +82,12 @@ return function(settings)
             </document>
         ]], row.domain_name, row.username, row.password)
     else
-        xml = [[
-            <?xml version="1.0" encoding="utf-8"?>
-            <document type="freeswitch/xml">
-              <section name="directory">
-                <result status="not found"/>
-              </section>
-            </document>
-        ]]
+        log("warning", string.format("User %s not found in domain %s", username, domain))
+        XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
     end
 
     -- Log XML output only if debugging is enabled
-    log("debug", "Generated XML: " .. xml)
-
-    -- Return XML response to FreeSWITCH
-    XML_STRING = xml
+    log("debug", "Generated XML: " .. XML_STRING)
 
     -- Release the database connection
     dbh:release()
