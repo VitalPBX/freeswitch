@@ -332,7 +332,19 @@ wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/r
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/dialplan/dialplan.lua
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/sip_profiles.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
-# wget -O sofia.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/sofia.conf.xml
+wget -O internal.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/internal.xml
+wget -O internal-ipv6.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/internal-ipv6.xml
+wget -O external.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/external.xml
+wget -O external-ipv6.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/sip_profiles/external-ipv6.xml
+
+# Move sip_profiles files to /etc/freeswitch/sip_profiles/
+echo -e "************************************************************"
+echo -e "*               Move sip_profiles files                    *"
+echo -e "************************************************************"
+mv internal.xml /etc/freeswitch/sip_profiles/internal.xml
+mv internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml
+mv external.xml /etc/freeswitch/sip_profiles/external.xml
+mv external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
@@ -363,6 +375,16 @@ sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_user/$r2a_user/g; \
         s/\$r2a_password/$r2a_password/g" sip_profiles_migrate_to_db.py
 python3 sip_profiles_migrate_to_db.py
+
+
+# Rename the sip profiles files so they are not loaded 
+echo -e "************************************************************"
+echo -e "*               Move sip_profiles files                    *"
+echo -e "************************************************************"
+mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
+mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
+mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
+mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
 
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
