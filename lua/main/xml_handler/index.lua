@@ -4,9 +4,6 @@
     the source argument and request type. Loads settings globally and passes them to secondary scripts.
 --]]
 
--- Get the source argument passed to the script, default to "unknown" if not provided
-local source = argv[1] or "unknown"
-
 -- Extract the XML section from the XML_REQUEST table provided by FreeSWITCH
 local section = XML_REQUEST["section"]
 
@@ -25,8 +22,6 @@ end
 -- Log an info message indicating the script is running
 log("INFO", "Main.lua is handling XML request for section: " .. section .. ", source: " .. source)
 
--- Check if the source is "xml_handlers" to route to specific handler scripts
-if source == "xml_handlers" then
     if section == "directory" then
         -- Load the SIP registration handler script and pass settings as an argument
         local sip_register = dofile("/usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua")
@@ -72,4 +67,3 @@ if source == "xml_handlers" then
         log("ERR", "Unknown section: " .. section)
         XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="' .. section .. '"></section></document>'
     end
-end
