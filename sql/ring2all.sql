@@ -122,7 +122,7 @@ CREATE TABLE public.dialplan_extensions (
     extension_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),       -- Unique identifier for the extension, auto-generated UUID
     context_uuid UUID NOT NULL,                                       -- Foreign key to the associated context
     extension_name VARCHAR(255) NOT NULL,                             -- Extension name (e.g., "incoming"), limited to 255 characters
-    continue_on BOOLEAN NOT NULL DEFAULT FALSE,                       -- Whether to continue processing after this extension
+    continue BOOLEAN DEFAULT FALSE,                                   -- Whether to continue processing after this extension
     priority INTEGER NOT NULL DEFAULT 1 CHECK (priority >= 1),        -- Priority order (1 or higher), higher executes first
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
