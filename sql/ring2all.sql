@@ -8,18 +8,9 @@ CREATE DATABASE $r2a_database;
 -- Enable the uuid-ossp extension for UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Define a function to automatically update the update_date column
-CREATE OR REPLACE FUNCTION update_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.update_date = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Create the tenants table to store tenant information
 CREATE TABLE public.tenants (
-    tenant_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),           -- Unique identifier for the tenant
+    tenant_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the tenant
     parent_tenant_uuid UUID,                                          -- Reference to a parent tenant (nullable)
     name TEXT NOT NULL UNIQUE,                                        -- Unique tenant name
     domain_name TEXT NOT NULL UNIQUE,                                 -- Unique domain name for FreeSWITCH
@@ -56,6 +47,7 @@ CREATE TABLE public.sip_users (
     user_context VARCHAR(50) DEFAULT 'default',                       -- Context for call routing
     effective_caller_id_name VARCHAR(100),                            -- Caller ID name
     effective_caller_id_number VARCHAR(50),                           -- Caller ID number
+    user_enabled BOOLEAN DEFAULT TRUE,                                -- Flag to indicate if the user is active
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),               -- Timestamp of creation
     insert_user UUID,                                                 -- User who created the record
     update_date TIMESTAMP WITH TIME ZONE,                             -- Timestamp of last update
@@ -91,71 +83,13 @@ CREATE TABLE public.user_groups (
         REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
 );
 
--- Create triggers to update the update_date column automatically
-CREATE TRIGGER update_tenants_timestamp
-    BEFORE UPDATE ON public.tenants
-    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE TRIGGER update_tenant_settings_timestamp
-    BEFORE UPDATE ON public.tenant_settings
-    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE TRIGGER update_sip_users_timestamp
-    BEFORE UPDATE ON public.sip_users
-    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE TRIGGER update_groups_timestamp
-    BEFORE UPDATE ON public.groups
-    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
-CREATE TRIGGER update_user_groups_timestamp
-    BEFORE UPDATE ON public.user_groups
-    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
--- Create indexes to optimize query performance
-CREATE INDEX idx_tenants_name ON public.tenants (name);
-CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);
-CREATE INDEX idx_tenants_parent_tenant_uuid ON public.tenants (parent_tenant_uuid);
-CREATE INDEX idx_tenant_settings_tenant_uuid ON public.tenant_settings (tenant_uuid);
-CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_users (tenant_uuid);
-CREATE INDEX idx_sip_users_username ON public.sip_users (username);
-CREATE INDEX idx_groups_tenant_uuid ON public.groups (tenant_uuid);
-CREATE INDEX idx_groups_group_name ON public.groups (group_name);
-CREATE INDEX idx_user_groups_tenant_uuid ON public.user_groups (tenant_uuid);
-CREATE INDEX idx_user_groups_sip_user_uuid ON public.user_groups (sip_user_uuid);
-CREATE INDEX idx_user_groups_group_uuid ON public.user_groups (group_uuid);
-
--- Insert a default tenant
-INSERT INTO public.tenants (name, domain_name, tenant_enabled, insert_user)
-VALUES ('Default', '192.168.10.21', TRUE, NULL)
-ON CONFLICT (name) DO NOTHING;
-
--- Create the ring2all role if it doesn't exist and grant privileges
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
-        CREATE ROLE $r2a_user WITH LOGIN PASSWORD '$r2a_password';
-    END IF;
-END $$;
-
-GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
-
--- Set the ring2all user as the owner of all tables
-ALTER TABLE public.tenants OWNER TO $r2a_user;
-ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
-ALTER TABLE public.sip_users OWNER TO $r2a_user;
-ALTER TABLE public.groups OWNER TO $r2a_user;
-ALTER TABLE public.user_groups OWNER TO $r2a_user;
-GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
-
 -- Create dialplan_contexts table
 CREATE TABLE public.dialplan_contexts (
     context_uuid UUID PRIMARY KEY,
     tenant_uuid UUID NOT NULL,
     context_name VARCHAR(255) NOT NULL,
     description TEXT,
+    dialplan_enabled BOOLEAN DEFAULT TRUE, 
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     insert_user VARCHAR(255),
     update_date TIMESTAMP WITH TIME ZONE,
@@ -208,27 +142,12 @@ CREATE TABLE public.dialplan_actions (
     CONSTRAINT fk_dialplan_actions_condition_uuid FOREIGN KEY (condition_uuid) REFERENCES public.dialplan_conditions(condition_uuid)
 );
 
--- Optional: Add indexes for better performance
-CREATE INDEX idx_dialplan_extensions_context_uuid ON public.dialplan_extensions(context_uuid);
-CREATE INDEX idx_dialplan_conditions_extension_uuid ON public.dialplan_conditions(extension_uuid);
-CREATE INDEX idx_dialplan_actions_condition_uuid ON public.dialplan_actions(condition_uuid);
-
--- Trigger to update update_date
-CREATE TRIGGER trig_update_dialplan_actions
-BEFORE UPDATE ON public.dialplan_actions
-FOR EACH ROW EXECUTE FUNCTION update_timestamp();
-
--- Grant privileges to ring2all
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.dialplan_actions TO $r2a_user;
-
--- Grant EXECUTE on the trigger function to ring2all
-GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;;
-
 -- Table to store SIP profiles (without settings)
 CREATE TABLE public.sip_profiles (
     profile_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_uuid UUID REFERENCES public.tenants(tenant_uuid),
     profile_name VARCHAR(255) NOT NULL,
+    profile_enabled BOOLEAN DEFAULT TRUE, 
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     insert_user UUID,
     update_date TIMESTAMP WITH TIME ZONE,
@@ -236,15 +155,7 @@ CREATE TABLE public.sip_profiles (
     CONSTRAINT unique_sip_profile UNIQUE (tenant_uuid, profile_name)
 );
 
--- Index to improve queries by tenant_uuid and profile_name
-CREATE INDEX idx_sip_profiles_tenant_uuid_profile_name ON public.sip_profiles (tenant_uuid, profile_name);
-
--- Trigger to auto-update update_date on sip_profiles
-CREATE TRIGGER trigger_update_sip_profiles
-BEFORE UPDATE ON public.sip_profiles
-FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
--- New table to store individual settings for SIP profiles
+-- Table to store individual settings for SIP profiles
 CREATE TABLE public.sip_profile_settings (
     setting_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_uuid UUID REFERENCES public.sip_profiles(profile_uuid) ON DELETE CASCADE,
@@ -252,26 +163,25 @@ CREATE TABLE public.sip_profile_settings (
     value TEXT NOT NULL,
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE, 
+    update_user UUID,
     CONSTRAINT unique_sip_profile_setting UNIQUE (profile_uuid, name)
 );
-
--- Index to improve queries by profile_uuid and name
-CREATE INDEX idx_sip_profile_settings_profile_uuid_name ON public.sip_profile_settings (profile_uuid, name);
 
 -- Table to store gateways associated with SIP profiles
 CREATE TABLE public.sip_profile_gateways (
     gateway_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_uuid UUID REFERENCES public.sip_profiles(profile_uuid) ON DELETE CASCADE,
     gateway_name VARCHAR(255) NOT NULL,
+    gateway_enabled BOOLEAN DEFAULT TRUE, 
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE, 
+    update_user UUID,
     CONSTRAINT unique_sip_profile_gateway UNIQUE (profile_uuid, gateway_name)
 );
 
--- Index to improve queries by profile_uuid and gateway_name
-CREATE INDEX idx_sip_profile_gateways_profile_uuid_gateway_name ON public.sip_profile_gateways (profile_uuid, gateway_name);
-
--- New table to store individual settings for gateways
+-- Table to store individual settings for gateways
 CREATE TABLE public.sip_profile_gateway_settings (
     setting_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     gateway_uuid UUID REFERENCES public.sip_profile_gateways(gateway_uuid) ON DELETE CASCADE,
@@ -279,13 +189,118 @@ CREATE TABLE public.sip_profile_gateway_settings (
     value TEXT NOT NULL,
     insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE, 
+    update_user UUID,
     CONSTRAINT unique_sip_profile_gateway_setting UNIQUE (gateway_uuid, name)
 );
 
--- Index to improve queries by gateway_uuid and name
+-- Define a function to automatically update the update_date column
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.update_date = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers to update the update_date column automatically
+CREATE TRIGGER update_tenants_timestamp
+    BEFORE UPDATE ON public.tenants
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_tenant_settings_timestamp
+    BEFORE UPDATE ON public.tenant_settings
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_sip_users_timestamp
+    BEFORE UPDATE ON public.sip_users
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_groups_timestamp
+    BEFORE UPDATE ON public.groups
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_user_groups_timestamp
+    BEFORE UPDATE ON public.user_groups
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_dialplan_contexts_timestamp
+    BEFORE UPDATE ON public.dialplan_contexts
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_dialplan_extensions_timestamp
+    BEFORE UPDATE ON public.dialplan_extensions
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_dialplan_conditions_timestamp
+    BEFORE UPDATE ON public.dialplan_conditions
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_dialplan_actions_timestamp
+    BEFORE UPDATE ON public.dialplan_actions
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_sip_profiles_timestamp
+    BEFORE UPDATE ON public.sip_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_sip_profile_settings_timestamp
+    BEFORE UPDATE ON public.sip_profile_settings
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_sip_profile_gateway_timestamp
+    BEFORE UPDATE ON public.sip_profile_gateway
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_sip_profile_gateway_settings_timestamp
+    BEFORE UPDATE ON public.sip_profile_gateway_settings
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+
+-- Create indexes to optimize query performance
+CREATE INDEX idx_tenants_name ON public.tenants (name);
+CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);
+CREATE INDEX idx_tenants_parent_tenant_uuid ON public.tenants (parent_tenant_uuid);
+CREATE INDEX idx_tenant_settings_tenant_uuid ON public.tenant_settings (tenant_uuid);
+CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_users (tenant_uuid);
+CREATE INDEX idx_sip_users_username ON public.sip_users (username);
+CREATE INDEX idx_groups_tenant_uuid ON public.groups (tenant_uuid);
+CREATE INDEX idx_groups_group_name ON public.groups (group_name);
+CREATE INDEX idx_user_groups_tenant_uuid ON public.user_groups (tenant_uuid);
+CREATE INDEX idx_user_groups_sip_user_uuid ON public.user_groups (sip_user_uuid);
+CREATE INDEX idx_user_groups_group_uuid ON public.user_groups (group_uuid);
+CREATE INDEX idx_dialplan_extensions_context_uuid ON public.dialplan_extensions(context_uuid);
+CREATE INDEX idx_dialplan_conditions_extension_uuid ON public.dialplan_conditions(extension_uuid);
+CREATE INDEX idx_dialplan_actions_condition_uuid ON public.dialplan_actions(condition_uuid);
+CREATE INDEX idx_sip_profiles_tenant_uuid_profile_name ON public.sip_profiles (tenant_uuid, profile_name);
+CREATE INDEX idx_sip_profile_settings_profile_uuid_name ON public.sip_profile_settings (profile_uuid, name);
+CREATE INDEX idx_sip_profile_gateways_profile_uuid_gateway_name ON public.sip_profile_gateways (profile_uuid, gateway_name);
 CREATE INDEX idx_sip_profile_gateway_settings_gateway_uuid_name ON public.sip_profile_gateway_settings (gateway_uuid, name);
 
+-- Insert a default tenant
+INSERT INTO public.tenants (name, domain_name, tenant_enabled, insert_user)
+VALUES ('Default', '192.168.10.21', TRUE, NULL)
+ON CONFLICT (name) DO NOTHING;
+
+-- Create the ring2all role if it doesn't exist and grant privileges
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
+        CREATE ROLE $r2a_user WITH LOGIN PASSWORD '$r2a_password';
+    END IF;
+END $$;
+
+GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
+
 -- Set the ring2all user as the owner of all tables
+ALTER TABLE public.tenants OWNER TO $r2a_user;
+ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
+ALTER TABLE public.sip_users OWNER TO $r2a_user;
+ALTER TABLE public.groups OWNER TO $r2a_user;
+ALTER TABLE public.user_groups OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_extensions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_conditions OWNER TO $r2a_user;
@@ -294,3 +309,6 @@ ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_settings OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_gateways OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_gateway_settings OWNER TO $r2a_user;
+
+-- Grant EXECUTE on the trigger function to ring2all
+GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;;
