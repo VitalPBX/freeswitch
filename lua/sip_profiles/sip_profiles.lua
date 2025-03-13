@@ -1,107 +1,165 @@
 --[[ 
     sip_profiles.lua
-    Dynamically generates Sofia SIP configuration for FreeSWITCH, mimicking FusionPBX format.
+    Dynamically generates Sofia SIP configuration for FreeSWITCH using database-driven profiles.
+    Resolves variables prefixed with $$ using FreeSWITCH global variables or predefined fallbacks.
+    Author: [Your Name]
+    Date: March 13, 2025
 --]]
 
+-- Main function executed by FreeSWITCH
 return function(settings)
-    -- Logging function with respect to debug settings
+    -- Logging utility function
+    -- @param level Log level (e.g., "info", "debug", "warning")
+    -- @param message Message to log
     local function log(level, message)
         if level == "debug" and not settings.debug then return end
         freeswitch.consoleLog(level, "[Sofia Profiles] " .. message .. "\n")
     end
 
-    log("info", "Starting sofia_profiles.lua")
+    log("info", "Initializing SIP profile generation")
 
-    -- Establish ODBC database connection using FreeSWITCH Dbh
-    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
+    -- Database connection using ODBC
+    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to database")
 
-    -- Start generating the XML response in FusionPBX format
-    local xml = '<?xml version="1.0" encoding="utf-8"?>\n' ..
-                '<document type="freeswitch/xml">\n' ..
-                '  <section name="configuration">\n' ..
-                '    <configuration name="sofia.conf" description="sofia Endpoint">\n' ..
-                '      <global_settings>\n' ..
-                '        <param name="log-level" value="0"/>\n' ..
-                '        <param name="debug-presence" value="0"/>\n' ..
-                '      </global_settings>\n' ..
-                '      <profiles>\n'
+    -- FreeSWITCH API instance
+    local api = freeswitch.API()
 
-    -- Query to fetch all SIP profiles
-    local profile_query = "SELECT profile_uuid, profile_name FROM public.sip_profiles"
-    log("debug", "Executing query: " .. profile_query)
+    -- Fetch global variables from FreeSWITCH
+    local vars = api:execute("global_getvar", "") or ""
+    log("debug", "Global variables loaded:\n" .. vars)
 
-    local profiles_found = false
-    local row_count = 0
-
-    -- Execute the profile query and log results
-    dbh:query(profile_query, function(profile_row)
-        row_count = row_count + 1
-        profiles_found = true
-        local profile_uuid = profile_row.profile_uuid
-        local profile_name = profile_row.profile_name
-
-        log("info", "Found profile: " .. profile_name .. " with UUID: " .. profile_uuid)
-
-        -- Start profile XML
-        xml = xml .. '        <profile name="' .. profile_name .. '">\n' ..
-                    '          <aliases>\n' ..
-                    '          </aliases>\n' ..
-                    '          <gateways>\n'
-
-        -- Fetch gateways for this profile
-        local gateways_query = "SELECT gateway_uuid, gateway_name FROM public.sip_profile_gateways WHERE profile_uuid = '" .. profile_uuid .. "'"
-        log("debug", "Executing gateways query: " .. gateways_query)
-        dbh:query(gateways_query, function(gateway_row)
-            local gateway_uuid = gateway_row.gateway_uuid
-            local gateway_name = gateway_row.gateway_name
-
-            log("debug", "Generating gateway: " .. gateway_name .. " for profile: " .. profile_name)
-            xml = xml .. '            <gateway name="' .. gateway_name .. '">\n'
-
-            -- Fetch gateway settings
-            local gw_settings_query = "SELECT name, value FROM public.sip_profile_gateway_settings WHERE gateway_uuid = '" .. gateway_uuid .. "'"
-            log("debug", "Executing gateway settings query: " .. gw_settings_query)
-            dbh:query(gw_settings_query, function(gw_setting_row)
-                xml = xml .. '              <param name="' .. gw_setting_row.name .. '" value="' .. gw_setting_row.value .. '"/>\n'
-            end)
-
-            xml = xml .. '            </gateway>\n'
-        end)
-
-        xml = xml .. '          </gateways>\n' ..
-                    '          <domains>\n' ..
-                    '            <domain name="all" alias="false" parse="false"/>\n' ..
-                    '          </domains>\n' ..
-                    '          <settings>\n'
-
-        -- Fetch settings for this profile
-        local settings_query = "SELECT name, value FROM public.sip_profile_settings WHERE profile_uuid = '" .. profile_uuid .. "'"
-        log("debug", "Executing settings query: " .. settings_query)
-        dbh:query(settings_query, function(setting_row)
-            xml = xml .. '            <param name="' .. setting_row.name .. '" value="' .. setting_row.value .. '"/>\n'
-        end)
-
-        -- Close profile XML
-        xml = xml .. '          </settings>\n' ..
-                    '        </profile>\n'
-    end)
-
-    log("info", "Total profiles found: " .. row_count)
-
-    if not profiles_found then
-        log("warning", "No profiles found in sip_profiles table")
+    -- Parse global variables into a lookup table
+    local global_vars = {}
+    for line in vars:gmatch("[^\n]+") do
+        local name, value = line:match("^([^=]+)=(.+)$")
+        if name and value then
+            global_vars[name] = value
+            log("debug", "Loaded variable: " .. name .. " = " .. value)
+        end
     end
 
-    -- Complete the XML document
-    xml = xml .. '      </profiles>\n' ..
-                '    </configuration>\n' ..
-                '  </section>\n' ..
-                '</document>'
+    -- Fallback values for unresolved variables
+    local fallback_vars = {
+        local_ip_v4 = "192.168.10.22",
+        external_sip_ip = "186.77.196.70",
+        external_sip_port = "5080",
+        external_tls_port = "5081",
+        global_codec_prefs = "OPUS,G722,PCMU,PCMA,H264,VP8",
+        hold_music = "local_stream://moh",
+        sip_tls_version = "tlsv1,tlsv1.1,tlsv1.2",
+        external_ssl_enable = "false",
+        internal_sip_port = "5060",
+        internal_tls_port = "5061",
+        internal_ssl_enable = "false",
+        internal_ssl_dir = "/etc/freeswitch/tls",
+        sip_tls_ciphers = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH",
+        domain = "192.168.10.22",
+        recordings_dir = "/var/lib/freeswitch/recordings",
+        internal_auth_calls = "true",
+        external_rtp_ip = "186.77.196.70"
+    }
 
-    -- Set the XML response to FreeSWITCH
-    XML_STRING = xml
-    log("debug", "Generated XML:\n" .. xml)
+    -- Resolve $$ variables in a string
+    -- @param str Input string containing variables (e.g., "$${var_name}")
+    -- @return String with variables replaced by their values or original string if unresolved
+    local function replace_vars(str)
+        log("debug", "Processing string: " .. str)
+        local resolved = str:gsub("%$%${([^}]+)}", function(var_name)
+            local value = global_vars[var_name] or fallback_vars[var_name]
+            if value then
+                log("debug", "Resolved $$" .. var_name .. " to: " .. value)
+                return value
+            end
+            log("warning", "Variable $$" .. var_name .. " not found")
+            return "" -- Return empty string if variable is unresolved
+        end)
+        log("debug", "Result: " .. resolved)
+        return resolved
+    end
 
-    -- Release the database connection
+    -- XML header and initial structure
+    local xml = {
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<document type="freeswitch/xml">',
+        '  <section name="configuration">',
+        '    <configuration name="sofia.conf" description="sofia Endpoint">',
+        '      <global_settings>',
+        '        <param name="log-level" value="0"/>',
+        '        <param name="debug-presence" value="0"/>',
+        '      </global_settings>',
+        '      <profiles>'
+    }
+
+    -- Fetch SIP profiles from database
+    local profile_query = "SELECT profile_uuid, profile_name FROM public.sip_profiles"
+    log("debug", "Running query: " .. profile_query)
+
+    local profile_count = 0
+    dbh:query(profile_query, function(row)
+        profile_count = profile_count + 1
+        local uuid, name = row.profile_uuid, row.profile_name
+        log("info", "Processing profile: " .. name .. " (UUID: " .. uuid .. ")")
+
+        -- Add profile opening tags
+        table.insert(xml, '        <profile name="' .. name .. '">')
+        table.insert(xml, '          <aliases>')
+        table.insert(xml, '          </aliases>')
+        table.insert(xml, '          <gateways>')
+
+        -- Fetch and process gateways
+        local gw_query = "SELECT gateway_uuid, gateway_name FROM public.sip_profile_gateways WHERE profile_uuid = '" .. uuid .. "'"
+        log("debug", "Running gateway query: " .. gw_query)
+        dbh:query(gw_query, function(gw_row)
+            local gw_uuid, gw_name = gw_row.gateway_uuid, gw_row.gateway_name
+            log("debug", "Adding gateway: " .. gw_name)
+            table.insert(xml, '            <gateway name="' .. gw_name .. '">')
+
+            -- Fetch gateway settings
+            local gw_settings_query = "SELECT name, value FROM public.sip_profile_gateway_settings WHERE gateway_uuid = '" .. gw_uuid .. "'"
+            log("debug", "Running gateway settings query: " .. gw_settings_query)
+            dbh:query(gw_settings_query, function(setting)
+                local value = replace_vars(setting.value)
+                table.insert(xml, '              <param name="' .. setting.name .. '" value="' .. value .. '"/>')
+            end)
+
+            table.insert(xml, '            </gateway>')
+        end)
+
+        -- Add domains and settings
+        table.insert(xml, '          </gateways>')
+        table.insert(xml, '          <domains>')
+        table.insert(xml, '            <domain name="all" alias="false" parse="false"/>')
+        table.insert(xml, '          </domains>')
+        table.insert(xml, '          <settings>')
+
+        -- Fetch profile settings
+        local settings_query = "SELECT name, value FROM public.sip_profile_settings WHERE profile_uuid = '" .. uuid .. "'"
+        log("debug", "Running settings query: " .. settings_query)
+        dbh:query(settings_query, function(setting)
+            local value = replace_vars(setting.value)
+            table.insert(xml, '            <param name="' .. setting.name .. '" value="' .. value .. '"/>')
+        end)
+
+        -- Close profile
+        table.insert(xml, '          </settings>')
+        table.insert(xml, '        </profile>')
+    end)
+
+    log("info", "Total profiles processed: " .. profile_count)
+    if profile_count == 0 then
+        log("warning", "No profiles found in database")
+    end
+
+    -- Complete XML structure
+    table.insert(xml, '      </profiles>')
+    table.insert(xml, '    </configuration>')
+    table.insert(xml, '  </section>')
+    table.insert(xml, '</document>')
+
+    -- Join XML lines and set response
+    XML_STRING = table.concat(xml, "\n")
+    log("debug", "Generated XML:\n" .. XML_STRING)
+
+    -- Clean up database connection
     dbh:release()
 end
