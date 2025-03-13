@@ -40,15 +40,30 @@ if source == "xml_handlers" then
         local config_name = XML_REQUEST["key_value"]
         log("DEBUG", "Configuration name: " .. (config_name or "unknown"))
         if config_name == "sofia.conf" then
-            -- Load the SIP profiles handler script and capture its return value
             local sofia_profiles = dofile("/usr/share/freeswitch/scripts/xml_handlers/sip_profiles/sip_profiles.lua")
             if type(sofia_profiles) == "function" then
-                sofia_profiles(settings) -- Execute the function with settings
+                sofia_profiles(settings)
             else
                 log("ERR", "sip_profiles.lua did not return a function")
-                XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
             end
+        elseif config_name == "spandsp.conf" then
+            -- Future handler for spandsp.conf
+            log("INFO", "spandsp.conf handler not implemented yet")
+            XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
+        elseif config_name == "loopback.conf" then
+            -- Future handler for loopback.conf
+            log("INFO", "loopback.conf handler not implemented yet")
+            XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
+        elseif config_name == "enum.conf" then
+            -- Future handler for enum.conf
+            log("INFO", "enum.conf handler not implemented yet")
+            XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
+        elseif config_name == "timezones.conf" then
+            -- Future handler for timezones.conf
+            log("INFO", "timezones.conf handler not implemented yet")
+            XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
         else
+            -- Log an error if the section is not recognized
             log("WARNING", "No handler for configuration: " .. (config_name or "unknown"))
             XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
         end
