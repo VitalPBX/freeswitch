@@ -311,7 +311,7 @@ CREATE INDEX idx_sip_profile_gateway_settings_gateway_uuid ON public.sip_profile
 
 -- Insert a default tenant if it does not already exist
 INSERT INTO public.tenants (name, domain_name, enabled, insert_user)
-VALUES ('Default', '192.168.10.21', TRUE, NULL)
+VALUES ('Default', '192.168.10.22', TRUE, NULL)
 ON CONFLICT (name) DO NOTHING;
 
 -- Create the ring2all role if it does not exist and configure privileges
