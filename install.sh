@@ -435,7 +435,7 @@ echo -e "************************************************************"
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout /etc/freeswitch/tls/wss.pem \
     -out /etc/freeswitch/tls/wss.pem \
-    -subj "/C=US/ST=FL/L=Miami/O=Ring2All/OU=Unit/CN=freeswitch"
+    -subj "/C=US/ST=FL/L=Miami/O=Ring2All/OU=Unit/CN=$LOCAL_IP"
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
