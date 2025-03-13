@@ -378,10 +378,10 @@ python3 sip_profiles_migrate_to_db.py
 echo -e "************************************************************"
 echo -e "*               Move sip_profiles files                    *"
 echo -e "************************************************************"
-# mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
-# mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
-# mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
-# mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
+mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
+mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
+mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
+mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
 
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
