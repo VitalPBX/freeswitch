@@ -116,7 +116,7 @@ echo -e "*              Installing essential packages               *"
 echo -e "************************************************************"
 # Install basic dependencies
 apt update && apt upgrade -y
-apt install -y sudo gnupg2 wget lsb-release curl sngrep
+apt install -y sudo gnupg2 wget lsb-release curl sngrep net-tools
 
 # Install PostgreSQL
 echo -e "************************************************************"
