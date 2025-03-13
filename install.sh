@@ -394,10 +394,10 @@ sudo -u postgres psql ring2all -c "UPDATE tenants SET domain_name='$LOCAL_IP' WH
 echo -e "************************************************************"
 echo -e "*                   Create main.lua file                   *"
 echo -e "************************************************************"
-mkdir -p /usr/share/freeswitch/scripts/main
+mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers
 mkdir -p /usr/share/freeswitch/scripts/resources/settings
 mv main.lua /usr/share/freeswitch/scripts/main.lua
-mv index.lua /usr/share/freeswitch/scripts/main/index.lua
+mv index.lua /usr/share/freeswitch/scripts/main/xml_handlers/index.lua
 mv settings.lua /usr/share/freeswitch/scripts/resources/settings/settings.lua
 
 # Create Lua Script for management user registration (directory)
