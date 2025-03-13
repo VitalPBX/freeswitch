@@ -2,7 +2,7 @@
 -- Description: Creates and configures the ring2all database for FreeSWITCH integration.
 --              Includes tables for tenants, SIP users, groups, dialplans, and SIP profiles,
 --              with triggers for automatic updates and optimized indexes for performance.
--- Usage: sudo -u postgres psql -d ring2all -f create_ring2all.sql
+-- Usage: sudo -u postgres psql -d ring2all -f ring2all.sql
 -- Prerequisites: Replace $r2a_database, $r2a_user, and $r2a_password with actual values before running.
 
 -- Create the ring2all database if it does not exist
