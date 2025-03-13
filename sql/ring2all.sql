@@ -8,7 +8,7 @@
 -- Create the ring2all database if it does not exist
 -- Note: This assumes execution as the postgres superuser
 
-CREATE DATABASE '$r2a_database';
+CREATE DATABASE $r2a_database;
 
 -- Connect to the ring2all database
 \connect $r2a_database
