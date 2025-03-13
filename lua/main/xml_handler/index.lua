@@ -24,18 +24,18 @@ log("INFO", "Main.lua is handling XML request for section: " .. section .. ", so
 
     if section == "directory" then
         -- Load the SIP registration handler script and pass settings as an argument
-        local sip_register = dofile("/usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua")
+        local sip_register = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/directory/sip_register.lua")
         sip_register(settings)
     elseif section == "dialplan" then
         -- Load the dialplan handler script and pass settings as an argument
-        local dialplan = dofile("/usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua")
+        local dialplan = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua")
         dialplan(settings)
     elseif section == "configuration" then
         -- Check if the configuration request is for sofia.conf
         local config_name = XML_REQUEST["key_value"]
         log("DEBUG", "Configuration name: " .. (config_name or "unknown"))
         if config_name == "sofia.conf" then
-            local sofia_profiles = dofile("/usr/share/freeswitch/scripts/xml_handlers/sip_profiles/sip_profiles.lua")
+            local sofia_profiles = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua")
             if type(sofia_profiles) == "function" then
                 sofia_profiles(settings)
             else
