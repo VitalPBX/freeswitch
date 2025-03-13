@@ -329,7 +329,7 @@ wget -O sip_profiles_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX
 # Lua Files
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
 wget -O index.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/index.lua
-wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/resources/settings.lua
+wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/resources/settings/settings.lua
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/directory/sip_register.lua
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
 wget -O sip_profiles.lua https://github.com/VitalPBX/freeswitch/blob/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
@@ -394,30 +394,32 @@ sudo -u postgres psql ring2all -c "UPDATE tenants SET domain_name='$LOCAL_IP' WH
 echo -e "************************************************************"
 echo -e "*                   Create main.lua file                   *"
 echo -e "************************************************************"
+mkdir -p /usr/share/freeswitch/scripts/main
 mkdir -p /usr/share/freeswitch/scripts/resources/settings
 mv main.lua /usr/share/freeswitch/scripts/main.lua
+mv index.lua /usr/share/freeswitch/scripts/main/index.lua
 mv settings.lua /usr/share/freeswitch/scripts/resources/settings/settings.lua
 
 # Create Lua Script for management user registration (directory)
 echo -e "************************************************************"
 echo -e "*     Create Lua Script for management user registration   *"
 echo -e "************************************************************"
-mkdir -p /usr/share/freeswitch/scripts/xml_handlers/directory
-mv sip_register.lua /usr/share/freeswitch/scripts/xml_handlers/directory/sip_register.lua
+mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/directory
+mv sip_register.lua /usr/share/freeswitch/scripts/main/xml_handlers/directory/sip_register.lua
 
 # Create Lua Script for management dialplan (dialplan)
 echo -e "************************************************************"
 echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
-mkdir -p /usr/share/freeswitch/scripts/xml_handlers/dialplan
-mv dialplan.lua /usr/share/freeswitch/scripts/xml_handlers/dialplan/dialplan.lua
+mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/dialplan
+mv dialplan.lua /usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua
 
 # Create Lua Script for management dialplan (dialplan)
 echo -e "************************************************************"
 echo -e "*         Create Lua Script for management dialplan        *"
 echo -e "************************************************************"
-mkdir -p /usr/share/freeswitch/scripts/xml_handlers/sip_profiles
-mv sip_profiles.lua /usr/share/freeswitch/scripts/xml_handlers/sip_profiles/sip_profiles.lua
+mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles
+mv sip_profiles.lua /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua
 
 # FreeSWITCH, allowing it to freeswitch manage from Database
 echo -e "************************************************************"
