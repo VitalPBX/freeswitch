@@ -10,7 +10,7 @@ local source = argv[1] or "unknown"
 -- Extract the XML section from the XML_REQUEST table provided by FreeSWITCH
 local section = XML_REQUEST["section"]
 
--- Load the settings.lua file containing configuration variables (e.g., debug)
+-- Load the settings.lua file using module notation relative to script-directory
 local settings = require("resources.settings.settings")
 
 -- Define a logging function to output messages to the FreeSWITCH console, respecting the debug setting
@@ -22,8 +22,8 @@ function log(level, message)
     freeswitch.consoleLog(level, "[Main] " .. message .. "\n")
 end
 
--- Log an info message indicating the section being processed
-log("INFO", "Processing XML request for section: " .. section .. ", source: " .. source)
+-- Log an info message indicating the script is running
+log("INFO", "Main.lua is handling XML request for section: " .. section .. ", source: " .. source)
 
 -- Check if the source is "xml_handlers" to route to specific handler scripts
 if source == "xml_handlers" then
@@ -40,9 +40,14 @@ if source == "xml_handlers" then
         local config_name = XML_REQUEST["key_value"]
         log("DEBUG", "Configuration name: " .. (config_name or "unknown"))
         if config_name == "sofia.conf" then
-            -- Load the SIP profiles handler script and pass settings as an argument
+            -- Load the SIP profiles handler script and capture its return value
             local sofia_profiles = dofile("/usr/share/freeswitch/scripts/xml_handlers/sip_profiles/sip_profiles.lua")
-            sofia_profiles(settings)
+            if type(sofia_profiles) == "function" then
+                sofia_profiles(settings) -- Execute the function with settings
+            else
+                log("ERR", "sip_profiles.lua did not return a function")
+                XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
+            end
         else
             log("WARNING", "No handler for configuration: " .. (config_name or "unknown"))
             XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="configuration"></section></document>'
