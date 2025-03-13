@@ -5,7 +5,9 @@
 --]]
 
 -- Get the source argument passed to the script, default to "unknown" if not provided
-local source = argv[1] or "unknown"
+local app_name = argv[1] or "unknown"
+
+local scripts_dir = "/usr/share/freeswitch/scripts"
 
 -- Extract the XML section from the XML_REQUEST table provided by FreeSWITCH
 local section = XML_REQUEST["section"]
@@ -23,7 +25,7 @@ function log(level, message)
 end
 
 -- Log an info message indicating the script is running
-log("INFO", "Main.lua is handling XML request for section: " .. section .. ", source: " .. source)
+log("INFO", "Main.lua is handling XML request for section: " .. section)
 
 --for loop through arguments
 	arguments = "";
