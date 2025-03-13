@@ -376,7 +376,6 @@ sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_password/$r2a_password/g" sip_profiles_migrate_to_db.py
 python3 sip_profiles_migrate_to_db.py
 
-
 # Rename the sip profiles files so they are not loaded 
 echo -e "************************************************************"
 echo -e "*               Move sip_profiles files                    *"
