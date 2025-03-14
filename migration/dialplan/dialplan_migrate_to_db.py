@@ -14,7 +14,6 @@ ODBC_DSN = "ring2all"
 
 # File directories for dialplans and IVR menus
 DIALPLAN_DIR = "/etc/freeswitch/dialplan"
-IVR_MENU_DIR = "/etc/freeswitch/ivr_menus"
 DEFAULT_TENANT_NAME = "Default"
 
 def connect_db():
@@ -94,39 +93,65 @@ def get_or_insert_context(conn, context_name, tenant_uuid):
 
 def insert_extension(conn, context_uuid, extension_name, continue_val, priority=1):
     """
-    Inserts a new extension into the database under the given context.
-
-    Parameters:
-    - conn: Database connection object.
-    - context_uuid: UUID of the associated dialplan context.
-    - extension_name: Name of the extension.
-    - continue_val: Boolean indicating if the extension should continue processing.
-    - priority: Priority of the extension (default: 1).
-
-    Returns:
-    - The UUID of the inserted extension.
+    Inserts an extension into the database under a specific context.
     """
     extension_uuid = str(uuid.uuid4())
     try:
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO public.dialplan_extensions (extension_uuid, context_uuid, extension_name, continue, priority)
-            VALUES (?, ?, ?, ?, ?)
-            RETURNING extension_uuid;
+            VALUES (?, ?, ?, ?, ?);
         """, (extension_uuid, context_uuid, extension_name, continue_val, priority))
-        result = cur.fetchone()
         conn.commit()
-        logging.info(f"Extension '{extension_name}' inserted with UUID: {result[0]}")
-        return result[0]
+        logging.info(f"Extension '{extension_name}' inserted with UUID: {extension_uuid}")
+        return extension_uuid
     except Exception as e:
         conn.rollback()
         logging.error(f"Error inserting extension '{extension_name}': {e}")
         raise
 
+def insert_condition(conn, extension_uuid, field, expression, break_on_match, condition_order=1):
+    """
+    Inserts a condition into the database under a specific extension.
+    """
+    condition_uuid = str(uuid.uuid4())
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO public.dialplan_conditions 
+            (condition_uuid, extension_uuid, field, expression, break_on_match, condition_order)
+            VALUES (?, ?, ?, ?, ?, ?);
+        """, (condition_uuid, extension_uuid, field, expression, break_on_match, condition_order))
+        conn.commit()
+        logging.info(f"Condition inserted for extension UUID '{extension_uuid}' with UUID: {condition_uuid}")
+        return condition_uuid
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error inserting condition: {e}")
+        raise
+
+def insert_action(conn, condition_uuid, action_type, application, data, action_order):
+    """
+    Inserts an action into the database under a specific condition.
+    """
+    action_uuid = str(uuid.uuid4())
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO public.dialplan_actions 
+            (action_uuid, condition_uuid, action_type, application, data, action_order)
+            VALUES (?, ?, ?, ?, ?, ?);
+        """, (action_uuid, condition_uuid, action_type, application, data, action_order))
+        conn.commit()
+        logging.info(f"Action '{application}' inserted for condition UUID '{condition_uuid}'")
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error inserting action '{application}': {e}")
+        raise
+
 def migrate_dialplan(conn, tenant_uuid, directory):
     """
     Reads dialplan XML files from the specified directory and inserts them into the database.
-    This process ensures that each context, extension, condition, and action is properly stored.
     """
     for root, _, files in os.walk(directory):
         for file in files:
@@ -137,17 +162,14 @@ def migrate_dialplan(conn, tenant_uuid, directory):
                     tree = ET.parse(file_path)
                     xml_root = tree.getroot()
 
-                    # Extract the context name from the XML file
                     context_name = xml_root.get('name', 'default')
                     context_uuid = get_or_insert_context(conn, context_name, tenant_uuid)
 
-                    # Iterate over all extensions in the XML file
                     for extension in xml_root.findall('.//extension'):
                         extension_name = extension.get('name', 'unnamed')
                         continue_val = extension.get('continue', 'false') == 'true'
                         extension_uuid = insert_extension(conn, context_uuid, extension_name, continue_val)
 
-                        # Process conditions within the extension
                         condition_order = 1
                         for condition in extension.findall('condition'):
                             field = condition.get('field', '')
@@ -156,7 +178,6 @@ def migrate_dialplan(conn, tenant_uuid, directory):
                             condition_uuid = insert_condition(conn, extension_uuid, field, expression, break_on_match, condition_order)
                             condition_order += 1
 
-                            # Process actions within the condition
                             action_order = 1
                             for action in condition.findall('action'):
                                 application = action.get('application', '')
@@ -168,13 +189,6 @@ def migrate_dialplan(conn, tenant_uuid, directory):
                     logging.error(f"Error processing {file_path}: {e}")
 
 def main():
-    """
-    Executes the migration process:
-    1. Establishes a database connection.
-    2. Retrieves the default tenant UUID.
-    3. Deletes existing dialplan data.
-    4. Migrates dialplans from XML files into the database.
-    """
     conn = None
     try:
         conn = connect_db()
