@@ -262,6 +262,7 @@ python3 -m venv ~/myenv
 
 # Activate and deactivate virtual environment (verification step)
 source ~/myenv/bin/activate
+pip install pyodbc
 deactivate
 
 # Configure ODBC for PostgreSQL
