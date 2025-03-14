@@ -46,7 +46,16 @@ def migrate_dialplan():
                 for extension in xml_root.findall('.//extension'):
                     extension_name = extension.get('name', 'unnamed')
                     continue_val = extension.get('continue', 'false') == 'true'
-                    cur.execute("INSERT INTO public.dialplan_extensions (context_uuid, extension_name, continue) VALUES (?, ?, ?) RETURNING extension_uuid", (context_uuid, extension_name, continue_val))
+                    cur.execute("""
+                        INSERT INTO public.dialplan_extensions (context_uuid, extension_name, continue)
+                        VALUES (?, ?, ?)
+                    """, (context_uuid, extension_name, continue_val))
+
+                    # Recuperar el UUID recién insertado
+                    cur.execute("""
+                        SELECT extension_uuid FROM public.dialplan_extensions
+                        WHERE context_uuid = ? AND extension_name = ? ORDER BY insert_date DESC LIMIT 1
+                    """, (context_uuid, extension_name))
                     extension_uuid = cur.fetchone()[0]
                     
                     for condition in extension.findall('condition'):
