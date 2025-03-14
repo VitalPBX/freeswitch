@@ -332,7 +332,7 @@ wget -O index.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/hea
 wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/resources/settings/settings.lua
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/directory/sip_register.lua
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
-wget -O sip_profiles.lua https://github.com/VitalPBX/freeswitch/blob/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
+wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
 
 # Move sip_profiles files to /etc/freeswitch/sip_profiles/
