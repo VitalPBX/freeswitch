@@ -172,15 +172,6 @@ return function(settings)
         log("warning", "Failed to save XML configuration to /tmp/sofia_profiles.xml")
     end
 
-    -- Automatically start all defined profiles if any were found
-    if profile_count > 0 then
-        local profiles = {"internal", "external", "internal-ipv6", "external-ipv6"}
-        for _, profile in ipairs(profiles) do
-            api:execute("sofia", "profile " .. profile .. " start")
-            log("info", "Automatically started profile '" .. profile .. "'")
-        end
-    end
-
     -- Release the database connection
     dbh:release()
 end
