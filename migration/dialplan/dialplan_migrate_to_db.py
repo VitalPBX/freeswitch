@@ -92,6 +92,37 @@ def get_or_insert_context(conn, context_name, tenant_uuid):
         logging.error(f"Error getting or inserting context '{context_name}': {e}")
         raise
 
+def insert_extension(conn, context_uuid, extension_name, continue_val, priority=1):
+    """
+    Inserts a new extension into the database under the given context.
+
+    Parameters:
+    - conn: Database connection object.
+    - context_uuid: UUID of the associated dialplan context.
+    - extension_name: Name of the extension.
+    - continue_val: Boolean indicating if the extension should continue processing.
+    - priority: Priority of the extension (default: 1).
+
+    Returns:
+    - The UUID of the inserted extension.
+    """
+    extension_uuid = str(uuid.uuid4())
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO public.dialplan_extensions (extension_uuid, context_uuid, extension_name, continue, priority)
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING extension_uuid;
+        """, (extension_uuid, context_uuid, extension_name, continue_val, priority))
+        result = cur.fetchone()
+        conn.commit()
+        logging.info(f"Extension '{extension_name}' inserted with UUID: {result[0]}")
+        return result[0]
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error inserting extension '{extension_name}': {e}")
+        raise
+
 def migrate_dialplan(conn, tenant_uuid, directory):
     """
     Reads dialplan XML files from the specified directory and inserts them into the database.
