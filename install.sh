@@ -254,7 +254,7 @@ fi
 echo -e "************************************************************"
 echo -e "*         Setting up Python virtual environment           *"
 echo -e "************************************************************"
-apt install -y python3-psycopg2 python3-venv python3-pip
+apt install -y python3-psycopg2 python3-venv python3-pyodbc
 
 # Create Python virtual environments
 python3 -m venv /etc/ring2all/venv
@@ -262,7 +262,6 @@ python3 -m venv ~/myenv
 
 # Activate and deactivate virtual environment (verification step)
 source ~/myenv/bin/activate
-pip install pyodbc
 deactivate
 
 # Configure ODBC for PostgreSQL
