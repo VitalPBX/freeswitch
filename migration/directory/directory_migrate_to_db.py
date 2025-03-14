@@ -1,70 +1,63 @@
+#!/usr/bin/env python3
+
 import os
 import xml.etree.ElementTree as ET
-import psycopg2
-from psycopg2 import sql
+import pyodbc
 import logging
 
-# Configure logging
+# Configure logging to record migration progress and errors
 logging.basicConfig(
     filename='migration.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Database connection configuration
-db_config = {
-    "dbname": "$r2a_database",
-    "user": "$r2a_user",
-    "password": "$r2a_password",
-    "host": "localhost",
-    "port": "5432"
-}
+# ODBC Data Source Name (DSN) defined in /etc/odbc.ini
+ODBC_DSN = "ring2all"
 
-try:
-    # Establish connection to the ring2all database
-    conn = psycopg2.connect(**db_config)
-    cur = conn.cursor()
-    logging.info("Successfully connected to the database.")
-except Exception as e:
-    logging.error(f"Failed to connect to the database: {e}")
-    raise
+# Directory containing user XML files
+USER_DIR = "/etc/freeswitch/directory/default/"
+DEFAULT_TENANT_NAME = "Default"
+INSERT_USER = None  # UUID of the user performing the migration (None if not applicable)
 
-# Tenant name and user who inserts the data (adjust as needed)
-TENANT_NAME = "Default"  # Name of the default tenant
-INSERT_USER = None       # UUID of the user performing the migration (None if not applicable)
+def connect_db():
+    """
+    Establishes a connection to the database using ODBC.
+    The DSN must be configured in /etc/odbc.ini.
+    """
+    try:
+        conn = pyodbc.connect(f"DSN={ODBC_DSN}")
+        logging.info("Successfully connected to the database via ODBC.")
+        return conn
+    except Exception as e:
+        logging.error(f"Failed to connect to the database: {e}")
+        raise
 
-# Fetch the tenant_uuid for the specified tenant
-try:
-    cur.execute(
-        sql.SQL("SELECT tenant_uuid FROM public.tenants WHERE name = %s"),
-        (TENANT_NAME,)
-    )
-    tenant_uuid = cur.fetchone()
-    if not tenant_uuid:
-        logging.error(f"Tenant '{TENANT_NAME}' not found in the tenants table.")
-        raise Exception(f"Tenant '{TENANT_NAME}' not found in the tenants table.")
-    tenant_uuid = tenant_uuid[0]
-    logging.info(f"Tenant UUID retrieved: {tenant_uuid}")
-except Exception as e:
-    logging.error(f"Error fetching tenant UUID: {e}")
-    raise
+def get_tenant_uuid(conn):
+    """
+    Retrieves the UUID of the default tenant from the database.
+    If the tenant does not exist, an error is logged.
+    """
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT tenant_uuid FROM public.tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
+        result = cur.fetchone()
+        cur.close()
+        
+        if result:
+            logging.info(f"Tenant '{DEFAULT_TENANT_NAME}' found with UUID: {result[0]}")
+            return result[0]
+        else:
+            raise Exception(f"Tenant '{DEFAULT_TENANT_NAME}' not found.")
+    except Exception as e:
+        logging.error(f"Error retrieving tenant UUID: {e}")
+        raise
 
-# Check the current state of user 1000 before migration
-try:
-    cur.execute(
-        sql.SQL("SELECT username, password FROM public.sip_users WHERE username = '1000' AND tenant_uuid = %s"),
-        (tenant_uuid,)
-    )
-    current_user = cur.fetchone()
-    if current_user:
-        logging.info(f"Before migration - User 1000: username={current_user[0]}, password={current_user[1]}")
-    else:
-        logging.info("Before migration - User 1000 not found in sip_users")
-except Exception as e:
-    logging.error(f"Error checking user 1000 before migration: {e}")
-
-# Function to parse a user XML file and extract relevant data
 def process_user_xml(file_path):
+    """
+    Parses an XML user file and extracts relevant SIP user data.
+    If an error occurs, the function returns None.
+    """
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
@@ -72,10 +65,12 @@ def process_user_xml(file_path):
         if user is not None:
             user_id = user.get("id")
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
-            variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}  # Fixed typo: param -> var
-            # Always use the user_id (extension number) as the password
-            password = user_id  # Force password to user_id, ignoring XML value
+            variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}
+
+            # Ensure password matches user_id for security purposes
+            password = user_id
             logging.info(f"Processed user XML for {user_id}, setting password to {password}")
+
             return {
                 "username": user_id,
                 "password": password,
@@ -89,181 +84,122 @@ def process_user_xml(file_path):
             }
     except Exception as e:
         logging.error(f"Error processing {file_path}: {e}")
-    return None
+        return None
 
-# Insert groups into the groups table
-groups = ["default", "sales", "billing", "support"]
-for group_name in groups:
+def insert_sip_user(conn, tenant_uuid, user_data):
+    """
+    Inserts or updates a SIP user into the database using the extracted XML data.
+    If the user already exists, it updates their information.
+    """
     try:
-        cur.execute(
-            sql.SQL("""
-                INSERT INTO public.groups (tenant_uuid, group_name, insert_user)
-                VALUES (%s, %s, %s)
-                ON CONFLICT DO NOTHING
-                RETURNING group_uuid
-            """),
-            (tenant_uuid, group_name, INSERT_USER)
-        )
-        logging.info(f"Inserted group: {group_name}")
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO public.sip_users (
+                tenant_uuid, username, password, vm_password, extension,
+                toll_allow, accountcode, user_context,
+                effective_caller_id_name, effective_caller_id_number, insert_user
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (username) 
+            DO UPDATE SET 
+                password = EXCLUDED.password,
+                vm_password = EXCLUDED.vm_password,
+                extension = EXCLUDED.extension,
+                toll_allow = EXCLUDED.toll_allow,
+                accountcode = EXCLUDED.accountcode,
+                user_context = EXCLUDED.user_context,
+                effective_caller_id_name = EXCLUDED.effective_caller_id_name,
+                effective_caller_id_number = EXCLUDED.effective_caller_id_number
+        """, (
+            tenant_uuid, user_data["username"], user_data["password"], user_data["vm_password"],
+            user_data["extension"], user_data["toll_allow"], user_data["accountcode"],
+            user_data["user_context"], user_data["effective_caller_id_name"],
+            user_data["effective_caller_id_number"], INSERT_USER
+        ))
+        
+        conn.commit()
+        logging.info(f"User {user_data['username']} inserted/updated successfully.")
+        cur.close()
     except Exception as e:
-        logging.error(f"Error inserting group {group_name}: {e}")
-conn.commit()
+        conn.rollback()
+        logging.error(f"Error inserting/updating user {user_data['username']}: {e}")
+        raise
 
-# Process all XML files in /etc/freeswitch/directory/default/
-user_dir = "/etc/freeswitch/directory/default/"
-for filename in os.listdir(user_dir):
-    if filename.endswith(".xml"):
-        file_path = os.path.join(user_dir, filename)
-        user_data = process_user_xml(file_path)
-        if user_data:
-            try:
-                # Insert or update user data into sip_users table
-                cur.execute(
-                    sql.SQL("""
-                        INSERT INTO public.sip_users (
-                            tenant_uuid, username, password, vm_password, extension,
-                            toll_allow, accountcode, user_context,
-                            effective_caller_id_name, effective_caller_id_number, insert_user
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (username) 
-                        DO UPDATE SET 
-                            password = EXCLUDED.password,
-                            vm_password = EXCLUDED.vm_password,
-                            extension = EXCLUDED.extension,
-                            toll_allow = EXCLUDED.toll_allow,
-                            accountcode = EXCLUDED.accountcode,
-                            user_context = EXCLUDED.user_context,
-                            effective_caller_id_name = EXCLUDED.effective_caller_id_name,
-                            effective_caller_id_number = EXCLUDED.effective_caller_id_number
-                        RETURNING sip_user_uuid
-                    """),
-                    (
-                        tenant_uuid, user_data["username"], user_data["password"], user_data["vm_password"],
-                        user_data["extension"], user_data["toll_allow"], user_data["accountcode"],
-                        user_data["user_context"], user_data["effective_caller_id_name"],
-                        user_data["effective_caller_id_number"], INSERT_USER
-                    )
-                )
-                sip_user_uuid = cur.fetchone()[0]
-                logging.info(f"Inserted/Updated user: {user_data['username']} with UUID {sip_user_uuid}, password set to {user_data['password']}")
-                
-                # Associate the user with the "default" group
-                cur.execute(
-                    sql.SQL("SELECT group_uuid FROM public.groups WHERE group_name = 'default' AND tenant_uuid = %s"),
-                    (tenant_uuid,)
-                )
-                group_uuid = cur.fetchone()[0]
-                cur.execute(
-                    sql.SQL("""
-                        INSERT INTO public.user_groups (sip_user_uuid, group_uuid, tenant_uuid, insert_user)
-                        VALUES (%s, %s, %s, %s)
-                        ON CONFLICT DO NOTHING
-                    """),
-                    (sip_user_uuid, group_uuid, tenant_uuid, INSERT_USER)
-                )
-                logging.info(f"Associated user {user_data['username']} with default group")
-            except Exception as e:
-                logging.error(f"Error inserting/updating user {user_data['username']}: {e}")
+def migrate_users(conn, tenant_uuid):
+    """
+    Reads XML files from the user directory and inserts users into the database.
+    """
+    for filename in os.listdir(USER_DIR):
+        if filename.endswith(".xml"):
+            file_path = os.path.join(USER_DIR, filename)
+            user_data = process_user_xml(file_path)
+            if user_data:
+                insert_sip_user(conn, tenant_uuid, user_data)
 
-# Process specific group assignments from default.xml
-default_xml_path = "/etc/freeswitch/directory/default.xml"
-try:
-    tree = ET.parse(default_xml_path)
-    root = tree.getroot()
-    logging.info("Parsed default.xml successfully")
-except Exception as e:
-    logging.error(f"Error parsing default.xml: {e}")
-
-# Define group memberships from the XML
-group_users = {
-    "sales": ["1000", "1001", "1002", "1003", "1004"],
-    "billing": ["1005", "1006", "1007", "1008", "1009"],
-    "support": ["1010", "1011", "1012", "1013", "1014"]
-}
-
-# Insert users into their respective groups
-for group_name, users in group_users.items():
+def update_all_user_passwords(conn, tenant_uuid):
+    """
+    Updates all existing users to set their password as their extension number.
+    """
     try:
-        cur.execute(
-            sql.SQL("SELECT group_uuid FROM public.groups WHERE group_name = %s AND tenant_uuid = %s"),
-            (group_name, tenant_uuid)
-        )
-        group_uuid = cur.fetchone()
-        if group_uuid:
-            group_uuid = group_uuid[0]
-            for user_id in users:
-                cur.execute(
-                    sql.SQL("SELECT sip_user_uuid FROM public.sip_users WHERE username = %s AND tenant_uuid = %s"),
-                    (user_id, tenant_uuid)
-                )
-                result = cur.fetchone()
-                if result:
-                    cur.execute(
-                        sql.SQL("""
-                            INSERT INTO public.user_groups (sip_user_uuid, group_uuid, tenant_uuid, insert_user)
-                            VALUES (%s, %s, %s, %s)
-                            ON CONFLICT DO NOTHING
-                        """),
-                        (result[0], group_uuid, tenant_uuid, INSERT_USER)
-                    )
-                    logging.info(f"Assigned user {user_id} to group {group_name}")
-                else:
-                    logging.warning(f"User {user_id} not found in sip_users for group {group_name}")
-    except Exception as e:
-        logging.error(f"Error assigning users to group {group_name}: {e}")
-
-# Explicitly update all existing users to set password to their extension number
-try:
-    cur.execute(
-        sql.SQL("""
+        cur = conn.cursor()
+        cur.execute("""
             UPDATE public.sip_users 
             SET password = username 
-            WHERE tenant_uuid = %s
-        """),
-        (tenant_uuid,)
-    )
-    affected_rows = cur.rowcount
-    logging.info(f"Updated {affected_rows} existing users' passwords to their extension numbers")
-except Exception as e:
-    logging.error(f"Error updating passwords for existing users: {e}")
+            WHERE tenant_uuid = ?
+        """, (tenant_uuid,))
+        
+        affected_rows = cur.rowcount
+        conn.commit()
+        logging.info(f"Updated {affected_rows} users' passwords to match their extensions.")
+        cur.close()
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error updating user passwords: {e}")
+        raise
 
-# Force update password for user 1000 to ensure it’s set correctly
-try:
-    cur.execute(
-        sql.SQL("""
-            UPDATE public.sip_users 
-            SET password = '1000' 
-            WHERE username = '1000' AND tenant_uuid = %s
-        """),
-        (tenant_uuid,)
-    )
-    affected_rows = cur.rowcount
-    logging.info(f"Forced password update for user 1000 to '1000', affected {affected_rows} rows")
-except Exception as e:
-    logging.error(f"Error forcing password update for user 1000: {e}")
+def verify_user_1000(conn, tenant_uuid):
+    """
+    Ensures that user 1000 exists and their password is correctly set.
+    Logs the user's final state.
+    """
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT username, password FROM public.sip_users WHERE username = '1000' AND tenant_uuid = ?
+        """, (tenant_uuid,))
+        
+        user_1000 = cur.fetchone()
+        cur.close()
 
-# Verify the final state of user 1000
-try:
-    cur.execute(
-        sql.SQL("SELECT username, password FROM public.sip_users WHERE username = '1000' AND tenant_uuid = %s"),
-        (tenant_uuid,)
-    )
-    final_user = cur.fetchone()
-    if final_user:
-        logging.info(f"After migration - User 1000: username={final_user[0]}, password={final_user[1]}")
-    else:
-        logging.info("After migration - User 1000 not found in sip_users")
-except Exception as e:
-    logging.error(f"Error verifying user 1000 after migration: {e}")
+        if user_1000:
+            logging.info(f"User 1000 final state: username={user_1000[0]}, password={user_1000[1]}")
+        else:
+            logging.warning("User 1000 not found after migration.")
+    except Exception as e:
+        logging.error(f"Error verifying user 1000: {e}")
 
-# Commit the changes and close the connection
-try:
-    conn.commit()
-    logging.info("Migration completed successfully")
-except Exception as e:
-    logging.error(f"Error committing changes: {e}")
-finally:
-    cur.close()
-    conn.close()
-    logging.info("Database connection closed")
-    print("Migration completed, check migration.log for details.")
+def main():
+    """
+    Executes the migration process:
+    1. Establishes a database connection.
+    2. Retrieves the default tenant UUID.
+    3. Reads XML user files and inserts them into the database.
+    4. Ensures all user passwords match their extensions.
+    5. Verifies that user 1000 exists.
+    """
+    conn = None
+    try:
+        conn = connect_db()
+        tenant_uuid = get_tenant_uuid(conn)
+        migrate_users(conn, tenant_uuid)
+        update_all_user_passwords(conn, tenant_uuid)
+        verify_user_1000(conn, tenant_uuid)
+        logging.info("Migration completed successfully.")
+    except Exception as e:
+        logging.error(f"Migration failed: {e}")
+    finally:
+        if conn:
+            conn.close()
+            logging.info("Database connection closed.")
+
+if __name__ == "__main__":
+    main()
