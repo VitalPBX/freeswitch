@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 import pyodbc
 import logging
 
-# Configure logging to record migration progress and errors
+# Configure logging to track migration process
 logging.basicConfig(
     filename='migration.log',
     level=logging.INFO,
@@ -19,6 +19,9 @@ ODBC_DSN = "ring2all"
 USER_DIR = "/etc/freeswitch/directory/default/"
 DEFAULT_TENANT_NAME = "Default"
 INSERT_USER = None  # UUID of the user performing the migration (None if not applicable)
+
+# New fixed password for all extensions
+FIXED_PASSWORD = "r2a2025"
 
 def connect_db():
     """
@@ -67,8 +70,8 @@ def process_user_xml(file_path):
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
             variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}
 
-            # Ensure password matches user_id for security purposes
-            password = user_id
+            # Set password to fixed value "r2a2025"
+            password = FIXED_PASSWORD
             logging.info(f"Processed user XML for {user_id}, setting password to {password}")
 
             return {
@@ -137,19 +140,19 @@ def migrate_users(conn, tenant_uuid):
 
 def update_all_user_passwords(conn, tenant_uuid):
     """
-    Updates all existing users to set their password as their extension number.
+    Updates all existing users to set their password to the fixed value "r2a2025".
     """
     try:
         cur = conn.cursor()
         cur.execute("""
             UPDATE public.sip_users 
-            SET password = username 
+            SET password = ? 
             WHERE tenant_uuid = ?
-        """, (tenant_uuid,))
+        """, (FIXED_PASSWORD, tenant_uuid))
         
         affected_rows = cur.rowcount
         conn.commit()
-        logging.info(f"Updated {affected_rows} users' passwords to match their extensions.")
+        logging.info(f"Updated {affected_rows} users' passwords to '{FIXED_PASSWORD}'.")
         cur.close()
     except Exception as e:
         conn.rollback()
@@ -183,7 +186,7 @@ def main():
     1. Establishes a database connection.
     2. Retrieves the default tenant UUID.
     3. Reads XML user files and inserts them into the database.
-    4. Ensures all user passwords match their extensions.
+    4. Ensures all user passwords are set to "r2a2025".
     5. Verifies that user 1000 exists.
     """
     conn = None
