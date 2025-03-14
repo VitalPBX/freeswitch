@@ -254,7 +254,7 @@ fi
 echo -e "************************************************************"
 echo -e "*         Setting up Python virtual environment           *"
 echo -e "************************************************************"
-apt install -y python3-psycopg2 python3-venv
+apt install -y python3-psycopg2 python3-venv python3-pip
 
 # Create Python virtual environments
 python3 -m venv /etc/ring2all/venv
