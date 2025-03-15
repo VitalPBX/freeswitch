@@ -250,6 +250,16 @@ else
   echo "❌ The $switch_conf file does not exist."
 fi
 
+echo -e "************************************************************"
+echo -e "*Change context from public to default in internal profiles*"
+echo -e "************************************************************"
+# Path to configuration file
+internal_xml="/etc/freeswitch/sip_profiles/internal.xml"
+sed -i 's|<param name="context" value="public"/>|<param name="context" value="default"/>|' "$internal_xml"
+
+internal_xml="/etc/freeswitch/sip_profiles/internal-ipv6.xml"
+sed -i 's|<param name="context" value="public"/>|<param name="context" value="default"/>|' "$internal_xml"
+
 # Install Python environment and dependencies
 echo -e "************************************************************"
 echo -e "*         Setting up Python virtual environment           *"
