@@ -344,24 +344,20 @@ wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/r
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
+# Modules Load
+wget -O modules.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/modules.conf.xml
 
-# Move sip_profiles files to /etc/freeswitch/sip_profiles/
+# Move modules.conf.xml to /etc/freeswitch/autoload_configs/
 echo -e "************************************************************"
 echo -e "*               Move sip_profiles files                    *"
 echo -e "************************************************************"
-# mv internal.xml /etc/freeswitch/sip_profiles/internal.xml
-# mv internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml
-# mv external.xml /etc/freeswitch/sip_profiles/external.xml
-# mv external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml
+mv modules.conf.xml /etc/freeswitch/autoload_configs/modules.conf.xml
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
 echo -e "*       Migrate from XML to Database Directory.            *"
 echo -e "************************************************************"
 chmod +x directory_migrate_to_db.py
-# sed -i "s/\$r2a_database/$r2a_database/g; \
-#        s/\$r2a_user/$r2a_user/g; \
-#        s/\$r2a_password/$r2a_password/g" directory_migrate_to_db.py
 python3 directory_migrate_to_db.py
 
 # Migrate from XML to Database Dialplan.
@@ -369,9 +365,6 @@ echo -e "************************************************************"
 echo -e "*       Migrate from XML to Database Dialplan.             *"
 echo -e "************************************************************"
 chmod +x dialplan_migrate_to_db.py
-# sed -i "s/\$r2a_database/$r2a_database/g; \
-#        s/\$r2a_user/$r2a_user/g; \
-#        s/\$r2a_password/$r2a_password/g" dialplan_migrate_to_db.py
 python3 dialplan_migrate_to_db.py
 
 # Migrate from XML to Database Sip Profiles.
@@ -379,19 +372,16 @@ echo -e "************************************************************"
 echo -e "*      Migrate from XML to Database Sip Profiles.          *"
 echo -e "************************************************************"
 chmod +x sip_profiles_migrate_to_db.py
-# sed -i "s/\$r2a_database/$r2a_database/g; \
-#        s/\$r2a_user/$r2a_user/g; \
-#        s/\$r2a_password/$r2a_password/g" sip_profiles_migrate_to_db.py
 python3 sip_profiles_migrate_to_db.py
 
 # Rename the sip profiles files so they are not loaded 
 echo -e "************************************************************"
 echo -e "*               Move sip_profiles files                    *"
 echo -e "************************************************************"
-# mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
-# mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
-# mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
-# mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
+mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
+mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
+mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
+mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
 
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
