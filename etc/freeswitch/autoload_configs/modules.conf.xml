@@ -1,0 +1,68 @@
+<configuration name="modules.conf" description="Modules">
+	<modules>
+
+		<!-- Core command applications -->
+		<load module="mod_commands"/>  <!-- Provides basic FreeSWITCH CLI commands -->
+		<load module="mod_memcache"/>  <!-- Enables integration with Memcache for caching -->
+
+		<!-- Scripting Languages -->
+		<load module="mod_lua"/>  <!-- Loads Lua scripting for custom scripts and dialplans -->
+
+		<!-- SIP Endpoint -->
+		<load module="mod_sofia"/>  <!-- The SIP stack, responsible for handling SIP profiles, trunks, and registrations -->
+
+		<!-- Logging Modules -->
+		<load module="mod_console"/>  <!-- Console logging -->
+		<load module="mod_syslog"/>  <!-- Sends logs to system syslog -->
+		<load module="mod_logfile"/>  <!-- Writes logs to log files -->
+
+		<!-- Additional Applications -->
+		<load module="mod_dptools"/>  <!-- Various dialplan tools and utilities -->
+		<load module="mod_callcenter"/>  <!-- Call center module for managing call queues -->
+		<load module="mod_hash"/>  <!-- Key-value hash storage for FreeSWITCH -->
+		<load module="mod_valet_parking"/>  <!-- Manages parked calls -->
+		<load module="mod_curl"/>  <!-- Enables HTTP requests inside dialplans -->
+		<load module="mod_fifo"/>  <!-- Implements first-in-first-out (FIFO) call queues -->
+		<load module="mod_conference"/>  <!-- Conference call support -->
+		<load module="mod_enum"/>  <!-- ENUM (E.164 Number Mapping) support -->
+		<load module="mod_db"/>  <!-- Enables database interaction for FreeSWITCH -->
+		<load module="mod_esf"/>  <!-- Event socket filters for handling FreeSWITCH events -->
+		<load module="mod_expr"/>  <!-- Expression evaluation module -->
+		<load module="mod_sms"/>  <!-- SMS messaging support -->
+		<load module="mod_spandsp"/>  <!-- Supports faxing and DSP processing -->
+		<load module="mod_fsv"/>  <!-- FreeSWITCH Video module for handling video streams -->
+
+		<!-- Codecs -->
+		<load module="mod_g723_1"/>  <!-- G.723.1 codec -->
+		<load module="mod_g729"/>  <!-- G.729 codec (requires a license) -->
+		<load module="mod_h26x"/>  <!-- H.26x video codec support -->
+		<load module="mod_amr"/>  <!-- AMR (Adaptive Multi-Rate) codec -->
+
+		<!-- Dialplan Processing -->
+		<load module="mod_dialplan_xml"/>  <!-- XML dialplan processor -->
+
+		<!-- Additional Endpoints -->
+		<load module="mod_loopback"/>  <!-- Internal loopback endpoint, useful for testing -->
+
+		<!-- Event Handlers -->
+		<load module="mod_event_socket"/>  <!-- Event socket interface for external applications -->
+
+		<!-- File Format Handling -->
+		<load module="mod_native_file"/>  <!-- Native FreeSWITCH file format support -->
+		<load module="mod_sndfile"/>  <!-- Support for various sound file formats -->
+
+		<!-- Text-to-Speech and Speech Recognition -->
+		<load module="mod_say_fr"/>  <!-- French TTS (Text-to-Speech) -->
+		<load module="mod_say_en"/>  <!-- English TTS -->
+		<load module="mod_say_es"/>  <!-- Spanish TTS -->
+
+		<!-- Streaming & File Management -->
+		<load module="mod_tone_stream"/>  <!-- Generates tones and audio streams -->
+		<load module="mod_local_stream"/>  <!-- Allows local file-based audio streaming -->
+		<load module="mod_shout"/>  <!-- Shoutcast/Icecast streaming module -->
+
+		<!-- XML Interfaces -->
+		<load module="mod_xml_cdr"/>  <!-- XML-based Call Detail Record (CDR) logging -->
+
+	</modules>
+</configuration>
