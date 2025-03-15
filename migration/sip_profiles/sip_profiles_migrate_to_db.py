@@ -1,189 +1,88 @@
-#!/usr/bin/env python3
-
 import os
 import xml.etree.ElementTree as ET
 import pyodbc
-import logging
+import uuid
 
-# Configure logging to track SIP profile migration
-logging.basicConfig(
-    filename='sip_profile_migration.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-# ODBC Data Source Name (DSN) defined in /etc/odbc.ini
+# ODBC Data Source Name (DSN) definido en /etc/odbc.ini
 ODBC_DSN = "ring2all"
-
-# Directory containing SIP profiles
-SIP_PROFILES_DIR = "/etc/freeswitch/sip_profiles/"
-DEFAULT_TENANT_NAME = "Default"
-INSERT_USER = None  # UUID of the user performing the migration (None if not applicable)
+SIP_PROFILES_DIR = "/etc/freeswitch/sip_profiles"
 
 def connect_db():
-    """
-    Establishes a connection to the database using ODBC.
-    The DSN must be configured in /etc/odbc.ini.
-    """
-    try:
-        conn = pyodbc.connect(f"DSN={ODBC_DSN}")
-        logging.info("Successfully connected to the database via ODBC.")
-        return conn
-    except Exception as e:
-        logging.error(f"Failed to connect to the database: {e}")
-        raise
+    conn = pyodbc.connect(f"DSN={ODBC_DSN}")
+    return conn
 
-def get_tenant_uuid(conn):
-    """
-    Retrieves the UUID of the default tenant from the database.
-    If the tenant does not exist, an error is logged.
-    """
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT tenant_uuid FROM public.tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
-        result = cur.fetchone()
-        cur.close()
-        
-        if result:
-            logging.info(f"Tenant '{DEFAULT_TENANT_NAME}' found with UUID: {result[0]}")
-            return result[0]
-        else:
-            raise Exception(f"Tenant '{DEFAULT_TENANT_NAME}' not found.")
-    except Exception as e:
-        logging.error(f"Error retrieving tenant UUID: {e}")
-        raise
-
-def process_sip_profile(file_path):
-    """
-    Parses an XML SIP profile file and extracts its configuration settings.
-    Returns a dictionary containing profile name, settings, and gateways.
-    """
+def parse_sip_profile(file_path):
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-
-        # Check if the root element is <profile>
-        if root.tag != "profile":
-            logging.warning(f"Skipping file {file_path}: Not a valid SIP profile.")
-            return None
-
         profile_name = root.get("name")
-        if not profile_name:
-            logging.warning(f"No 'name' attribute found in profile at {file_path}")
-            return None
-
-        settings = {}
+        settings = []
         gateways = []
-
-        # Extract settings from <settings> block
-        settings_elem = root.find("settings")
-        if settings_elem:
-            for param in settings_elem.findall("param"):
+        
+        # Extraer configuraciones
+        settings_section = root.find("settings")
+        if settings_section:
+            for param in settings_section.findall("param"):
                 name = param.get("name")
                 value = param.get("value")
-                if name and value:
-                    settings[name] = value
-        else:
-            logging.warning(f"No <settings> found in profile {profile_name} at {file_path}")
-
-        # Extract gateways from <gateways> block
-        gateways_elem = root.find("gateways")
-        if gateways_elem:
-            for gateway in gateways_elem.findall("gateway"):
+                settings.append((name, value))
+        
+        # Extraer gateways
+        gateways_section = root.find("gateways")
+        if gateways_section:
+            for gateway in gateways_section.findall("gateway"):
                 gateway_name = gateway.get("name")
-                gateway_settings = {}
-                for param in gateway.findall("param"):
-                    name = param.get("name")
-                    value = param.get("value")
-                    if name and value:
-                        gateway_settings[name] = value
-                if gateway_name:
-                    gateways.append({"name": gateway_name, "settings": gateway_settings})
-
-        logging.info(f"Processed SIP profile: {profile_name} from {file_path}")
-        return {"name": profile_name, "settings": settings, "gateways": gateways}
-    except Exception as e:
-        logging.error(f"Error processing {file_path}: {e}")
-    return None
-
-def insert_sip_profile(conn, tenant_uuid, profile_data):
-    """
-    Inserts or updates a SIP profile and its settings in the database.
-    """
-    try:
-        cur = conn.cursor()
+                gateways.append(gateway_name)
         
-        # Insert or update SIP profile
-        cur.execute("""
-            INSERT INTO public.sip_profiles (
-                tenant_uuid, profile_name, insert_date, insert_user
-            ) VALUES (?, ?, GETDATE(), ?)
-            ON CONFLICT (tenant_uuid, profile_name)
-            DO UPDATE SET update_date = GETDATE(), update_user = EXCLUDED.insert_user
-            RETURNING profile_uuid
-        """, (tenant_uuid, profile_data["name"], INSERT_USER))
-        
-        profile_uuid = cur.fetchone()[0]
-        logging.info(f"Inserted/Updated SIP profile: {profile_data['name']} with UUID {profile_uuid}")
-
-        # Insert settings into sip_profile_settings table
-        for name, value in profile_data["settings"].items():
-            cur.execute("""
-                INSERT INTO public.sip_profile_settings (
-                    profile_uuid, name, value, insert_date, insert_user
-                ) VALUES (?, ?, ?, GETDATE(), ?)
-                ON CONFLICT (profile_uuid, name)
-                DO UPDATE SET value = EXCLUDED.value, insert_date = GETDATE(), insert_user = EXCLUDED.insert_user
-            """, (profile_uuid, name, value, INSERT_USER))
-            logging.info(f"Inserted/Updated setting: {name}={value} for profile {profile_data['name']}")
-
-        conn.commit()
-        cur.close()
+        return profile_name, settings, gateways
     except Exception as e:
-        conn.rollback()
-        logging.error(f"Error inserting/updating profile {profile_data['name']}: {e}")
-        raise
+        print(f"⚠️ Error procesando {file_path}: {e}")
+        return None, None, None
 
-def migrate_sip_profiles(conn, tenant_uuid):
-    """
-    Reads XML files from the SIP profiles directory and inserts them into the database.
-    """
-    if not os.path.exists(SIP_PROFILES_DIR):
-        logging.error(f"SIP profiles directory {SIP_PROFILES_DIR} does not exist.")
-        raise Exception(f"SIP profiles directory {SIP_PROFILES_DIR} does not exist.")
-
-    logging.info(f"Scanning SIP profiles directory: {SIP_PROFILES_DIR}")
+def migrate_profiles():
+    conn = connect_db()
+    cursor = conn.cursor()
     
-    for root_dir, _, files in os.walk(SIP_PROFILES_DIR):
-        for filename in files:
-            if filename.endswith(".xml"):
-                file_path = os.path.join(root_dir, filename)
-                logging.info(f"Processing file: {file_path}")
-
-                # Extract profile data from XML
-                profile_data = process_sip_profile(file_path)
-                if profile_data:
-                    insert_sip_profile(conn, tenant_uuid, profile_data)
-
-def main():
-    """
-    Executes the SIP profile migration process:
-    1. Establishes a database connection.
-    2. Retrieves the default tenant UUID.
-    3. Reads XML SIP profile files and inserts them into the database.
-    """
-    conn = None
-    try:
-        conn = connect_db()
-        tenant_uuid = get_tenant_uuid(conn)
-        migrate_sip_profiles(conn, tenant_uuid)
-        logging.info("SIP profile migration completed successfully.")
-    except Exception as e:
-        logging.error(f"SIP profile migration failed: {e}")
-    finally:
-        if conn:
-            conn.close()
-            logging.info("Database connection closed.")
+    # Leer los perfiles XML
+    for file_name in os.listdir(SIP_PROFILES_DIR):
+        file_path = os.path.join(SIP_PROFILES_DIR, file_name)
+        if not os.path.isfile(file_path) or not file_path.endswith(".xml"):
+            continue
+        
+        profile_name, settings, gateways = parse_sip_profile(file_path)
+        if not profile_name:
+            print(f"⚠️ No se pudo procesar {file_name}")
+            continue
+        
+        print(f"🔹 Migrando perfil SIP: {profile_name}")
+        profile_uuid = str(uuid.uuid4())
+        
+        # Insertar perfil en la base de datos
+        cursor.execute(
+            "INSERT INTO sip_profiles (profile_uuid, profile_name) VALUES (?, ?)",
+            (profile_uuid, profile_name)
+        )
+        
+        # Insertar configuraciones
+        for name, value in settings:
+            setting_uuid = str(uuid.uuid4())
+            cursor.execute(
+                "INSERT INTO sip_profile_settings (setting_uuid, profile_uuid, name, value) VALUES (?, ?, ?, ?)",
+                (setting_uuid, profile_uuid, name, value)
+            )
+        
+        # Insertar gateways
+        for gateway_name in gateways:
+            gateway_uuid = str(uuid.uuid4())
+            cursor.execute(
+                "INSERT INTO sip_profile_gateways (gateway_uuid, profile_uuid, gateway_name) VALUES (?, ?, ?)",
+                (gateway_uuid, profile_uuid, gateway_name)
+            )
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("✅ Migración completada.")
 
 if __name__ == "__main__":
-    main()
+    migrate_profiles()
