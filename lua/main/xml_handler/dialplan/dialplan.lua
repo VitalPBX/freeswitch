@@ -45,7 +45,7 @@ return function(settings)
         '<?xml version="1.0" encoding="utf-8"?>',
         '<document type="freeswitch/xml">',
         '  <section name="dialplan" description="Dynamic Dialplan">',
-        '    <context name="' .. context .. '">' 
+        '    <context name="' .. context .. '">'
     }
 
     local current_ext_name = nil
@@ -56,15 +56,27 @@ return function(settings)
         if not row then return end
 
         -- Manejo de <extension>
-        if not current_ext_name or current_ext_name ~= row.extension_name then
-            if current_ext_name then table.insert(xml, '      </extension>') end
+        if current_ext_name ~= row.extension_name then
+            -- Cerrar etiqueta de condition y extension si es necesario
+            if current_cond_order then
+                table.insert(xml, '        </condition>')
+                current_cond_order = nil
+            end
+            if current_ext_name then
+                table.insert(xml, '      </extension>')
+            end
+            -- Abrir nueva extension
             table.insert(xml, '      <extension name="' .. row.extension_name .. '" continue="' .. (row.continue == "t" and "true" or "false") .. '">')
-            current_ext_name, current_cond_order = row.extension_name, nil
+            current_ext_name = row.extension_name
         end
 
         -- Manejo de <condition>
-        if not current_cond_order or current_cond_order ~= row.condition_order then
-            if current_cond_order then table.insert(xml, '        </condition>') end
+        if current_cond_order ~= row.condition_order then
+            -- Cerrar condition previa si existía
+            if current_cond_order then
+                table.insert(xml, '        </condition>')
+            end
+            -- Abrir nueva condition
             table.insert(xml, '        <condition field="' .. row.field .. '" expression="' .. row.expression .. '" break="' .. row.break_on_match .. '">')
             current_cond_order = row.condition_order
         end
@@ -73,9 +85,10 @@ return function(settings)
         table.insert(xml, '          <' .. row.action_type .. ' application="' .. row.application .. '" data="' .. row.data .. '"/>')
     end)
 
-    -- Cierre de etiquetas abiertas
+    -- Cierre de etiquetas abiertas al finalizar la consulta
     if current_cond_order then table.insert(xml, '        </condition>') end
     if current_ext_name then table.insert(xml, '      </extension>') end
+
     table.insert(xml, '    </context>')
     table.insert(xml, '  </section>')
     table.insert(xml, '</document>')
