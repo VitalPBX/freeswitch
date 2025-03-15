@@ -383,6 +383,8 @@ ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_extensions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_conditions OWNER TO $r2a_user;
 ALTER TABLE public.dialplan_actions OWNER TO $r2a_user;
+ALTER TABLE public.ivr_menus OWNER TO $r2a_user;
+ALTER TABLE public.ivr_menu_options OWNER TO $r2a_user;
 ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_settings OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_gateways OWNER TO $r2a_user;
