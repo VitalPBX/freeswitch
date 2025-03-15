@@ -166,6 +166,34 @@ CREATE TABLE public.dialplan_actions (
     CONSTRAINT valid_action_type CHECK (action_type IN ('action', 'anti-action')) -- Restrict valid action types
 );
 
+-- Tabla de Menús IVR
+CREATE TABLE public.ivr_menus (
+    ivr_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_uuid UUID NOT NULL,
+    ivr_name VARCHAR(255) NOT NULL UNIQUE,
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    insert_user VARCHAR(255),
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user VARCHAR(255),
+    CONSTRAINT fk_ivr_menus_tenants
+        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
+);
+
+-- Tabla de Opciones del IVR
+CREATE TABLE public.ivr_menu_options (
+    option_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ivr_uuid UUID NOT NULL,
+    digits VARCHAR(50) NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    param TEXT,
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    insert_user VARCHAR(255),
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user VARCHAR(255),
+    CONSTRAINT fk_ivr_menu_options_menus
+        FOREIGN KEY (ivr_uuid) REFERENCES public.ivr_menus (ivr_uuid) ON DELETE CASCADE
+);
+
 -- Create the sip_profiles table for SIP profiles configuration
 CREATE TABLE public.sip_profiles (
     profile_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the SIP profile, auto-generated UUID
@@ -289,6 +317,14 @@ CREATE TRIGGER update_sip_profile_gateway_settings_timestamp
     BEFORE UPDATE ON public.sip_profile_gateway_settings
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
+CREATE TRIGGER update_ivr_menus_timestamp
+    BEFORE UPDATE ON public.ivr_menus
+    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
+CREATE TRIGGER update_ivr_menu_options_timestamp
+    BEFORE UPDATE ON public.ivr_menu_options
+    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
 -- Create indexes to optimize query performance and enforce referential integrity
 CREATE INDEX idx_tenants_name ON public.tenants (name);                     -- Index for tenant name lookups
 CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);       -- Index for domain name lookups
@@ -304,6 +340,14 @@ CREATE INDEX idx_dialplan_contexts_tenant_uuid ON public.dialplan_contexts (tena
 CREATE INDEX idx_dialplan_extensions_context_uuid ON public.dialplan_extensions (context_uuid); -- Index for extension lookups by context
 CREATE INDEX idx_dialplan_conditions_extension_uuid ON public.dialplan_conditions (extension_uuid); -- Index for condition lookups by extension
 CREATE INDEX idx_dialplan_actions_condition_uuid ON public.dialplan_actions (condition_uuid); -- Index for action lookups by condition
+CREATE INDEX idx_ivr_menus_tenant_uuid ON public.ivr_menus(tenant_uuid);
+CREATE INDEX idx_ivr_menus_name ON public.ivr_menus(ivr_name);
+CREATE INDEX idx_ivr_menu_options_ivr_uuid ON public.ivr_menu_options(ivr_uuid);
+CREATE INDEX idx_ivr_menu_options_digits ON public.ivr_menu_options(digits);
+CREATE INDEX idx_ivr_menus_insert_date ON public.ivr_menus(insert_date);
+CREATE INDEX idx_ivr_menu_options_insert_date ON public.ivr_menu_options(insert_date);
+CREATE INDEX idx_ivr_menus_update_user ON public.ivr_menus(update_user);
+CREATE INDEX idx_ivr_menu_options_update_user ON public.ivr_menu_options(update_user);
 CREATE INDEX idx_sip_profiles_tenant_uuid ON public.sip_profiles (tenant_uuid); -- Index for SIP profile lookups by tenant
 CREATE INDEX idx_sip_profile_settings_profile_uuid ON public.sip_profile_settings (profile_uuid); -- Index for setting lookups by profile
 CREATE INDEX idx_sip_profile_gateways_profile_uuid ON public.sip_profile_gateways (profile_uuid); -- Index for gateway lookups by profile
