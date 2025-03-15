@@ -27,7 +27,7 @@ r2a_cdr_password="r2a2025"
 r2a_database="ring2all"
 r2a_user="ring2all"
 r2a_password="r2a2025"
-fs_default_password="fs2026"
+fs_default_password="r2a2025"
 fs_token="pat_T4vJsv4Ks6i3W8ynCoxnWkpD"
 
 # Load configuration from file if it exists
@@ -436,6 +436,22 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout /etc/freeswitch/tls/wss.pem \
     -out /etc/freeswitch/tls/wss.pem \
     -subj "/C=US/ST=FL/L=Miami/O=Ring2All/OU=Unit/CN=$LOCAL_IP"
+
+# Security risk, prevents unauthorized access.
+echo -e "************************************************************"
+echo -e "*       Security risk, prevents unauthorized access,       *"
+echo -e "*  avoids call restrictions, protects system integrity.    *"
+echo -e "************************************************************"
+# Path to configuration file
+switch_conf="/etc/freeswitch/vars.xml"
+# Check if file exists before modifying it
+if [ -f "$switch_conf" ]; then
+  # Change the default password that Freeswitch comes with to register devices
+  sed -i "s/\(<X-PRE-PROCESS cmd=\"set\" data=\"default_password=\)[^\"]*\"/\1$fs_default_password\"/" "$switch_conf"
+  echo "✅ The key was changed in the file $switch_conf."
+else
+  echo "❌ The $switch_conf file does not exist."
+fi
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
