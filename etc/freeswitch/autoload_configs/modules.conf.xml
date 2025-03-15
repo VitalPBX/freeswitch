@@ -16,6 +16,10 @@
 		<load module="mod_syslog"/>  <!-- Sends logs to system syslog -->
 		<load module="mod_logfile"/>  <!-- Writes logs to log files -->
 
+		<!-- CDR Storage Modules -->
+		<load module="mod_cdr_csv"/>     <!-- Store CDRs in CSV files -->
+		<load module="mod_cdr_pg_csv"/>  <!-- Store CDRs in PostgreSQL -->
+		
 		<!-- Additional Applications -->
 		<load module="mod_dptools"/>  <!-- Various dialplan tools and utilities -->
 		<load module="mod_callcenter"/>  <!-- Call center module for managing call queues -->
