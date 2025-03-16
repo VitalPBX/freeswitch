@@ -17,6 +17,7 @@
 		<load module="mod_logfile"/>  <!-- Writes logs to log files -->
 
 		<!-- CDR Storage Modules -->
+		<load module="mod_odbc_cdr"/>
 		<load module="mod_cdr_csv"/>     <!-- Store CDRs in CSV files -->
 		<load module="mod_cdr_pg_csv"/>  <!-- Store CDRs in PostgreSQL -->
 		
