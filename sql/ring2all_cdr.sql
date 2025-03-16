@@ -32,25 +32,8 @@ CREATE TABLE public.cdr (
     bleg_uuid UUID,                                  -- UUID for the B-leg of the call (nullable if no B-leg)
     accountcode VARCHAR(50),                         -- Account code for billing/tracking (e.g., "ACC123"), limited to 50 characters, nullable
     read_codec VARCHAR(50),                          -- Codec used for reading audio (e.g., "PCMU"), limited to 50 characters, nullable
-    write_codec VARCHAR(50),                         -- Codec used for writing audio (e.g., "PCMU"), limited to 50 characters, nullable
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), -- Creation timestamp with timezone (auto-set on insert)
-    update_date TIMESTAMP WITH TIME ZONE             -- Last update timestamp with timezone (updated by trigger)
+    write_codec VARCHAR(50)                          -- Codec used for writing audio (e.g., "PCMU"), limited to 50 characters, nullable
 );
-
--- Define a function to automatically update the update_date column on row updates
--- This function sets the update_date to the current timestamp with timezone
-CREATE OR REPLACE FUNCTION public.update_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.update_date = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create a trigger to automatically update the update_date column on CDR updates
-CREATE TRIGGER update_cdr_timestamp
-    BEFORE UPDATE ON public.cdr
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 -- Create indexes to optimize query performance on frequently accessed columns
 CREATE INDEX idx_cdr_tenant_id ON public.cdr (tenant_id) WHERE tenant_id IS NOT NULL;       -- Index for tenant filtering (partial index for nullable column)
