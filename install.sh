@@ -352,7 +352,7 @@ wget -O modules.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/r
 echo -e "************************************************************"
 echo -e "*               Move sip_profiles files                    *"
 echo -e "************************************************************"
-mv modules.conf.xml /etc/freeswitch/autoload_configs/modules.conf.xml
+# mv modules.conf.xml /etc/freeswitch/autoload_configs/modules.conf.xml
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
