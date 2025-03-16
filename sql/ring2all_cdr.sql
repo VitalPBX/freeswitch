@@ -34,7 +34,7 @@ CREATE TABLE public.cdr (
     read_codec VARCHAR(50),                          -- Codec used for reading audio (e.g., "PCMU"), limited to 50 characters, nullable
     write_codec VARCHAR(50),                         -- Codec used for writing audio (e.g., "PCMU"), limited to 50 characters, nullable
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), -- Creation timestamp with timezone (auto-set on insert)
-    update_date TIMESTAMP WITH TIME ZONE                         -- Last update timestamp with timezone (updated by trigger)
+    update_date TIMESTAMP WITH TIME ZONE             -- Last update timestamp with timezone (updated by trigger)
 );
 
 -- Define a function to automatically update the update_date column on row updates
@@ -75,6 +75,8 @@ GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_cdr_user;
 GRANT EXECUTE ON FUNCTION public.update_timestamp() TO $r2a_cdr_user;
+GRANT ALL PRIVILEGES ON public.cdr TO $r2a_cdr_user;
+GRANT ALL PRIVILEGES ON public.cdr_id_seq TO $r2a_cdr_user;
 
 -- Set ownership of the CDR table and related objects to the ring2all_cdr user
 ALTER TABLE public.cdr OWNER TO $r2a_cdr_user;
