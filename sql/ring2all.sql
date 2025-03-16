@@ -166,11 +166,23 @@ CREATE TABLE public.dialplan_actions (
     CONSTRAINT valid_action_type CHECK (action_type IN ('action', 'anti-action')) -- Restrict valid action types
 );
 
+
+
+
+
+
 -- Tabla de Menús IVR
 CREATE TABLE public.ivr_menus (
-    ivr_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_uuid UUID NOT NULL,
-    ivr_name VARCHAR(255) NOT NULL UNIQUE,
+    ivr_uuid UUID PRIMARY KEY,
+    tenant_uuid UUID REFERENCES public.tenants(tenant_uuid),
+    ivr_name VARCHAR(255) UNIQUE,
+    greet_long VARCHAR(255),
+    greet_short VARCHAR(255),
+    invalid_sound VARCHAR(255),
+    exit_sound VARCHAR(255),
+    timeout INTEGER DEFAULT 10000,
+    max_failures INTEGER DEFAULT 3,
+    max_timeouts INTEGER DEFAULT 3
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     insert_user VARCHAR(255),
     update_date TIMESTAMP WITH TIME ZONE,
