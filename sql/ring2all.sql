@@ -166,11 +166,6 @@ CREATE TABLE public.dialplan_actions (
     CONSTRAINT valid_action_type CHECK (action_type IN ('action', 'anti-action')) -- Restrict valid action types
 );
 
-
-
-
-
-
 -- Tabla de Menús IVR
 CREATE TABLE public.ivr_menus (
     ivr_uuid UUID PRIMARY KEY,
