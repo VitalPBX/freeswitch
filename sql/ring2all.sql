@@ -182,7 +182,7 @@ CREATE TABLE public.ivr_menus (
     exit_sound VARCHAR(255),
     timeout INTEGER DEFAULT 10000,
     max_failures INTEGER DEFAULT 3,
-    max_timeouts INTEGER DEFAULT 3
+    max_timeouts INTEGER DEFAULT 3,
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     insert_user VARCHAR(255),
     update_date TIMESTAMP WITH TIME ZONE,
