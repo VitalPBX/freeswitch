@@ -2,7 +2,7 @@
 set -e
 
 # Author:      Rodrigo Cuadra
-# Date:        Feb-2025
+# Date:        March-2025
 # Support:     rcuadra@vitalpbx.com
 # Description: This script automates the installation of FreeSWITCH with PostgreSQL integration from deb.
 
