@@ -1,7 +1,7 @@
---[[
-    dialplan.lua
+--[[ 
+    dialplan.lua (FusionPBX-style)
     Genera configuraciones dinámicas del dialplan en FreeSWITCH desde la base de datos.
-    Utiliza ODBC para obtener contextos, extensiones, condiciones y acciones.
+    Adaptado para seguir el formato utilizado por FusionPBX.
 --]]
 
 return function(settings)
@@ -18,14 +18,16 @@ return function(settings)
         return
     end
 
-    -- Extraer contexto y número de destino de los encabezados SIP
+    -- Extraer contexto, número de destino y hostname
     local context = params:getHeader("Hunt-Context") or params:getHeader("Caller-Context") or "default"
     local destination = params:getHeader("Caller-Destination-Number") or ""
+    local hostname = freeswitch.getGlobalVariable("hostname") or "default"
 
     log("DEBUG", "Contexto: " .. context)
     log("DEBUG", "Destino: " .. destination)
+    log("DEBUG", "Hostname: " .. hostname)
 
-    -- Nueva consulta SQL con el orden corregido
+    -- Consulta SQL
     local query = string.format([[ 
         SELECT dc.context_name, de.extension_name, de.continue, 
                dc2.condition_order, dc2.field, dc2.expression, dc2.break_on_match, 
@@ -42,10 +44,10 @@ return function(settings)
 
     -- Construcción del XML del dialplan
     local xml = {
-        '<?xml version="1.0" encoding="utf-8"?>',
+        '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
         '<document type="freeswitch/xml">',
-        '  <section name="dialplan" description="Dynamic Dialplan">',
-        '    <context name="' .. context .. '">'
+        '  <section name="dialplan" description="">',
+        '    <context name="' .. context .. '" destination_number="' .. destination .. '" hostname="' .. hostname .. '">'
     }
 
     local current_ext_name = nil
@@ -55,9 +57,11 @@ return function(settings)
     dbh:query(query, function(row)
         if not row then return end
 
+        -- Depurar el valor de continue
+        log("DEBUG", "Procesando extensión: " .. row.extension_name .. ", continue: " .. tostring(row.continue))
+
         -- Manejo de <extension>
         if current_ext_name ~= row.extension_name then
-            -- Cerrar etiqueta de condition y extension si es necesario
             if current_cond_order then
                 table.insert(xml, '        </condition>')
                 current_cond_order = nil
@@ -65,24 +69,23 @@ return function(settings)
             if current_ext_name then
                 table.insert(xml, '      </extension>')
             end
-            -- Abrir nueva extension
-            table.insert(xml, '      <extension name="' .. row.extension_name .. '" continue="' .. (row.continue == "t" and "true" or "false") .. '">')
+            -- Manejar valores de continue como "t", true, o 1
+            local continue_value = (row.continue == "t" or row.continue == true or row.continue == "1" or row.continue == 1) and "true" or "false"
+            table.insert(xml, '      <extension name="' .. row.extension_name .. '" continue="' .. continue_value .. '">')
             current_ext_name = row.extension_name
         end
 
         -- Manejo de <condition>
         if current_cond_order ~= row.condition_order then
-            -- Cerrar condition previa si existía
             if current_cond_order then
                 table.insert(xml, '        </condition>')
             end
-            -- Abrir nueva condition
-            table.insert(xml, '        <condition field="' .. row.field .. '" expression="' .. row.expression .. '" break="' .. row.break_on_match .. '">')
+            table.insert(xml, '        <condition field="' .. (row.field or "") .. '" expression="' .. (row.expression or "") .. '" break="' .. (row.break_on_match or "on-false") .. '">')
             current_cond_order = row.condition_order
         end
 
         -- Agregar <action> dentro de la condición
-        table.insert(xml, '          <' .. row.action_type .. ' application="' .. row.application .. '" data="' .. row.data .. '"/>')
+        table.insert(xml, '          <action application="' .. row.application .. '" data="' .. (row.data or "") .. '"/>')
     end)
 
     -- Cierre de etiquetas abiertas al finalizar la consulta
