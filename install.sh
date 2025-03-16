@@ -453,6 +453,12 @@ else
   echo "❌ The $switch_conf file does not exist."
 fi
 
+# Removes the Default extension that is created by mistake in the dialplan during migration
+echo -e "************************************************************"
+echo -e "*              Removes the Default extension               *"
+echo -e "************************************************************"
+sudo -u postgres psql -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default'";
+
 # Restart Freeswitch Service
 echo -e "************************************************************"
 echo -e "*                 Restart Freeswitch Service               *"
