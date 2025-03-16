@@ -16,7 +16,7 @@ CREATE DATABASE $r2a_cdr_database;
 -- Create the CDR (Call Detail Record) table to store call metadata
 CREATE TABLE public.cdr (
     id SERIAL PRIMARY KEY,                           -- Auto-incrementing unique identifier for each CDR entry
-    tenant_id INTEGER,                               -- Tenant identifier for multi-tenant systems (nullable for single-tenant setups)
+    tenant_uuid UUID NOT NULL,                       -- Foreign key to the associated tenant
     local_ip_v4 INET,                                -- Local IP address where the call was handled (using INET for IP validation)
     caller_id_name VARCHAR(255),                     -- Caller’s name (e.g., "John Doe"), limited to 255 characters, nullable
     caller_id_number VARCHAR(50),                    -- Caller’s phone number (e.g., "+12025550123"), limited to 50 characters, nullable
