@@ -352,7 +352,7 @@ wget -O modules.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/r
 echo -e "************************************************************"
 echo -e "*               Move sip_profiles files                    *"
 echo -e "************************************************************"
-# mv modules.conf.xml /etc/freeswitch/autoload_configs/modules.conf.xml
+mv modules.conf.xml /etc/freeswitch/autoload_configs/modules.conf.xml
 
 # Migrate from XML to Database Directory.
 echo -e "************************************************************"
@@ -461,8 +461,30 @@ mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/e
 mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
 mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
 
+# Disable loading of IVR from XML files
+echo -e "************************************************************"
+echo -e "*          Disable loading of IVR from XML files           *"
+echo -e "************************************************************"
 mv /etc/freeswitch/ivr_menus/demo_ivr.xml /etc/freeswitch/ivr_menus/demo_ivr.xml.noload
 mv /etc/freeswitch/ivr_menus/new_demo_ivr.xml /etc/freeswitch/ivr_menus/new_demo_ivr.xml.noload
+
+# Move the example Directory and create an empty one
+echo -e "************************************************************"
+echo -e "*    Move the example Directory and create an empty one    *"
+echo -e "************************************************************"
+mv /etc/freeswitch/directory /etc/freeswitch/directory.old
+mkdir /etc/freeswitch/directory
+chown freeswitch:freeswitch /etc/freeswitch/directory
+touch /etc/freeswitch/directory/empty.xml
+
+# Move the example Dialplan and create an empty one
+echo -e "************************************************************"
+echo -e "*     Move the example Diaplan and create an empty one     *"
+echo -e "************************************************************"
+mv /etc/freeswitch/dialplan /etc/freeswitch/dialplan.old
+mkdir /etc/freeswitch/dialplan
+chown freeswitch:freeswitch /etc/freeswitch/dialplan
+touch /etc/freeswitch/dialplan/empty.xml
 
 # Removes the Default extension that is created by mistake in the dialplan during migration
 echo -e "************************************************************"
