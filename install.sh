@@ -343,6 +343,7 @@ wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/
 wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/directory/sip_register.lua
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
+wget -O ivr.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/ivr/ivr.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
 # Modules Load
 wget -O modules.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/modules.conf.xml
@@ -414,9 +415,16 @@ echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/dialplan
 mv dialplan.lua /usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua
 
-# Create Lua Script for management dialplan (dialplan)
+# Create Lua Script for management ivr
 echo -e "************************************************************"
-echo -e "*         Create Lua Script for management dialplan        *"
+echo -e "*           Create Lua Script for management ivr           *"
+echo -e "************************************************************"
+mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/ivr
+mv ivr.lua /usr/share/freeswitch/scripts/main/xml_handlers/ivr/ivr.lua
+
+# Create Lua Script for management sip_profiles
+echo -e "************************************************************"
+echo -e "*      Create Lua Script for management sip_profiles       *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles
 mv sip_profiles.lua /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua
