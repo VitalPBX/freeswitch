@@ -452,6 +452,18 @@ else
   echo "❌ The $switch_conf file does not exist."
 fi
 
+# Disable loading of SIP profiles from XML files
+echo -e "************************************************************"
+echo -e "*       Disable loading of SIP profiles from XML files     *"
+echo -e "************************************************************"
+mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
+mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
+mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
+mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
+
+mv /etc/freeswitch/ivr_menus/demo_ivr.xml /etc/freeswitch/ivr_menus/demo_ivr.xml.noload
+mv /etc/freeswitch/ivr_menus/new_demo_ivr.xml /etc/freeswitch/ivr_menus/new_demo_ivr.xml.noload
+
 # Removes the Default extension that is created by mistake in the dialplan during migration
 echo -e "************************************************************"
 echo -e "*              Removes the Default extension               *"
