@@ -375,15 +375,6 @@ echo -e "************************************************************"
 chmod +x sip_profiles_migrate_to_db.py
 python3 sip_profiles_migrate_to_db.py
 
-# Rename the sip profiles files so they are not loaded 
-echo -e "************************************************************"
-echo -e "*               Move sip_profiles files                    *"
-echo -e "************************************************************"
-mv /etc/freeswitch/sip_profiles/internal.xml /etc/freeswitch/sip_profiles/internal.xml.noload
-mv /etc/freeswitch/sip_profiles/internal-ipv6.xml /etc/freeswitch/sip_profiles/internal-ipv6.xml.noload
-mv /etc/freeswitch/sip_profiles/external.xml /etc/freeswitch/sip_profiles/external.xml.noload
-mv /etc/freeswitch/sip_profiles/external-ipv6.xml /etc/freeswitch/sip_profiles/external-ipv6.xml.noload
-
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
 echo -e "*        Update the Domain for Tenant=default.             *"
@@ -466,6 +457,19 @@ echo -e "************************************************************"
 echo -e "*              Removes the Default extension               *"
 echo -e "************************************************************"
 sudo -u postgres psql -d $r2a_database -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default';"
+
+# Removes the Default extension that is created by mistake in the dialplan during migration
+echo -e "************************************************************"
+echo -e "*              Removes the Default extension               *"
+echo -e "************************************************************"
+# Rename the sip profiles, dialplan, directory and ivr_menus, so they are not loaded 
+echo -e "************************************************************"
+echo -e "*                 No loaded directories                    *"
+echo -e "************************************************************"
+sudo cp -r /etc/freeswitch/dialplan /etc/freeswitch/dialplan.noload
+sudo cp -r /etc/freeswitch/directory /etc/freeswitch/directory.noload
+sudo cp -r /etc/freeswitch/ivr_menus /etc/freeswitch/ivr_menus.noload
+sudo cp -r /etc/freeswitch/sip_profiles /etc/freeswitch/sip_profiles.noload
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
