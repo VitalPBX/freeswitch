@@ -187,7 +187,7 @@ apt update
 
 # Install FreeSWITCH and required modules
 apt install -y freeswitch freeswitch-meta-all \
-               freeswitch-mod-pgsql freeswitch-mod-cdr-pg-csv
+               freeswitch-mod-pgsql freeswitch-mod-cdr-pg-csv freeswitch-mod-odbc-cdr
 
 # Enable and start FreeSWITCH service
 echo -e "************************************************************"
