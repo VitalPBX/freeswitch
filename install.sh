@@ -196,29 +196,6 @@ echo -e "************************************************************"
 systemctl enable freeswitch
 systemctl start freeswitch
 
-# Allowing it to log Call Detail Records (CDRs) directly into a PostgreSQL database
-echo -e "************************************************************"
-echo -e "* FreeSWITCH, allowing it to log Call Detail Records (CDRs)*"
-echo -e "*           directly into a PostgreSQL database.           *"
-echo -e "************************************************************"
-modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
-sed -i '/<load module="mod_cdr_csv"\/>/a \    <load module="mod_cdr_pg_csv"/>' "$modules_conf"
-
-# FreeSWITCH, allowing it to manage SIP user directories
-echo -e "************************************************************"
-echo -e "*  FreeSWITCH, allowing it to manage SIP user directories. *"
-echo -e "************************************************************"
-modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
-sed -i 's/^\([[:space:]]*\)<!--\(<load module="mod_directory"\/>\)-->/\1\2/' "$modules_conf"
-
-# Disable the module to prevent unnecessary SignalWire connection attempts and resource usage.
-echo -e "************************************************************"
-echo -e "*  Disable the module to prevent unnecessary SignalWire    *"
-echo -e "*          connection attempts and resource usage.         *"
-echo -e "************************************************************"
-modules_conf="/etc/freeswitch/autoload_configs/modules.conf.xml"
-sed -i 's|<load module="mod_signalwire"/>|<!-- <load module="mod_signalwire"/> -->|' "$modules_conf"
-
 # Adding database connection data for CDRs
 echo -e "************************************************************"
 echo -e "*          Adding database connection data for CDRs        *"
