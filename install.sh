@@ -465,7 +465,7 @@ fi
 echo -e "************************************************************"
 echo -e "*              Removes the Default extension               *"
 echo -e "************************************************************"
-sudo -u postgres psql -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default'";
+sudo -u postgres psql -d $r2a_database -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default';"
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
