@@ -16,7 +16,6 @@ CREATE DATABASE $r2a_cdr_database;
 -- Create the CDR (Call Detail Record) table to store call metadata
 CREATE TABLE public.cdr (
     id SERIAL PRIMARY KEY,                           -- Auto-incrementing unique identifier for each CDR entry
-    tenant_uuid UUID NOT NULL,                       -- Foreign key to the associated tenant
     local_ip_v4 INET,                                -- Local IP address where the call was handled (using INET for IP validation)
     caller_id_name VARCHAR(255),                     -- Caller’s name (e.g., "John Doe"), limited to 255 characters, nullable
     caller_id_number VARCHAR(50),                    -- Caller’s phone number (e.g., "+12025550123"), limited to 50 characters, nullable
@@ -43,28 +42,6 @@ CREATE INDEX idx_cdr_destination_number ON public.cdr (destination_number) WHERE
 CREATE INDEX idx_cdr_hangup_cause ON public.cdr (hangup_cause) WHERE hangup_cause IS NOT NULL; -- Index for hangup cause filtering
 CREATE INDEX idx_cdr_accountcode ON public.cdr (accountcode) WHERE accountcode IS NOT NULL; -- Index for account code queries
 CREATE INDEX idx_cdr_uuid ON public.cdr (uuid);                                            -- Index for UUID lookups (already unique, but explicit index for performance)
-
-CREATE OR REPLACE FUNCTION set_tenant_uuid_from_domain()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Si tenant_uuid es NULL, buscarlo en la tabla tenants
-    IF NEW.tenant_uuid IS NULL THEN
-        SELECT tenant_uuid INTO NEW.tenant_uuid
-        FROM tenants
-        WHERE domain = NEW.local_ip_v4; -- Asumiendo que `local_ip_v4` tiene el dominio
-    
-        -- Si no se encuentra, asignar un valor predeterminado
-        IF NEW.tenant_uuid IS NULL THEN
-            NEW.tenant_uuid := '00000000-0000-0000-0000-000000000000';
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER cdr_set_tenant_uuid
-BEFORE INSERT ON cdr
-FOR EACH ROW EXECUTE FUNCTION set_tenant_uuid_from_domain();
 
 -- Create the $r2a_cdr_database role if it does not exist and configure privileges
 DO $$ 
