@@ -44,7 +44,29 @@ CREATE INDEX idx_cdr_hangup_cause ON public.cdr (hangup_cause) WHERE hangup_caus
 CREATE INDEX idx_cdr_accountcode ON public.cdr (accountcode) WHERE accountcode IS NOT NULL; -- Index for account code queries
 CREATE INDEX idx_cdr_uuid ON public.cdr (uuid);                                            -- Index for UUID lookups (already unique, but explicit index for performance)
 
--- Create the ring2all_cdr role if it does not exist and configure privileges
+CREATE OR REPLACE FUNCTION set_tenant_uuid_from_domain()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si tenant_uuid es NULL, buscarlo en la tabla tenants
+    IF NEW.tenant_uuid IS NULL THEN
+        SELECT tenant_uuid INTO NEW.tenant_uuid
+        FROM tenants
+        WHERE domain = NEW.local_ip_v4; -- Asumiendo que `local_ip_v4` tiene el dominio
+    
+        -- Si no se encuentra, asignar un valor predeterminado
+        IF NEW.tenant_uuid IS NULL THEN
+            NEW.tenant_uuid := '00000000-0000-0000-0000-000000000000';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cdr_set_tenant_uuid
+BEFORE INSERT ON cdr
+FOR EACH ROW EXECUTE FUNCTION set_tenant_uuid_from_domain();
+
+-- Create the $r2a_cdr_database role if it does not exist and configure privileges
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_cdr_user') THEN
