@@ -205,7 +205,7 @@ cdr_pg_csv_conf="/etc/freeswitch/autoload_configs/cdr_pg_csv.conf.xml"
 # Check if file exists before modifying it
 if [ -f "$cdr_pg_csv_conf" ]; then
   # Adding the Connection lines to the database
-  sed -i '/<settings>/a\ \ \ \ <param name="core-db-dsn" value="'$r2a_cdr_database'"/>\n\ \ \ \ <param name="db-table" value="cdr"/>' "$cdr_pg_csv_conf"
+  sed -i '/<settings>/a\ \ \ \ <param name="db-info" value="host=127.0.0.1 port=5432 dbname='$r2a_cdr_database' user='$r2a_cdr_user' password='$r2a_cdr_password' connect_timeout=10"/>\n\ \ \ \ <param name="db-table" value="cdr"/>' "$cdr_pg_csv_conf"
   # Comment out the original connection line
   sed -i 's#^\(\s*\)<param name="db-info" value="host=localhost dbname=cdr connect_timeout=10" />#\1<!-- <param name="db-info" value="host=localhost dbname=cdr connect_timeout=10" /> -->#' "$cdr_pg_csv_conf"
   echo "✅ $cdr_pg_csv_conf file updated successfully."
