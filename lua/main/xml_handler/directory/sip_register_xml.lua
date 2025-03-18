@@ -32,12 +32,12 @@ return function(settings)
         return
     end
 
-    -- SQL query to fetch authentication details
+    -- SQL query to fetch authentication details from `sip_users`
     local query = string.format([[
-        SELECT se.extension, se.password, t.domain_name, se.enabled
-        FROM public.sip_extensions se
-        JOIN public.tenants t ON se.tenant_uuid = t.tenant_uuid
-        WHERE se.extension = '%s' AND t.domain_name = '%s'
+        SELECT su.username, su.password, su.xml_data, t.domain_name, su.enabled
+        FROM public.sip_users su
+        JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid
+        WHERE su.username = '%s' AND t.domain_name = '%s'
     ]], username, domain)
 
     log("debug", "Executing SQL query: " .. query)
@@ -49,8 +49,9 @@ return function(settings)
     local success, err = pcall(function()
         dbh:query(query, function(result)
             row = {
-                extension = result.extension,
+                username = result.username,
                 password = result.password,
+                xml_data = result.xml_data,  -- Now retrieving the stored XML
                 domain_name = result.domain_name,
                 enabled = result.enabled
             }
@@ -67,21 +68,12 @@ return function(settings)
 
     -- Check if the extension exists and is enabled (valid values: "t" or "1")
     if row and (row.enabled == "t" or row.enabled == "1") then  
-        log("info", string.format("Generating directory entry for extension %s in domain %s", row.extension, row.domain_name))
-        XML_STRING = string.format([[
-            <?xml version="1.0" encoding="utf-8"?>
-            <document type="freeswitch/xml">
-              <section name="directory">
-                <domain name="%s">
-                  <user id="%s">
-                    <params>
-                      <param name="password" value="%s"/>
-                    </params>
-                  </user>
-                </domain>
-              </section>
-            </document>
-        ]], row.domain_name, row.extension, row.password)
+        log("info", string.format("Generating directory entry for user %s in domain %s", row.username, row.domain_name))
+        
+        -- **Use XML from the database instead of generating it manually**
+        local formatted_xml = row.xml_data:gsub("%s*<!--.-?-->%s*", "") -- Removes all comments
+        
+        XML_STRING = formatted_xml
     else
         log("warning", string.format("User %s not found or not enabled in domain %s", username, domain))
         XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
