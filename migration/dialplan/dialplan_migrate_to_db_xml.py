@@ -17,7 +17,7 @@ logging.basicConfig(
 # ODBC Data Source Name (DSN) definido en /etc/odbc.ini
 ODBC_DSN = "ring2all"
 
-# Directorios donde están los fragmentos de dialplan
+# Directorios donde están los fragmentos de dialplan e IVR
 DIALPLAN_DIR = "/etc/freeswitch/dialplan"
 IVR_MENUS_DIR = "/etc/freeswitch/ivr_menus"
 
@@ -153,16 +153,33 @@ def migrate_ivr_menus():
                 try:
                     cur = conn.cursor()
                     cur.execute("""
-                        INSERT INTO public.dialplan_contexts (
-                            tenant_uuid, context_name, xml_data, insert_user, category
-                        ) VALUES (?, ?, ?, ?, 'IVR')
-                        ON CONFLICT (tenant_uuid, context_name) 
+                        INSERT INTO public.ivr_menus (
+                            ivr_uuid, tenant_uuid, ivr_name, xml_data, insert_user
+                        ) VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT (tenant_uuid, ivr_name) 
                         DO UPDATE SET xml_data = EXCLUDED.xml_data
-                    """, (tenant_uuid, ivr_name, xml_data, None))
+                    """, (str(uuid.uuid4()), tenant_uuid, ivr_name, xml_data, None))
 
                     conn.commit()
-                    logging.info(f"IVR {ivr_name} insertado/actualizado correctamente.")
+
+                    # Manejar opciones del IVR
+                    ivr_uuid = cur.execute("SELECT ivr_uuid FROM public.ivr_menus WHERE ivr_name = ?", (ivr_name,)).fetchone()[0]
+                    cur.execute("DELETE FROM public.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
+
+                    for entry in root.findall(".//entry"):
+                        digits = entry.get("digits", "")
+                        action = entry.get("action", "")
+                        param = entry.get("param", "")
+
+                        cur.execute("""
+                            INSERT INTO public.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (str(uuid.uuid4()), ivr_uuid, digits, action, param))
+
+                    conn.commit()
                     cur.close()
+                    logging.info(f"IVR {ivr_name} y sus opciones insertados/actualizados correctamente.")
+
                 except Exception as e:
                     conn.rollback()
                     logging.error(f"Error insertando/actualizando IVR {ivr_name}: {e}")
@@ -173,4 +190,4 @@ def migrate_ivr_menus():
 
 if __name__ == "__main__":
     migrate_dialplan()
-    migrate_ivr_menus()
+    migrate_ivr_menus() 
