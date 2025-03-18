@@ -2,6 +2,7 @@
     sip_register.lua (directory) 
     Handles FreeSWITCH directory requests for user authentication.
     Uses ODBC via FreeSWITCH Dbh and logs based on debug settings.
+    Generates XML starting from the user data stored in xml_data.
 --]]
 
 return function(settings)
@@ -51,7 +52,7 @@ return function(settings)
             row = {
                 username = result.username,
                 password = result.password,
-                xml_data = result.xml_data,  -- Now retrieving the stored XML
+                xml_data = result.xml_data,  -- XML data stored in the database
                 domain_name = result.domain_name,
                 enabled = result.enabled
             }
@@ -70,10 +71,33 @@ return function(settings)
     if row and (row.enabled == "t" or row.enabled == "1") then  
         log("info", string.format("Generating directory entry for user %s in domain %s", row.username, row.domain_name))
         
-        -- **Use XML from the database instead of generating it manually**
-        local formatted_xml = row.xml_data:gsub("%s*<!--.-?-->%s*", "") -- Removes all comments
+        -- Remove the <include> tag and keep only the content inside (e.g., starting from <user>)
+        local user_xml = row.xml_data:gsub("<%?xml.-%?>%s*", ""):gsub("<include>%s*", ""):gsub("%s*</include>", "")
+        user_xml = user_xml:gsub("%s*<!--.-?-->%s*", "")  -- Remove comments
         
-        XML_STRING = formatted_xml
+        -- Build the full XML structure
+        local xml = {
+            '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
+            '<document type="freeswitch/xml">',
+            '    <section name="directory">',
+            '        <domain name="' .. row.domain_name .. '" alias="true">',
+            '            <params>',
+            '                <param name="jsonrpc-allowed-methods" value="verto"/>',
+            '                <param name="jsonrpc-allowed-event-channels" value="demo,conference,presence"/>',
+            '            </params>',
+            '            <groups>',
+            '                <group name="default">',
+            '                    <users>',
+            '                        ' .. user_xml,  -- Insert the cleaned user XML here
+            '                    </users>',
+            '                </group>',
+            '            </groups>',
+            '        </domain>',
+            '    </section>',
+            '</document>'
+        }
+        
+        XML_STRING = table.concat(xml, "\n")
     else
         log("warning", string.format("User %s not found or not enabled in domain %s", username, domain))
         XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
