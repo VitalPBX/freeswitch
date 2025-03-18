@@ -4,7 +4,7 @@ import os
 import xml.etree.ElementTree as ET
 import pyodbc
 import logging
-import xml.dom.minidom
+from xml.dom import minidom  # Import explícito de minidom
 
 # Configuración del logging (guardar en archivo y mostrar en pantalla)
 logging.basicConfig(
