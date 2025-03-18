@@ -115,24 +115,17 @@ CREATE INDEX idx_sip_users_insert_date ON public.sip_users (insert_date);
 -- Create the sip_profiles table for SIP profiles configuration
 CREATE TABLE public.sip_profiles (
     profile_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the SIP profile, auto-generated UUID
-    tenant_uuid UUID,                                                 -- Foreign key to the associated tenant (nullable for global profiles)
-    profile_name VARCHAR(255) NOT NULL UNIQUE,                        -- Unique Profile name (e.g., "internal"), limited to 255 characters
+    profile_name VARCHAR(255) NOT NULL UNIQUE,                        -- Unique profile name (e.g., "internal"), limited to 255 characters
     xml_data XML NOT NULL,                                            -- Stores the SIP profile configuration in XML format
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the profile is active (TRUE) or disabled (FALSE)
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
-    CONSTRAINT fk_sip_profiles_tenants                                -- Foreign key linking to the tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) 
-        ON DELETE SET NULL                                            -- If tenant is deleted, set tenant_uuid to NULL
+    update_user UUID                                                  -- UUID of the user who last updated the record (nullable)
 );
 
 -- Index for optimized lookups by profile_name (ensuring uniqueness)
 CREATE UNIQUE INDEX idx_sip_profiles_name ON public.sip_profiles (profile_name);
-
--- Index for quick lookups by tenant (if needed)
-CREATE INDEX idx_sip_profiles_tenant_uuid ON public.sip_profiles (tenant_uuid);
 
 -- Index for enabled profiles to optimize queries filtering active profiles
 CREATE INDEX idx_sip_profiles_enabled ON public.sip_profiles (enabled);
