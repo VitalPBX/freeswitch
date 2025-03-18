@@ -40,10 +40,13 @@ The current project includes efforts to configure a custom IVR (`ivr_demo`) for 
 ```console
 wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/install.sh
 chmod +x install.sh
-```
-2. **Execute install.sh**
-```console
 ./install.sh
+```
+2. **Execute installxml.sh**
+```console
+wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/installxml.sh
+chmod +x installxml.sh
+./installxml.sh
 ```
 3.- **Fill in the information or you can leave the default values.**
 ```console
