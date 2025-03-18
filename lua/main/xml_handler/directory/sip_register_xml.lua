@@ -3,12 +3,13 @@
     Handles FreeSWITCH directory requests for user authentication.
     Uses ODBC via FreeSWITCH Dbh and logs based on debug settings.
     Generates XML using the generic format_xml function from settings.lua.
+    Retrieves user and domain from XML_REQUEST.
 --]]
 
 -- Cargar el módulo settings
 local settings = require("resources.settings.settings")
 
-return function(params)
+return function()
     -- Logging function with respect to debug settings
     local function log(level, message)
         if level == "debug" and not settings.debug then
@@ -55,7 +56,7 @@ return function(params)
             row = {
                 username = result.username,
                 password = result.password,
-                xml_data = result.xml_data,  -- XML data stored in the database (sin <include>)
+                xml_data = result.xml_data,
                 domain_name = result.domain_name,
                 enabled = result.enabled
             }
@@ -75,17 +76,26 @@ return function(params)
         log("info", string.format("Generating directory entry for user %s in domain %s", row.username, row.domain_name))
         
         -- Construir el contenido del directorio con <params> y <groups>
+        local indent = "    "  -- Indentación base
+        local user_indent = indent .. indent .. indent  -- Tres niveles de indentación para <user> (12 espacios)
+        -- Ajustar la indentación de row.xml_data para que esté al nivel correcto
+        local indented_user_xml = ""
+        for line in row.xml_data:gmatch("[^\n]+") do
+            indented_user_xml = indented_user_xml .. user_indent .. line .. "\n"
+        end
+        indented_user_xml = indented_user_xml:gsub("\n$", "")  -- Eliminar el último salto de línea
+
         local directory_content = table.concat({
             '<params>',
-            '    <param name="jsonrpc-allowed-methods" value="verto"/>',
-            '    <param name="jsonrpc-allowed-event-channels" value="demo,conference,presence"/>',
+            indent .. '<param name="jsonrpc-allowed-methods" value="verto"/>',
+            indent .. '<param name="jsonrpc-allowed-event-channels" value="demo,conference,presence"/>',
             '</params>',
             '<groups>',
-            '    <group name="default">',
-            '        <users>',
-            '            ' .. row.xml_data,  -- XML del usuario directamente
-            '        </users>',
-            '    </group>',
+            indent .. '<group name="default">',
+            indent .. indent .. '<users>',
+            indented_user_xml,  -- XML del usuario con indentación ajustada
+            indent .. indent .. '</users>',
+            indent .. '</group>',
             '</groups>'
         }, "\n")
 
