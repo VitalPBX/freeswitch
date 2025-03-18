@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 import pyodbc
 import uuid
 import logging
-from xml.dom import minidom
 import re
 
 # Configuración del logging (guardar en archivo y mostrar en pantalla)
@@ -58,10 +57,21 @@ def clean_xml(xml_str, remove_include=True):
         if remove_include and root.tag == "include":
             root = root[0]  # Tomar el primer hijo (por ejemplo, <context> o <menu>)
 
-        raw_xml = ET.tostring(root, encoding="unicode")
-        formatted_xml = minidom.parseString(raw_xml).toprettyxml(indent="    ")
-        # Eliminar la declaración <?xml> y líneas vacías
-        return "\n".join([line for line in formatted_xml.split("\n") if line.strip()])[38:]
+        # Formatear manualmente con indentación básica
+        def indent(elem, level=0):
+            indent_str = "    " * level
+            if len(elem):
+                if not elem.text or not elem.text.strip():
+                    elem.text = "\n" + "    " * (level + 1)
+                for child in elem:
+                    indent(child, level + 1)
+                if not elem.tail or not elem.tail.strip():
+                    elem.tail = "\n" + indent_str
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = "\n" + indent_str
+
+        indent(root)
+        return ET.tostring(root, encoding="unicode")
     except ET.ParseError as e:
         logging.error(f"❌ Error de sintaxis en XML: {e}")
         return None
@@ -94,7 +104,7 @@ def process_dialplan(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             xml_str = f.read()
 
-        # Eliminar comentarios y limpiar el XML inicial
+        # Eliminar comentarios iniciales antes de parsear
         xml_str = re.sub(r'<!--[\s\S]*?-->', '', xml_str)
         xml_str = xml_str.strip()
         if not xml_str:
@@ -114,10 +124,7 @@ def process_dialplan(file_path):
 
         for extension in root.findall(".//extension"):
             extension_name = extension.get("name", "unnamed")
-            extension_xml = ET.tostring(extension, encoding="unicode")
-            formatted_extension_xml = minidom.parseString(extension_xml).toprettyxml(indent="    ")
-            # Eliminar la declaración <?xml> y líneas vacías
-            formatted_extension_xml = "\n".join([line for line in formatted_extension_xml.split("\n") if line.strip()])[38:]
+            extension_xml = clean_xml(ET.tostring(extension, encoding="unicode"), remove_include=False)
 
             condition = extension.find(".//condition")
             expression = condition.get("expression", "") if condition is not None else ""
@@ -127,7 +134,7 @@ def process_dialplan(file_path):
                 "context_name": context_name,
                 "description": f"Extension {extension_name} from {os.path.basename(file_path)}",
                 "expression": expression_clean,
-                "xml_data": formatted_extension_xml
+                "xml_data": extension_xml
             })
 
         logging.info(f"🔹 Procesado contexto: {context_name} con {len(extensions)} extensiones desde {file_path}")
@@ -147,20 +154,15 @@ def insert_or_update_dialplan(conn, tenant_uuid, context_name, description, expr
 
     try:
         cur = conn.cursor()
-        # Usar una combinación de context_name y expression como clave única para evitar sobrescribir
+        # Insertar sin ON CONFLICT porque no hay restricción única más allá de context_uuid
         cur.execute("""
             INSERT INTO public.dialplan (
-                dialplan_uuid, tenant_uuid, context_name, description, expression, xml_data, enabled, insert_user
+                context_uuid, tenant_uuid, context_name, description, expression, xml_data, enabled, insert_user
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (context_name, expression) 
-            DO UPDATE SET 
-                description = EXCLUDED.description,
-                xml_data = EXCLUDED.xml_data,
-                enabled = EXCLUDED.enabled
         """, (str(uuid.uuid4()), tenant_uuid, context_name, description, expression, xml_data, True, None))
         
         conn.commit()
-        logging.info(f"✅ Dialplan '{context_name}' con expresión '{expression}' insertado/actualizado correctamente.")
+        logging.info(f"✅ Extensión en contexto '{context_name}' con expresión '{expression}' insertada correctamente.")
         cur.close()
     except Exception as e:
         conn.rollback()
