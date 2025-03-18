@@ -398,4 +398,4 @@ ALTER TABLE public.sip_profile_gateways OWNER TO $r2a_user;
 ALTER TABLE public.sip_profile_gateway_settings OWNER TO $r2a_user;
 
 -- Grant EXECUTE on the trigger function to ring2all
-GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;;
+GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;
