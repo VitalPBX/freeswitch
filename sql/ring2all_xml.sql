@@ -190,6 +190,8 @@ CREATE TABLE public.ivr_menus (
     timeout INTEGER NOT NULL DEFAULT 10000,                           -- Timeout in milliseconds before IVR fallback
     max_failures INTEGER NOT NULL DEFAULT 3,                          -- Maximum number of invalid attempts before fallback
     max_timeouts INTEGER NOT NULL DEFAULT 3,                          -- Maximum number of timeouts before fallback
+    xml_data XML NOT NULL,                                            -- Stores the dialplan context configuration in XML format
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the context is active (TRUE) or disabled (FALSE)
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user VARCHAR(255),                                         -- User who created the record (nullable)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
@@ -217,6 +219,8 @@ CREATE TABLE public.ivr_menu_options (
     digits VARCHAR(50) NOT NULL,                                      -- Input digits (e.g., "1", "2", "9", "*")
     action VARCHAR(255) NOT NULL,                                     -- Action to execute (e.g., "transfer", "voicemail", "hangup")
     param TEXT,                                                       -- Additional parameters for the action
+    xml_data XML NOT NULL,                                            -- Stores the dialplan context configuration in XML format
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the context is active (TRUE) or disabled (FALSE)
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user VARCHAR(255),                                         -- User who created the record (nullable)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
