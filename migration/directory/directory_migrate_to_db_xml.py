@@ -6,11 +6,14 @@ import pyodbc
 import logging
 import xml.dom.minidom
 
-# Configuración del logging
+# Configuración del logging (guardar en archivo y mostrar en pantalla)
 logging.basicConfig(
-    filename='migration.log',
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('migration.log'),
+        logging.StreamHandler()  # Muestra en pantalla
+    ]
 )
 
 # ODBC Data Source Name (DSN) definido en /etc/odbc.ini
@@ -28,10 +31,10 @@ def connect_db():
     """Establece conexión con la base de datos usando ODBC."""
     try:
         conn = pyodbc.connect(f"DSN={ODBC_DSN}")
-        logging.info("Conexión a la base de datos establecida correctamente.")
+        logging.info("✅ Conexión a la base de datos establecida correctamente.")
         return conn
     except Exception as e:
-        logging.error(f"Error conectando a la base de datos: {e}")
+        logging.error(f"❌ Error conectando a la base de datos: {e}")
         raise
 
 def get_tenant_uuid(conn):
@@ -43,30 +46,42 @@ def get_tenant_uuid(conn):
         cur.close()
         
         if result:
-            logging.info(f"Tenant '{DEFAULT_TENANT_NAME}' encontrado con UUID: {result[0]}")
+            logging.info(f"🔍 Tenant '{DEFAULT_TENANT_NAME}' encontrado con UUID: {result[0]}")
             return result[0]
         else:
             raise Exception(f"Tenant '{DEFAULT_TENANT_NAME}' no encontrado.")
     except Exception as e:
-        logging.error(f"Error obteniendo UUID del tenant: {e}")
+        logging.error(f"❌ Error obteniendo UUID del tenant: {e}")
         raise
 
-def clean_xml(xml_str):
-    """Elimina comentarios y formatea el XML con tabulación."""
+def clean_and_format_xml(xml_str):
+    """
+    Elimina la etiqueta <include>, comentarios y formatea el XML con tabulación clara.
+    Retorna el XML limpio como string.
+    """
     try:
         # Parsear el XML y eliminar comentarios
-        root = ET.fromstring(xml_str)
-        for elem in root.findall(".//comment()"):
-            elem.getparent().remove(elem)
+        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=False, insert_pis=False))
+        root = ET.fromstring(xml_str, parser=parser)
+        
+        # Extraer el contenido dentro de <include> (el elemento <user>)
+        user_elem = root.find(".//user")
+        if user_elem is None:
+            raise ValueError("No se encontró la etiqueta <user> en el XML")
 
-        # Convertir a cadena nuevamente con formato correcto
-        raw_xml = ET.tostring(root, encoding="unicode")
-        formatted_xml = xml.dom.minidom.parseString(raw_xml).toprettyxml(indent="    ")
-
-        # Eliminar líneas vacías generadas por minidom
-        return "\n".join([line for line in formatted_xml.split("\n") if line.strip()])
+        # Convertir solo el elemento <user> a string
+        raw_xml = ET.tostring(user_elem, encoding="unicode")
+        
+        # Formatear con tabulación usando minidom
+        formatted_xml = minidom.parseString(raw_xml).toprettyxml(indent="    ")
+        
+        # Eliminar líneas vacías y la declaración <?xml>
+        lines = [line for line in formatted_xml.splitlines() if line.strip()]
+        clean_xml = "\n".join(lines[1:])  # Saltar la primera línea (<?xml ...?>)
+        
+        return clean_xml
     except Exception as e:
-        logging.error(f"Error formateando XML: {e}")
+        logging.error(f"❌ Error formateando XML: {e}")
         return xml_str  # Devolver original si hay error
 
 def process_user_xml(file_path):
@@ -80,13 +95,12 @@ def process_user_xml(file_path):
             params = {param.get("name"): param.get("value") for param in user.findall(".//param")}
             variables = {var.get("name"): var.get("value") for var in user.findall(".//variable")}
 
-            # Reemplazar contraseña en XML
+            # Reemplazar contraseña en XML y eliminar <include>
             xml_str = ET.tostring(root, encoding="unicode")
             xml_str = xml_str.replace("$${default_password}", FIXED_PASSWORD)
-            xml_cleaned = clean_xml(xml_str)
+            xml_cleaned = clean_and_format_xml(xml_str)
 
-            logging.info(f"Procesado usuario {user_id}, con password reemplazada.")
-
+            logging.info(f"🔹 Procesado usuario {user_id} desde {file_path}")
             return {
                 "username": user_id,
                 "password": FIXED_PASSWORD,
@@ -97,10 +111,13 @@ def process_user_xml(file_path):
                 "user_context": variables.get("user_context", "default"),
                 "effective_caller_id_name": variables.get("effective_caller_id_name", f"Extension {user_id}"),
                 "effective_caller_id_number": variables.get("effective_caller_id_number", user_id),
-                "xml_data": xml_cleaned  # Guardar XML formateado en la base de datos
+                "xml_data": xml_cleaned  # Guardar XML limpio sin <include>
             }
+        else:
+            logging.warning(f"⚠️ No se encontró usuario en {file_path}")
+            return None
     except Exception as e:
-        logging.error(f"Error procesando {file_path}: {e}")
+        logging.error(f"❌ Error procesando {file_path}: {e}")
         return None
 
 def insert_sip_user(conn, tenant_uuid, user_data):
@@ -132,21 +149,23 @@ def insert_sip_user(conn, tenant_uuid, user_data):
         ))
         
         conn.commit()
-        logging.info(f"Usuario {user_data['username']} insertado/actualizado correctamente.")
+        logging.info(f"✅ Usuario {user_data['username']} insertado/actualizado correctamente.")
         cur.close()
     except Exception as e:
         conn.rollback()
-        logging.error(f"Error insertando/actualizando usuario {user_data['username']}: {e}")
+        logging.error(f"❌ Error insertando/actualizando usuario {user_data['username']}: {e}")
         raise
 
 def migrate_users(conn, tenant_uuid):
     """Lee archivos XML de usuarios y los inserta en la base de datos."""
+    logging.info(f"🚀 Iniciando migración de usuarios desde {USER_DIR}")
     for filename in os.listdir(USER_DIR):
         if filename.endswith(".xml"):
             file_path = os.path.join(USER_DIR, filename)
             user_data = process_user_xml(file_path)
             if user_data:
                 insert_sip_user(conn, tenant_uuid, user_data)
+    logging.info("🏁 Migración de usuarios completada.")
 
 def update_all_user_passwords(conn, tenant_uuid):
     """Actualiza todas las contraseñas de los usuarios existentes a 'r2a2025'."""
@@ -160,11 +179,11 @@ def update_all_user_passwords(conn, tenant_uuid):
         
         affected_rows = cur.rowcount
         conn.commit()
-        logging.info(f"Actualizadas {affected_rows} contraseñas a '{FIXED_PASSWORD}'.")
+        logging.info(f"🔄 Actualizadas {affected_rows} contraseñas a '{FIXED_PASSWORD}'.")
         cur.close()
     except Exception as e:
         conn.rollback()
-        logging.error(f"Error actualizando contraseñas: {e}")
+        logging.error(f"❌ Error actualizando contraseñas: {e}")
         raise
 
 def verify_user_1000(conn, tenant_uuid):
@@ -179,28 +198,29 @@ def verify_user_1000(conn, tenant_uuid):
         cur.close()
 
         if user_1000:
-            logging.info(f"Usuario 1000: username={user_1000[0]}, password={user_1000[1]}")
+            logging.info(f"🔍 Verificación: username={user_1000[0]}, password={user_1000[1]}")
         else:
-            logging.warning("Usuario 1000 no encontrado después de la migración.")
+            logging.warning("⚠️ Usuario 1000 no encontrado después de la migración.")
     except Exception as e:
-        logging.error(f"Error verificando usuario 1000: {e}")
+        logging.error(f"❌ Error verificando usuario 1000: {e}")
 
 def main():
     """Ejecuta la migración."""
     conn = None
     try:
+        logging.info("🌟 Iniciando proceso de migración de usuarios...")
         conn = connect_db()
         tenant_uuid = get_tenant_uuid(conn)
         migrate_users(conn, tenant_uuid)
         update_all_user_passwords(conn, tenant_uuid)
         verify_user_1000(conn, tenant_uuid)
-        logging.info("Migración completada con éxito.")
+        logging.info("🎉 Migración completada con éxito.")
     except Exception as e:
-        logging.error(f"Fallo en la migración: {e}")
+        logging.error(f"❌ Fallo en la migración: {e}")
     finally:
         if conn:
             conn.close()
-            logging.info("Conexión a la base de datos cerrada.")
+            logging.info("🔒 Conexión a la base de datos cerrada.")
 
 if __name__ == "__main__":
     main()
