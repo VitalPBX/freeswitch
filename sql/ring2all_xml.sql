@@ -48,71 +48,26 @@ CREATE TABLE public.tenant_settings (
 );
 
 -- Create the sip_users table for SIP user accounts
-CREATE TABLE public.sip_extensions (
-    extension_uuid uuid NOT NULL,
-    tenant_uuid uuid NOT NULL,
-    extension text,
-    number_alias text,
-    password text,
-    accountcode text,
-    effective_caller_id_name text,
-    effective_caller_id_number text,
-    outbound_caller_id_name text,
-    outbound_caller_id_number text,
-    emergency_caller_id_name text,
-    emergency_caller_id_number text,
-    directory_first_name text,
-    directory_last_name text,
-    directory_visible text,
-    directory_exten_visible text,
-    max_registrations text,
-    limit_max text,
-    limit_destination text,
-    missed_call_app text,
-    missed_call_data text,
-    user_context text,
-    toll_allow text,
-    call_timeout numeric,
-    call_group text,
-    call_screen_enabled text,
-    user_record text,
-    hold_music text,
-    auth_acl text,
-    cidr text,
-    sip_force_contact text,
-    nibble_account text,
-    sip_force_expires numeric,
-    mwi_account text,
-    sip_bypass_media text,
-    unique_id numeric,
-    dial_string text,
-    dial_user text,
-    dial_domain text,
-    do_not_disturb text,
-    forward_all_destination text,
-    forward_all_enabled text,
-    forward_busy_destination text,
-    forward_busy_enabled text,
-    forward_no_answer_destination text,
-    forward_no_answer_enabled text,
-    forward_user_not_registered_destination text,
-    forward_user_not_registered_enabled text,
-    follow_me_uuid uuid,
-    follow_me_enabled text,
-    follow_me_destinations text,
-    extension_language text,
-    extension_dialect text,
-    extension_voice text,
-    extension_type text,
-    enabled text,
-    description text,
-    absolute_codec_string text,
-    force_ping text,
-    xml_config XML NOT NULL, 
-    insert_date timestamp with time zone DEFAULT now(),
-    insert_user uuid,
-    update_date timestamp with time zone DEFAULT now(),
-    update_user uuid
+CREATE TABLE public.sip_users (
+    sip_user_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),        -- Unique identifier for the SIP user, auto-generated UUID
+    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
+    username VARCHAR(50) NOT NULL UNIQUE,                             -- Unique SIP username (e.g., "user123"), limited to 50 characters
+    password VARCHAR(50) NOT NULL,                                    -- SIP authentication password, limited to 50 characters
+    vm_password VARCHAR(50),                                          -- Voicemail password (nullable), limited to 50 characters
+    extension VARCHAR(20) NOT NULL,                                   -- Extension number (e.g., "1001"), limited to 20 characters
+    toll_allow VARCHAR(100),                                          -- Allowed toll call types (e.g., "international"), nullable
+    accountcode VARCHAR(50),                                          -- Account code for billing (nullable), limited to 50 characters
+    user_context VARCHAR(50) NOT NULL DEFAULT 'default',              -- FreeSWITCH context for call routing, defaults to 'default'
+    effective_caller_id_name VARCHAR(100),                            -- Caller ID name (e.g., "John Doe"), nullable
+    effective_caller_id_number VARCHAR(50),                           -- Caller ID number (e.g., "1234567890"), nullable
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the user is active (TRUE) or disabled (FALSE)
+    xml_data XML NOT NULL, 
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
+    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
+    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
+    CONSTRAINT fk_sip_users_tenants                                   -- Foreign key to tenants table
+        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
 );
 
 CREATE TABLE public.voicemails (
