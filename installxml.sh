@@ -144,7 +144,7 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $fs_database TO $fs_u
 echo -e "************************************************************"
 echo -e "*                  Create ring2all database                *"
 echo -e "************************************************************"
-wget -O ring2all.sql https://raw.githubusercontent.com/VitalPBX/freeswitch/main/sql/ring2all.sql
+wget -O ring2all.sql https://raw.githubusercontent.com/VitalPBX/freeswitch/main/sql/ring2all_xml.sql
 sed -i "s/\$r2a_database/$r2a_database/g; \
         s/\$r2a_user/$r2a_user/g; \
         s/\$r2a_password/$r2a_password/g" ring2all.sql
@@ -310,16 +310,16 @@ EOF
 echo -e "************************************************************"
 echo -e "*Download database script, migration scrpts and lus acripts*"
 echo -e "************************************************************"
-wget -O directory_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py
-wget -O dialplan_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py
-wget -O sip_profiles_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/sip_profiles/sip_profiles_migrate_to_db.py
+wget -O directory_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db_xml.py
+wget -O dialplan_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db_xml.py
+wget -O sip_profiles_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/sip_profiles/sip_profiles_migrate_to_db_xml.py
 # Lua Files
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
 wget -O index.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/index.lua
 wget -O settings.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/resources/settings/settings.lua
-wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/directory/sip_register.lua
-wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
-wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
+wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/directory/sip_register_xml.lua
+wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan_xml.lua 
+wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles_xml.lua
 wget -O ivr.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/ivr/ivr.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
 # Modules Load
@@ -467,7 +467,7 @@ touch /etc/freeswitch/dialplan/empty.xml
 echo -e "************************************************************"
 echo -e "*              Removes the Default extension               *"
 echo -e "************************************************************"
-sudo -u postgres psql -d $r2a_database -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default';"
+# sudo -u postgres psql -d $r2a_database -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default';"
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
