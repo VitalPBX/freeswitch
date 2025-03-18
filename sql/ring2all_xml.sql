@@ -105,6 +105,41 @@ CREATE TABLE public.dialplan_contexts (
     CONSTRAINT unique_context_name_per_tenant UNIQUE (tenant_uuid, context_name) -- Ensures unique context names per tenant
 );
 
+-- Tabla de Menús IVR
+CREATE TABLE public.ivr_menus (
+    ivr_uuid UUID PRIMARY KEY,
+    tenant_uuid UUID REFERENCES public.tenants(tenant_uuid),
+    ivr_name VARCHAR(255) UNIQUE,
+    greet_long VARCHAR(255),
+    greet_short VARCHAR(255),
+    invalid_sound VARCHAR(255),
+    exit_sound VARCHAR(255),
+    timeout INTEGER DEFAULT 10000,
+    max_failures INTEGER DEFAULT 3,
+    max_timeouts INTEGER DEFAULT 3,
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    insert_user VARCHAR(255),
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user VARCHAR(255),
+    CONSTRAINT fk_ivr_menus_tenants
+        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
+);
+
+-- Tabla de Opciones del IVR
+CREATE TABLE public.ivr_menu_options (
+    option_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ivr_uuid UUID NOT NULL,
+    digits VARCHAR(50) NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    param TEXT,
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    insert_user VARCHAR(255),
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user VARCHAR(255),
+    CONSTRAINT fk_ivr_menu_options_menus
+        FOREIGN KEY (ivr_uuid) REFERENCES public.ivr_menus (ivr_uuid) ON DELETE CASCADE
+);
+
 -- Create the ring2all role if it does not exist and configure privileges
 DO $$ 
 BEGIN
@@ -132,17 +167,29 @@ CREATE TRIGGER update_tenant_settings_timestamp
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 -- Create triggers to automatically update the update_date column for all tables
-CREATE TRIGGER update_sip_extensions_timestamp
-    BEFORE UPDATE ON public.sip_extensions
+CREATE TRIGGER update_sip_users_timestamp
+    BEFORE UPDATE ON public.sip_users
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
-CREATE TRIGGER update_voicemails_timestamp
-    BEFORE UPDATE ON public.voicemails
+CREATE TRIGGER update_sip_profiles_timestamp
+    BEFORE UPDATE ON public.sip_profiles
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 CREATE TRIGGER update_dialplan_timestamp
     BEFORE UPDATE ON public.dialplan
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
+CREATE TRIGGER update_ivr_menus_timestamp
+    BEFORE UPDATE ON public.ivr_menus
+    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
+CREATE TRIGGER update_ivr_menu_options_timestamp
+    BEFORE UPDATE ON public.ivr_menu_options
+    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+
+
+
+
 
 CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);
 CREATE INDEX idx_tenants_name ON public.tenants (name);
