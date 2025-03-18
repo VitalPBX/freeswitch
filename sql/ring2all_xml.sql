@@ -143,7 +143,7 @@ CREATE INDEX idx_sip_profiles_enabled ON public.sip_profiles (enabled);
 CREATE INDEX idx_sip_profiles_insert_date ON public.sip_profiles (insert_date);
 
 -- Create the dialplan_contexts table for FreeSWITCH dialplan contexts
-CREATE TABLE public.dialplan_contexts (
+CREATE TABLE public.dialplan (
     context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the dialplan context, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     context_name VARCHAR(255) NOT NULL,                               -- Unique context name (e.g., "public"), limited to 255 characters
@@ -164,19 +164,19 @@ CREATE TABLE public.dialplan_contexts (
 );
 
 -- Index to optimize searches by tenant UUID (for retrieving all dialplan contexts of a tenant)
-CREATE INDEX idx_dialplan_contexts_tenant_uuid ON public.dialplan_contexts (tenant_uuid);
+CREATE INDEX idx_dialplan_tenant_uuid ON public.dialplan (tenant_uuid);
 
 -- Index to optimize searches by context name (useful when filtering by name)
-CREATE INDEX idx_dialplan_contexts_name ON public.dialplan_contexts (context_name);
+CREATE INDEX idx_dialplan_name ON public.dialplan (context_name);
 
 -- Index to optimize searches of active dialplan contexts
-CREATE INDEX idx_dialplan_contexts_enabled ON public.dialplan_contexts (enabled);
+CREATE INDEX idx_dialplan_enabled ON public.dialplan (enabled);
 
 -- Index for faster queries ordered by creation date (useful for logs and tracking changes)
-CREATE INDEX idx_dialplan_contexts_insert_date ON public.dialplan_contexts (insert_date);
+CREATE INDEX idx_dialplan_insert_date ON public.dialplan (insert_date);
 
 -- Full-text search index on the "expression" field to optimize regex searches
-CREATE INDEX idx_dialplan_contexts_expression ON public.dialplan_contexts USING GIN (expression gin_trgm_ops);
+CREATE INDEX idx_dialplan_expression ON public.dialplan USING GIN (expression gin_trgm_ops);
 
 -- Create the ivr_menus table for IVR menu configurations
 CREATE TABLE public.ivr_menus (
@@ -280,8 +280,8 @@ CREATE TRIGGER update_sip_profiles_timestamp
     BEFORE UPDATE ON public.sip_profiles
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
-CREATE TRIGGER update_dialplan_contexts_timestamp
-    BEFORE UPDATE ON public.dialplan_contexts
+CREATE TRIGGER update_dialplan_timestamp
+    BEFORE UPDATE ON public.dialplan
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 CREATE TRIGGER update_ivr_menus_timestamp
