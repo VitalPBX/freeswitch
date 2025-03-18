@@ -2,7 +2,7 @@
     sip_register.lua (directory) 
     Handles FreeSWITCH directory requests for user authentication.
     Uses ODBC via FreeSWITCH Dbh and logs based on debug settings.
-    Generates XML using a formatting function from settings.lua.
+    Generates XML using the generic format_xml function from settings.lua.
 --]]
 
 -- Cargar el módulo settings
@@ -74,8 +74,26 @@ return function(params)
     if row and (row.enabled == "t" or row.enabled == "1") then  
         log("info", string.format("Generating directory entry for user %s in domain %s", row.username, row.domain_name))
         
-        -- Usar la función format_xml de settings.lua para construir y tabular el XML
-        XML_STRING = settings.format_xml(row.domain_name, row.xml_data)
+        -- Construir el contenido del directorio con <params> y <groups>
+        local directory_content = table.concat({
+            '<params>',
+            '    <param name="jsonrpc-allowed-methods" value="verto"/>',
+            '    <param name="jsonrpc-allowed-event-channels" value="demo,conference,presence"/>',
+            '</params>',
+            '<groups>',
+            '    <group name="default">',
+            '        <users>',
+            '            ' .. row.xml_data,  -- XML del usuario directamente
+            '        </users>',
+            '    </group>',
+            '</groups>'
+        }, "\n")
+
+        -- Usar format_xml para construir el XML completo
+        XML_STRING = settings.format_xml("directory", directory_content, {
+            domain_name = row.domain_name,
+            alias = true
+        })
     else
         log("warning", string.format("User %s not found or not enabled in domain %s", username, domain))
         XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
