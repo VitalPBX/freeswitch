@@ -16,6 +16,7 @@ CREATE DATABASE $r2a_database;
 -- Enable the uuid-ossp extension for UUID generation if not already enabled
 -- This provides the uuid_generate_v4() function for unique identifiers
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_trgm"  WITH SCHEMA public;
 
 -- Create the tenants table to store tenant information
 CREATE TABLE public.tenants (
