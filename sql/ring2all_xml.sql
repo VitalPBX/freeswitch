@@ -138,6 +138,7 @@ CREATE TABLE public.dialplan (
     context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the dialplan entry, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     context_name VARCHAR(255) NOT NULL,                               -- Context name (e.g., "public"), limited to 255 characters
+    name TEXT,                                                        -- Name of dialplan
     description TEXT,                                                 -- Optional description of the entry
     expression TEXT,                                                  -- Regular expression used in the extension (without "^" and "$")
     category TEXT DEFAULT 'Uncategorized',                            -- Category for organization, defaults to "Uncategorized"
