@@ -135,23 +135,21 @@ CREATE INDEX idx_sip_profiles_insert_date ON public.sip_profiles (insert_date);
 
 -- Create the dialplan_contexts table for FreeSWITCH dialplan contexts
 CREATE TABLE public.dialplan (
-    context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the dialplan context, auto-generated UUID
+    context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the dialplan entry, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
-    context_name VARCHAR(255) NOT NULL,                               -- Unique context name (e.g., "public"), limited to 255 characters
-    description TEXT,                                                 -- Optional description of the context
-    expression TEXT,                                                  -- Regular expression used in the context (without "^" and "$")
+    context_name VARCHAR(255) NOT NULL,                               -- Context name (e.g., "public"), limited to 255 characters
+    description TEXT,                                                 -- Optional description of the entry
+    expression TEXT,                                                  -- Regular expression used in the extension (without "^" and "$")
     category TEXT DEFAULT 'Uncategorized',                            -- Category for organization, defaults to "Uncategorized"
-    xml_data XML NOT NULL,                                            -- Stores the dialplan context configuration in XML format
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the context is active (TRUE) or disabled (FALSE)
+    xml_data XML NOT NULL,                                            -- Stores the extension configuration in XML format
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the entry is active (TRUE) or disabled (FALSE)
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable),
+    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable)
     CONSTRAINT fk_dialplan_tenants                                    -- Foreign key linking to the tenants table
         FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) 
-        ON DELETE CASCADE,                                            -- If tenant is deleted, remove all related contexts
-    CONSTRAINT unique_context_name_per_tenant                         -- Ensures unique context names per tenant
-        UNIQUE (tenant_uuid, context_name)
+        ON DELETE CASCADE                                             -- If tenant is deleted, remove all related entries
 );
 
 CREATE TABLE public.dialplan (
