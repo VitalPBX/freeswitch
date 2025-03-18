@@ -70,31 +70,6 @@ CREATE TABLE public.sip_users (
         FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
 );
 
-CREATE TABLE public.voicemails (
-    voicemail_uuid uuid NOT NULL,
-    tenant_uuid uuid NOT NULL,
-    voicemail_id text,
-    voicemail_password text,
-    greeting_id numeric,
-    voicemail_alternate_greet_id numeric,
-    voicemail_recording_instructions text,
-    voicemail_recording_options text,
-    voicemail_mail_to text,
-    voicemail_sms_to text,
-    voicemail_transcription_enabled text,
-    voicemail_attach_file text,
-    voicemail_file text,
-    voicemail_local_after_email text,
-    voicemail_local_after_forward text,
-    voicemail_enabled text,
-    voicemail_description text,
-    voicemail_name_base64 text,
-    voicemail_tutorial text,
-    insert_date timestamp with time zone DEFAULT now(),
-    insert_user uuid,
-    update_date timestamp with time zone DEFAULT now(),
-    update_user uuid
-);
 
 CREATE TABLE public.sip_profiles (
     profile_uuid UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
