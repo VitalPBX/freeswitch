@@ -187,8 +187,8 @@ CREATE TRIGGER update_tenant_settings_timestamp
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 -- Create triggers to automatically update the update_date column for all tables
-CREATE TRIGGER update_sip_users_timestamp
-    BEFORE UPDATE ON public.sip_users
+CREATE TRIGGER update_sip_extensions_timestamp
+    BEFORE UPDATE ON public.sip_extensions
     FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 CREATE TRIGGER update_voicemails_timestamp
@@ -216,7 +216,7 @@ GRANT EXECUTE ON FUNCTION public.update_timestamp() TO $r2a_user;
 -- Set ownership of all tables to the ring2all user
 ALTER TABLE public.tenants OWNER TO $r2a_user;
 ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
-ALTER TABLE public.sip_users OWNER TO $r2a_user;
+ALTER TABLE public.sip_extensions OWNER TO $r2a_user;
 ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
 ALTER TABLE public.dialplan OWNER TO $r2a_user;
 
