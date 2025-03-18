@@ -39,9 +39,10 @@ def clean_xml(xml_str):
     try:
         root = ET.fromstring(xml_str)
 
-        # Eliminar comentarios
-        for elem in root.findall(".//comment()"):
-            elem.getparent().remove(elem)
+        # Eliminar comentarios correctamente
+        for elem in list(root.iter()):
+            if isinstance(elem.tag, str) and elem.tag.startswith(ET.Comment):
+                root.remove(elem)
 
         # Convertir de nuevo a string
         raw_xml = ET.tostring(root, encoding="unicode")
@@ -99,16 +100,16 @@ def process_dialplan(file_path):
         logging.error(f"Error procesando {file_path}: {e}")
         return None, []
 
-def insert_dialplan_context(conn, tenant_uuid, context_name, expression, xml_data):
-    """Inserta o actualiza un contexto de dialplan en la base de datos."""
+def insert_dialplan_entry(conn, tenant_uuid, context_name, expression, xml_data):
+    """Inserta o actualiza una entrada de dialplan en la base de datos."""
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO public.dialplan_contexts (
+            INSERT INTO public.dialplan (
                 tenant_uuid, context_name, expression, xml_data, insert_user
             ) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (tenant_uuid, context_name) 
-            DO UPDATE SET xml_data = EXCLUDED.xml_data, expression = EXCLUDED.expression
+            ON CONFLICT (tenant_uuid, context_name, expression) 
+            DO UPDATE SET xml_data = EXCLUDED.xml_data
         """, (tenant_uuid, context_name, expression, xml_data, None))
         
         conn.commit()
@@ -130,7 +131,7 @@ def migrate_dialplan():
                 file_path = os.path.join(root_dir, file)
                 context_name, extensions = process_dialplan(file_path)
                 for ext in extensions:
-                    insert_dialplan_context(conn, tenant_uuid, ext["context_name"], ext["expression"], ext["xml_data"])
+                    insert_dialplan_entry(conn, tenant_uuid, ext["context_name"], ext["expression"], ext["xml_data"])
 
     conn.close()
     logging.info("✅ Migración de dialplan completada.")
@@ -162,24 +163,26 @@ def migrate_ivr_menus():
 
                     conn.commit()
 
-                    # Manejar opciones del IVR
-                    ivr_uuid = cur.execute("SELECT ivr_uuid FROM public.ivr_menus WHERE ivr_name = ?", (ivr_name,)).fetchone()[0]
-                    cur.execute("DELETE FROM public.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
+                    cur.execute("SELECT ivr_uuid FROM public.ivr_menus WHERE ivr_name = ?", (ivr_name,))
+                    ivr_uuid_row = cur.fetchone()
+                    if ivr_uuid_row:
+                        ivr_uuid = ivr_uuid_row[0]
+                        cur.execute("DELETE FROM public.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
 
-                    for entry in root.findall(".//entry"):
-                        digits = entry.get("digits", "")
-                        action = entry.get("action", "")
-                        param = entry.get("param", "")
+                        for entry in root.findall(".//entry"):
+                            digits = entry.get("digits", "")
+                            action = entry.get("action", "")
+                            param = entry.get("param", "")
 
-                        cur.execute("""
-                            INSERT INTO public.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (str(uuid.uuid4()), ivr_uuid, digits, action, param))
+                            cur.execute("""
+                                INSERT INTO public.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (str(uuid.uuid4()), ivr_uuid, digits, action, param))
 
-                    conn.commit()
+                        conn.commit()
+                        logging.info(f"IVR {ivr_name} y sus opciones insertados/actualizados correctamente.")
+
                     cur.close()
-                    logging.info(f"IVR {ivr_name} y sus opciones insertados/actualizados correctamente.")
-
                 except Exception as e:
                     conn.rollback()
                     logging.error(f"Error insertando/actualizando IVR {ivr_name}: {e}")
@@ -190,4 +193,4 @@ def migrate_ivr_menus():
 
 if __name__ == "__main__":
     migrate_dialplan()
-    migrate_ivr_menus() 
+    migrate_ivr_menus()
