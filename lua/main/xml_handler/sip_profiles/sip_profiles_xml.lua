@@ -1,12 +1,4 @@
---[[ 
-    sip_profiles.lua
-    Generates Sofia SIP configuration for FreeSWITCH dynamically using database-driven profiles.
-    Retrieves the full XML configuration directly from the database.
-    Ensures that each profile includes a valid <gateways> section.
-]]
-
 return function(settings)
-    -- Logging function
     local function log(level, message)
         if level == "debug" and not settings.debug then return end
         freeswitch.consoleLog(level, "[Sofia Profiles] " .. message .. "\n")
@@ -14,63 +6,107 @@ return function(settings)
 
     log("info", "Initializing SIP profile configuration generation")
 
-    -- Establish database connection
+    -- Conectar a la base de datos
     local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to database")
 
-    -- Initialize XML structure
+    -- Crear una instancia del API de FreeSWITCH
+    local api = freeswitch.API()
+
+    -- Obtener todas las variables globales de FreeSWITCH
+    local vars = api:execute("global_getvar", "") or ""
+    log("debug", "Retrieved global variables:\n" .. vars)
+
+    -- Almacenar variables en una tabla clave-valor
+    local global_vars = {}
+    for line in vars:gmatch("[^\n]+") do
+        local name, value = line:match("^([^=]+)=(.+)$")
+        if name and value then
+            global_vars[name] = value
+            log("debug", "Parsed global variable: " .. name .. " = " .. value)
+        end
+    end
+
+    -- Función para reemplazar $${var_name} con su valor correspondiente
+    local function replace_vars(str)
+        return str:gsub("%$%${([^}]+)}", function(var_name)
+            local value = global_vars[var_name] or ""
+            if value == "" then
+                log("warning", "Variable $$" .. var_name .. " not found, replacing with empty string")
+            else
+                log("debug", "Resolved $$" .. var_name .. " to: " .. value)
+            end
+            return value
+        end)
+    end
+
+    -- Query para obtener los perfiles SIP
+    local profile_query = "SELECT profile_name, xml_config FROM public.sip_profiles"
+    log("debug", "Executing profile query: " .. profile_query)
+
     local xml = {
         '<?xml version="1.0" encoding="utf-8"?>',
         '<document type="freeswitch/xml">',
         '  <section name="configuration">',
-        '    <configuration name="sofia.conf" description="Sofia SIP Endpoint">',
-        '      <profiles>'
+        '    <configuration name="sofia.conf" description="sofia Endpoint">',
+        '      <global_settings>',
+        '        <param name="auto-restart" value="true"/>',
+        '        <param name="debug-presence" value="0"/>',
+        '        <param name="inbound-reg-in-new-thread" value="true"/>',
+        '        <param name="log-level" value="0"/>',
+        '        <param name="max-reg-threads" value="8"/>',
+        '      </global_settings>',
+        '      <profiles>' -- Asegurar que <profiles> se abra correctamente
     }
 
-    -- Query SIP profiles from the database
-    local profile_query = [[
-        SELECT profile_name, xml_config FROM public.sip_profiles
-    ]]
+    local processed_profiles = {}  -- Para evitar perfiles duplicados
 
-    log("debug", "Executing profile query: " .. profile_query)
-
-    -- Counter for the number of profiles processed
-    local profile_count = 0
-
-    -- Execute the query and append XML from the database
     dbh:query(profile_query, function(row)
-        profile_count = profile_count + 1
         local profile_name = row.profile_name
-        local profile_xml = row.xml_config
+        local xml_config = row.xml_config
 
-        log("info", "Processing profile: " .. profile_name)
+        -- **Evitar perfiles duplicados**
+        if processed_profiles[profile_name] then
+            log("warning", "Duplicate profile detected: " .. profile_name .. ". Skipping...")
+            return
+        end
+        processed_profiles[profile_name] = true
 
-        -- Ensure <gateways> section exists in the XML
-        if not profile_xml:find("<gateways>") then
-            log("warning", "Profile " .. profile_name .. " is missing <gateways> section. Adding an empty one.")
-            -- Insert <gateways></gateways> before </profile>
-            profile_xml = profile_xml:gsub("</profile>", "  <gateways></gateways>\n</profile>")
+        log("info", "Processing SIP profile: " .. profile_name)
+
+        -- **Eliminar etiquetas `<profile>` y `</profile>` en xml_config**
+        xml_config = xml_config:gsub("<profile[^>]*>", "")  -- Elimina cualquier <profile ...>
+        xml_config = xml_config:gsub("</profile>", "")      -- Elimina cualquier </profile>
+
+        -- **Reemplazar variables en xml_config**
+        xml_config = replace_vars(xml_config)
+
+        -- **Asegurar estructura XML válida**
+        if not xml_config:match("<aliases>") then
+            xml_config = xml_config:gsub("<gateways>", "<aliases></aliases>\n<gateways>", 1)
+        end
+        if not xml_config:match("<gateways>") then
+            xml_config = xml_config:gsub("<domains>", "<gateways></gateways>\n<domains>", 1)
+        end
+        if not xml_config:match("<settings>") then
+            xml_config = xml_config .. "\n<settings></settings>"
         end
 
-        -- Append profile XML to the main structure
-        table.insert(xml, profile_xml)
+        -- **Insertar el perfil correctamente**
+        table.insert(xml, '        <profile name="' .. profile_name .. '">')
+        table.insert(xml, xml_config)
+        table.insert(xml, '        </profile>')
     end)
 
-    -- Log the total number of profiles processed
-    log("info", "Total profiles processed: " .. profile_count)
-    if profile_count == 0 then
-        log("warning", "No profiles found in the database")
-    end
-
-    -- Complete XML structure
-    table.insert(xml, '      </profiles>')
+    -- **Cerrar correctamente la estructura XML**
+    table.insert(xml, '      </profiles>')  -- Se asegura que solo se cierre una vez
     table.insert(xml, '    </configuration>')
     table.insert(xml, '  </section>')
     table.insert(xml, '</document>')
 
-    -- Convert table to string
+    -- Convertir la tabla en una cadena XML final
     XML_STRING = table.concat(xml, "\n")
 
-    -- Save XML for debugging
+    -- Guardar en archivo para depuración
     local file = io.open("/tmp/sofia_profiles.xml", "w")
     if file then
         file:write(XML_STRING)
@@ -80,6 +116,6 @@ return function(settings)
         log("warning", "Failed to save XML configuration to /tmp/sofia_profiles.xml")
     end
 
-    -- Release DB connection
+    -- Liberar la conexión de la base de datos
     dbh:release()
 end
