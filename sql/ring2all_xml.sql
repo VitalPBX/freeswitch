@@ -306,7 +306,7 @@ ALTER TABLE public.tenants OWNER TO $r2a_user;
 ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
 ALTER TABLE public.sip_users OWNER TO $r2a_user;
 ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
-ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
+ALTER TABLE public.dialplan OWNER TO $r2a_user;
 ALTER TABLE public.ivr_menus OWNER TO $r2a_user;
 ALTER TABLE public.ivr_menu_options OWNER TO $r2a_user;
 
