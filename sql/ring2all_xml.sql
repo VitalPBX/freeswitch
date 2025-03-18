@@ -86,20 +86,23 @@ CREATE TABLE public.sip_profiles (
     CONSTRAINT unique_sip_profile_name_per_tenant UNIQUE (tenant_uuid, profile_name) -- Ensures unique profile names per tenant
 );
 
-CREATE TABLE public.dialplan (
-    rule_uuid UUID PRIMARY KEY,
-    tenant_uuid UUID NOT NULL,
-    context TEXT NOT NULL,
-    name TEXT NOT NULL,
+-- Create the dialplan_contexts table for FreeSWITCH dialplan contexts
+CREATE TABLE public.dialplan_contexts (
+    context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the context, auto-generated UUID
+    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
+    context_name VARCHAR(255) NOT NULL,                               -- Context name (e.g., "public"), limited to 255 characters
+    description TEXT,                                                 -- Optional description of the context
     expression TEXT,
     category TEXT DEFAULT 'Uncategorized',
-    xml_config XML NOT NULL,
-    insert_date TIMESTAMP DEFAULT NOW(),
-    insert_user UUID,
-    update_date TIMESTAMP DEFAULT NOW(),
-    update_user UUID,
-    enabled BOOLEAN DEFAULT TRUE,
-    CONSTRAINT unique_dialplan_rule UNIQUE (name, context)
+    xml_data XML NOT NULL, 
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the context is active (TRUE) or disabled (FALSE)
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
+    insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
+    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
+    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable)
+    CONSTRAINT fk_dialplan_contexts_tenants                           -- Foreign key to tenants table
+        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_context_name_per_tenant UNIQUE (tenant_uuid, context_name) -- Ensures unique context names per tenant
 );
 
 -- Create the ring2all role if it does not exist and configure privileges
