@@ -40,7 +40,7 @@ return function(settings)
     end
 
     -- Query para obtener los perfiles SIP
-    local profile_query = "SELECT profile_name, xml_config FROM public.sip_profiles"
+    local profile_query = "SELECT profile_name, xml_data FROM public.sip_profiles"
     log("debug", "Executing profile query: " .. profile_query)
 
     local xml = {
@@ -62,7 +62,7 @@ return function(settings)
 
     dbh:query(profile_query, function(row)
         local profile_name = row.profile_name
-        local xml_config = row.xml_config
+        local xml_data = row.xml_data
 
         -- **Evitar perfiles duplicados**
         if processed_profiles[profile_name] then
@@ -73,27 +73,27 @@ return function(settings)
 
         log("info", "Processing SIP profile: " .. profile_name)
 
-        -- **Eliminar etiquetas `<profile>` y `</profile>` en xml_config**
-        xml_config = xml_config:gsub("<profile[^>]*>", "")  -- Elimina cualquier <profile ...>
-        xml_config = xml_config:gsub("</profile>", "")      -- Elimina cualquier </profile>
+        -- **Eliminar etiquetas `<profile>` y `</profile>` en xml_data**
+        xml_data = xml_data:gsub("<profile[^>]*>", "")  -- Elimina cualquier <profile ...>
+        xml_data = xml_data:gsub("</profile>", "")      -- Elimina cualquier </profile>
 
-        -- **Reemplazar variables en xml_config**
-        xml_config = replace_vars(xml_config)
+        -- **Reemplazar variables en xml_data**
+        xml_data = replace_vars(xml_data)
 
         -- **Asegurar estructura XML válida**
-        if not xml_config:match("<aliases>") then
-            xml_config = xml_config:gsub("<gateways>", "<aliases></aliases>\n<gateways>", 1)
+        if not xml_data:match("<aliases>") then
+            xml_data = xml_data:gsub("<gateways>", "<aliases></aliases>\n<gateways>", 1)
         end
-        if not xml_config:match("<gateways>") then
-            xml_config = xml_config:gsub("<domains>", "<gateways></gateways>\n<domains>", 1)
+        if not xml_data:match("<gateways>") then
+            xml_data = xml_data:gsub("<domains>", "<gateways></gateways>\n<domains>", 1)
         end
-        if not xml_config:match("<settings>") then
-            xml_config = xml_config .. "\n<settings></settings>"
+        if not xml_data:match("<settings>") then
+            xml_data = xml_data .. "\n<settings></settings>"
         end
 
         -- **Insertar el perfil correctamente**
         table.insert(xml, '        <profile name="' .. profile_name .. '">')
-        table.insert(xml, xml_config)
+        table.insert(xml, xml_data)
         table.insert(xml, '        </profile>')
     end)
 
