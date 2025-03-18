@@ -60,8 +60,8 @@ CREATE TABLE public.sip_users (
     user_context VARCHAR(50) NOT NULL DEFAULT 'default',              -- FreeSWITCH context for call routing, defaults to 'default'
     effective_caller_id_name VARCHAR(100),                            -- Caller ID name (e.g., "John Doe"), nullable
     effective_caller_id_number VARCHAR(50),                           -- Caller ID number (e.g., "1234567890"), nullable
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the user is active (TRUE) or disabled (FALSE)
     xml_data XML NOT NULL, 
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the user is active (TRUE) or disabled (FALSE)
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
@@ -70,16 +70,20 @@ CREATE TABLE public.sip_users (
         FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
 );
 
-
+-- Create the sip_profiles table for SIP profiles configuration
 CREATE TABLE public.sip_profiles (
-    profile_uuid UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    profile_name TEXT UNIQUE NOT NULL,
-    tenant_uuid UUID NOT NULL,
-    xml_config XML NOT NULL,
-    insert_date TIMESTAMP DEFAULT NOW(),
-    insert_user UUID,
-    update_date TIMESTAMP DEFAULT NOW(),
-    update_user UUID
+    profile_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the SIP profile, auto-generated UUID
+    tenant_uuid UUID,                                                 -- Foreign key to the associated tenant (nullable for global profiles)
+    profile_name VARCHAR(255) NOT NULL,                               -- Profile name (e.g., "internal"), limited to 255 characters
+    xml_data XML NOT NULL, 
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the profile is active (TRUE) or disabled (FALSE)
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
+    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
+    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
+    CONSTRAINT fk_sip_profiles_tenants                                -- Foreign key to tenants table (nullable)
+        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE SET NULL,
+    CONSTRAINT unique_sip_profile_name_per_tenant UNIQUE (tenant_uuid, profile_name) -- Ensures unique profile names per tenant
 );
 
 CREATE TABLE public.dialplan (
