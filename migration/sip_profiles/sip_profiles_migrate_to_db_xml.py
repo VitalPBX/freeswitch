@@ -35,9 +35,10 @@ def clean_xml(xml_str):
     try:
         root = ET.fromstring(xml_str)
 
-        # Eliminar comentarios
-        for elem in root.findall(".//comment()"):
-            elem.getparent().remove(elem)
+        # Eliminar comentarios de forma segura
+        for elem in list(root.iter()):
+            if isinstance(elem.tag, str) and elem.tag.startswith(ET.Comment):
+                root.remove(elem)
 
         # Convertir de nuevo a string
         raw_xml = ET.tostring(root, encoding="unicode")
@@ -47,7 +48,7 @@ def clean_xml(xml_str):
         return "\n".join([line for line in formatted_xml.split("\n") if line.strip()])
     except Exception as e:
         logging.error(f"Error formateando XML: {e}")
-        return xml_str  # Retornar original en caso de fallo
+        return None  # Retornar None en caso de fallo
 
 def process_sip_profile(file_path):
     """Parsea un archivo XML de perfil SIP, limpia comentarios y tabula correctamente."""
@@ -57,24 +58,44 @@ def process_sip_profile(file_path):
 
         # Limpiar y tabular XML
         xml_cleaned = clean_xml(xml_str)
-
-        # Obtener el nombre del perfil desde el XML
-        root = ET.fromstring(xml_cleaned)
-        profile_element = root.find(".//profile")
-        profile_name = profile_element.get("name") if profile_element is not None else None
-
-        if not profile_name:
-            logging.warning(f"Perfil sin nombre en archivo: {file_path}")
+        if xml_cleaned is None:
+            logging.error(f"XML inválido en archivo: {file_path}")
             return None, None
 
-        logging.info(f"Procesado perfil SIP: {profile_name}")
-        return profile_name, xml_cleaned
+        # Parsear el XML limpio
+        root = ET.fromstring(xml_cleaned)
+        profiles_element = root.find(".//profiles")
+
+        if profiles_element is None:
+            logging.error(f"No se encontró el nodo <profiles> en {file_path}")
+            return None, None
+
+        # Obtener cada perfil dentro de <profiles>
+        for profile_element in profiles_element.findall(".//profile"):
+            profile_name = profile_element.get("name")
+            if not profile_name:
+                logging.warning(f"Perfil sin nombre en archivo: {file_path}")
+                continue  # Omitir perfiles sin nombre
+
+            # Extraer solo el XML del perfil actual
+            profile_xml = ET.tostring(profile_element, encoding="unicode")
+            formatted_profile_xml = clean_xml(profile_xml)
+
+            logging.info(f"Procesado perfil SIP: {profile_name}")
+            return profile_name, formatted_profile_xml  # Solo retorna el primer perfil válido
+
+        logging.warning(f"No se encontraron perfiles en {file_path}")
+        return None, None
     except Exception as e:
         logging.error(f"Error procesando {file_path}: {e}")
         return None, None
 
 def insert_sip_profile(conn, tenant_uuid, profile_name, xml_data):
     """Inserta o actualiza un perfil SIP en la base de datos."""
+    if not xml_data:
+        logging.warning(f"XML vacío para el perfil {profile_name}. No se insertará en la base de datos.")
+        return
+
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -106,7 +127,7 @@ def migrate_sip_profiles():
             continue
         
         profile_name, xml_data = process_sip_profile(file_path)
-        if profile_name:
+        if profile_name and xml_data:
             insert_sip_profile(conn, tenant_uuid, profile_name, xml_data)
 
     conn.close()
