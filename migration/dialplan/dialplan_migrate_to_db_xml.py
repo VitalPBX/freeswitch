@@ -17,9 +17,8 @@ logging.basicConfig(
 # ODBC Data Source Name (DSN) definido en /etc/odbc.ini
 ODBC_DSN = "ring2all"
 
-# Directorios donde están los fragmentos de dialplan e IVR
+# Directorio donde están los archivos XML de Dialplan
 DIALPLAN_DIR = "/etc/freeswitch/dialplan"
-IVR_MENUS_DIR = "/etc/freeswitch/ivr_menus"
 
 # Tenant por defecto
 DEFAULT_TENANT_NAME = "Default"
@@ -39,12 +38,7 @@ def clean_xml(xml_str):
     try:
         root = ET.fromstring(xml_str)
 
-        # Eliminar comentarios correctamente
-        for elem in list(root.iter()):
-            if isinstance(elem.tag, str) and elem.tag.startswith(ET.Comment):
-                root.remove(elem)
-
-        # Convertir de nuevo a string
+        # Convertir de nuevo a string eliminando espacios innecesarios
         raw_xml = ET.tostring(root, encoding="unicode")
         formatted_xml = xml.dom.minidom.parseString(raw_xml).toprettyxml(indent="    ")
 
@@ -52,7 +46,7 @@ def clean_xml(xml_str):
         return "\n".join([line for line in formatted_xml.split("\n") if line.strip()])
     except Exception as e:
         logging.error(f"Error formateando XML: {e}")
-        return xml_str  # Retornar original en caso de fallo
+        return None  # Retornar None en caso de fallo
 
 def get_tenant_uuid(conn):
     """Obtiene el UUID del tenant por defecto."""
@@ -73,8 +67,11 @@ def process_dialplan(file_path):
 
         # Limpiar y tabular XML
         xml_cleaned = clean_xml(xml_str)
+        if xml_cleaned is None:
+            logging.error(f"XML inválido en archivo: {file_path}")
+            return None, []
 
-        # Parsear el XML
+        # Parsear el XML limpio
         root = ET.fromstring(xml_cleaned)
         context_name = root.get("name", "default")
         extensions = []
@@ -100,20 +97,42 @@ def process_dialplan(file_path):
         logging.error(f"Error procesando {file_path}: {e}")
         return None, []
 
-def insert_dialplan_entry(conn, tenant_uuid, context_name, expression, xml_data):
-    """Inserta o actualiza una entrada de dialplan en la base de datos."""
+def insert_or_update_dialplan(conn, tenant_uuid, context_name, expression, xml_data):
+    """Inserta o actualiza una entrada en la tabla `dialplan`."""
+    if not xml_data:
+        logging.warning(f"XML vacío para el contexto {context_name}. No se insertará en la base de datos.")
+        return
+
     try:
         cur = conn.cursor()
+
+        # Verificar si ya existe el contexto en la base de datos
         cur.execute("""
-            INSERT INTO public.dialplan (
-                tenant_uuid, context_name, expression, xml_data, insert_user
-            ) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (tenant_uuid, context_name, expression) 
-            DO UPDATE SET xml_data = EXCLUDED.xml_data
-        """, (tenant_uuid, context_name, expression, xml_data, None))
-        
+            SELECT context_uuid FROM public.dialplan
+            WHERE tenant_uuid = ? AND context_name = ?
+        """, (tenant_uuid, context_name))
+        result = cur.fetchone()
+
+        if result:
+            # Actualizar XML si el contexto ya existe
+            context_uuid = result[0]
+            cur.execute("""
+                UPDATE public.dialplan
+                SET xml_data = ?, expression = ?
+                WHERE context_uuid = ?
+            """, (xml_data, expression, context_uuid))
+            logging.info(f"Dialplan {context_name} actualizado correctamente.")
+        else:
+            # Insertar nuevo contexto
+            context_uuid = str(uuid.uuid4())
+            cur.execute("""
+                INSERT INTO public.dialplan (
+                    context_uuid, tenant_uuid, context_name, expression, xml_data, insert_user
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (context_uuid, tenant_uuid, context_name, expression, xml_data, None))
+            logging.info(f"Dialplan {context_name} insertado correctamente.")
+
         conn.commit()
-        logging.info(f"Dialplan {context_name} insertado/actualizado correctamente.")
         cur.close()
     except Exception as e:
         conn.rollback()
@@ -131,66 +150,10 @@ def migrate_dialplan():
                 file_path = os.path.join(root_dir, file)
                 context_name, extensions = process_dialplan(file_path)
                 for ext in extensions:
-                    insert_dialplan_entry(conn, tenant_uuid, ext["context_name"], ext["expression"], ext["xml_data"])
+                    insert_or_update_dialplan(conn, tenant_uuid, ext["context_name"], ext["expression"], ext["xml_data"])
 
     conn.close()
     logging.info("✅ Migración de dialplan completada.")
 
-def migrate_ivr_menus():
-    """Lee archivos XML de IVR y los inserta en la base de datos."""
-    conn = connect_db()
-    tenant_uuid = get_tenant_uuid(conn)
-
-    for root_dir, _, files in os.walk(IVR_MENUS_DIR):
-        for file in files:
-            if file.endswith(".xml"):
-                file_path = os.path.join(root_dir, file)
-                with open(file_path, "r") as f:
-                    xml_data = clean_xml(f.read())
-
-                root = ET.fromstring(xml_data)
-                ivr_name = root.get("name", "Unnamed IVR")
-
-                try:
-                    cur = conn.cursor()
-                    cur.execute("""
-                        INSERT INTO public.ivr_menus (
-                            ivr_uuid, tenant_uuid, ivr_name, xml_data, insert_user
-                        ) VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT (tenant_uuid, ivr_name) 
-                        DO UPDATE SET xml_data = EXCLUDED.xml_data
-                    """, (str(uuid.uuid4()), tenant_uuid, ivr_name, xml_data, None))
-
-                    conn.commit()
-
-                    cur.execute("SELECT ivr_uuid FROM public.ivr_menus WHERE ivr_name = ?", (ivr_name,))
-                    ivr_uuid_row = cur.fetchone()
-                    if ivr_uuid_row:
-                        ivr_uuid = ivr_uuid_row[0]
-                        cur.execute("DELETE FROM public.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
-
-                        for entry in root.findall(".//entry"):
-                            digits = entry.get("digits", "")
-                            action = entry.get("action", "")
-                            param = entry.get("param", "")
-
-                            cur.execute("""
-                                INSERT INTO public.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
-                                VALUES (?, ?, ?, ?, ?)
-                            """, (str(uuid.uuid4()), ivr_uuid, digits, action, param))
-
-                        conn.commit()
-                        logging.info(f"IVR {ivr_name} y sus opciones insertados/actualizados correctamente.")
-
-                    cur.close()
-                except Exception as e:
-                    conn.rollback()
-                    logging.error(f"Error insertando/actualizando IVR {ivr_name}: {e}")
-                    raise
-
-    conn.close()
-    logging.info("✅ Migración de IVR completada.")
-
 if __name__ == "__main__":
     migrate_dialplan()
-    migrate_ivr_menus()
