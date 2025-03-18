@@ -209,11 +209,11 @@ CREATE TRIGGER update_dialplan_timestamp
 
 CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);
 CREATE INDEX idx_tenants_name ON public.tenants (name);
-CREATE INDEX idx_tenants_enabled ON public.tenants (tenant_enabled);
+CREATE INDEX idx_tenants_enabled ON public.tenants (enabled);
 CREATE INDEX idx_tenants_parent_uuid ON public.tenants (parent_tenant_uuid);
 
 CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_extensions (tenant_uuid); 
-CREATE INDEX idx_sip_users_username ON public.sip_extensions (username);
+CREATE INDEX idx_sip_users_extension ON public.sip_extensions (extension);
 
 GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
 GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
@@ -231,7 +231,7 @@ ALTER TABLE public.dialplan OWNER TO $r2a_user;
 -- Grant EXECUTE on the trigger function to ring2all
 GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;
 
-INSERT INTO public.tenants (tenant_uuid, parent_tenant_uuid, name, domain_name, tenant_enabled, insert_user)
+INSERT INTO public.tenants (tenant_uuid, parent_tenant_uuid, name, domain_name, enabled, insert_user)
 VALUES (
     gen_random_uuid(),  -- Generate a unique UUID for the Tenant
     NULL,               -- No parent Tenant (this is a main Tenant)
