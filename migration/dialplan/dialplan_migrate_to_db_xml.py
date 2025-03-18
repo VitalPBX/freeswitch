@@ -6,6 +6,7 @@ import pyodbc
 import uuid
 import logging
 import re
+import xml.sax.saxutils as saxutils
 
 # Configuración del logging (guardar en archivo y mostrar en pantalla)
 logging.basicConfig(
@@ -38,11 +39,10 @@ def connect_db():
         raise
 
 def clean_xml(xml_str, remove_include=True):
-    """Elimina comentarios, la etiqueta <include> (si se indica), y formatea el XML con tabulación."""
+    """Elimina comentarios, la etiqueta <include> (si se indica), y formatea el XML con tabulación correcta."""
     try:
         # Eliminar comentarios manualmente antes de parsear
         xml_str = re.sub(r'<!--[\s\S]*?-->', '', xml_str)
-        # Limpiar espacios iniciales/finales y BOM si existe
         xml_str = xml_str.strip()
         if xml_str.startswith('\ufeff'):
             xml_str = xml_str[1:]
@@ -57,21 +57,31 @@ def clean_xml(xml_str, remove_include=True):
         if remove_include and root.tag == "include":
             root = root[0]  # Tomar el primer hijo (por ejemplo, <context> o <menu>)
 
-        # Formatear manualmente con indentación básica
-        def indent(elem, level=0):
+        # Construir el XML manualmente con tabulación precisa
+        def build_xml(elem, level=0):
             indent_str = "    " * level
-            if len(elem):
-                if not elem.text or not elem.text.strip():
-                    elem.text = "\n" + "    " * (level + 1)
-                for child in elem:
-                    indent(child, level + 1)
-                if not elem.tail or not elem.tail.strip():
-                    elem.tail = "\n" + indent_str
-            if level and (not elem.tail or not elem.tail.strip()):
-                elem.tail = "\n" + indent_str
+            lines = []
 
-        indent(root)
-        return ET.tostring(root, encoding="unicode")
+            # Apertura de la etiqueta con atributos escapados
+            attrs = " ".join(f'{k}="{saxutils.escape(v)}"' for k, v in elem.attrib.items())
+            tag_open = f"{indent_str}<{elem.tag}{' ' + attrs if attrs else ''}>"
+            lines.append(tag_open)
+
+            # Contenido de texto (si existe)
+            if elem.text and elem.text.strip():
+                lines.append(f"{indent_str}    {saxutils.escape(elem.text.strip())}")
+
+            # Hijos
+            for child in elem:
+                lines.extend(build_xml(child, level + 1))
+
+            # Cierre de la etiqueta
+            lines.append(f"{indent_str}</{elem.tag}>")
+
+            return lines
+
+        xml_lines = build_xml(root, 0)
+        return "\n".join(xml_lines)
     except ET.ParseError as e:
         logging.error(f"❌ Error de sintaxis en XML: {e}")
         return None
