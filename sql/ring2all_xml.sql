@@ -168,6 +168,14 @@ CREATE TABLE public.dialplan (
     CONSTRAINT unique_dialplan_rule UNIQUE (name, context)
 );
 
+-- Create the ring2all role if it does not exist and configure privileges
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
+        EXECUTE 'CREATE ROLE ' || quote_ident('$r2a_user') || ' WITH LOGIN PASSWORD ' || quote_literal('$r2a_password');
+    END IF;
+END $$;
+
 -- This function sets the update_date to the current timestamp with timezone
 CREATE OR REPLACE FUNCTION public.update_timestamp()
 RETURNS TRIGGER AS $$
@@ -204,8 +212,8 @@ CREATE INDEX idx_tenants_name ON public.tenants (name);
 CREATE INDEX idx_tenants_enabled ON public.tenants (tenant_enabled);
 CREATE INDEX idx_tenants_parent_uuid ON public.tenants (parent_tenant_uuid);
 
-CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_users (tenant_uuid); 
-CREATE INDEX idx_sip_users_username ON public.sip_users (username);
+CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_extensions (tenant_uuid); 
+CREATE INDEX idx_sip_users_username ON public.sip_extensions (username);
 
 GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
 GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
