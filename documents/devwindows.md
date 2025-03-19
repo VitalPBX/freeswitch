@@ -332,7 +332,7 @@ npm start
 
 Abre http://localhost:3000/login en Chrome y prueba el login (usa "admin" y "admin123", luego genera el OTP con pyotp en la consola de Python).
 
-### Paso 5: Integrar con la VM Debian 12
+## Paso 5: Integrar con la VM Debian 12
 1.- Obtener la IP de la VM:
 En la VM:
 ```console
@@ -367,3 +367,187 @@ Verificación final
 Back-end: Corre en http://localhost:8000 y muestra datos de PostgreSQL.
 Front-end: Corre en http://localhost:3000 con un menú lateral y login funcional.
 VM: FreeSWITCH y PostgreSQL accesibles desde Windows.
+
+
+# Usar Visual Studio Code (VSCode)
+Usar Visual Studio Code (VSCode) es una excelente elección para desarrollar tu proyecto. Vamos a resolver tus dos preguntas: cómo cargar el entorno virtual en la terminal de VSCode y cómo ejecutar el Back-end (FastAPI) y el Front-end (React) al mismo tiempo desde VSCode. Te guiaré paso a paso.
+
+## 1. Cargar el entorno virtual en la terminal de VSCode
+VSCode tiene una terminal integrada que puedes configurar para usar tu entorno virtual automáticamente. Aquí te explico cómo hacerlo:
+
+### Paso 1: Abrir VSCode y el proyecto
+1.- Abre VSCode.
+2.- Haz clic en File > Open Folder y selecciona la carpeta raíz de tu proyecto (D:\freeswitch_admin).
+3.- VSCode cargará la estructura del proyecto (backend/ y frontend/).
+
+### Paso 2: Configurar el entorno virtual
+1.- Asegúrate de que el entorno virtual existe:
+- Deberías tener una carpeta venv en D:\freeswitch_admin\backend si ya la creaste con python -m venv venv.
+
+2.- Abre la terminal integrada en VSCode:
+- Haz clic en Terminal > New Terminal (o presiona `Ctrl+``).
+- Por defecto, se abrirá una terminal (PowerShell o CMD) en el directorio raíz (D:\freeswitch_admin).
+
+3.- Activa el entorno virtual manualmente:
+- Navega al directorio del Back-end:
+```console
+cd backend
+```
+
+- Activa el entorno virtual:
+```console
+.\venv\Scripts\Activate.ps1
+```
+- Verás (venv) en la terminal, indicando que el entorno está activo.
+
+4.- Configura VSCode para seleccionar el intérprete automáticamente:
+- Presiona Ctrl+Shift+P para abrir la paleta de comandos.
+- Escribe y selecciona Python: Select Interpreter.
+- Elige el intérprete dentro de tu entorno virtual (por ejemplo, D:\freeswitch_admin\backend\venv\Scripts\python.exe).
+- VSCode detectará este entorno y lo usará por defecto.
+
+5.- Automatiza la activación en la terminal:
+- Cada vez que abras una nueva terminal en VSCode con el proyecto cargado, ejecuta:
+powershell
+```console
+D:\freeswitch_admin\backend\venv\Scripts\Activate.ps1
+```
+
+5.1.- Para hacerlo automático:
+ -Haz clic en la flecha junto al botón + en la terminal y selecciona "Configure Terminal Settings".
+- Agrega un perfil personalizado en settings.json:
+-- Presiona Ctrl+, para abrir Configuración.
+-- Busca terminal.integrated.profiles.windows.
+-- Edita el archivo settings.json (haz clic en el ícono de lápiz en la esquina superior derecha):
+```console
+{
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "args": ["-NoExit", "-Command", "D:\\freeswitch_admin\\backend\\venv\\Scripts\\Activate.ps1"]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "PowerShell"
+}
+```
+- Guarda el archivo. Ahora, cada nueva terminal se abrirá con el entorno virtual activado automáticamente.
+
+### Verificación
+- En la terminal de VSCode, escribe:
+```console
+pip list
+```
+-Deberías ver fastapi, uvicorn, y las otras dependencias instaladas en el entorno virtual.
+
+## 2. Ejecutar el Back-end y el Front-end al mismo tiempo
+Para desarrollar y probar el Back-end (FastAPI) y el Front-end (React) simultáneamente en VSCode, necesitas ejecutar ambos en terminales separadas. VSCode te permite abrir múltiples terminales y configurar tareas para automatizar esto. Aquí te explico cómo hacerlo:
+
+### Opción 1: Usar múltiples terminales manualmente
+1.- Abre dos terminales en VSCode:
+- Haz clic en Terminal > New Terminal para la primera terminal.
+- Haz clic en el ícono + en la barra de terminales para abrir una segunda terminal.
+
+2.- Ejecuta el Back-end en la primera terminal:
+- Navega al directorio del Back-end y activa el entorno:
+```console
+cd D:\freeswitch_admin\backend
+.\venv\Scripts\Activate.ps1
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+3.- Ejecuta el Front-end en la segunda terminal:
+Navega al directorio del Front-end:
+```console
+cd D:\freeswitch_admin\frontend
+npm start
+```
+- Esto abrirá automáticamente http://localhost:3000 en tu navegador.
+
+4.- Resultado:
+- El Back-end correrá en http://localhost:8000.
+- El Front-end correrá en http://localhost:3000.
+- Ambos estarán activos al mismo tiempo.
+
+#### Opción 2: Configurar tareas en VSCode para automatizar
+1.- Crea un archivo tasks.json:
+- Presiona Ctrl+Shift+P, escribe y selecciona Tasks: Configure Tasks.
+- Selecciona Create tasks.json file from template > Others.
+- Edita tasks.json en .vscode/tasks.json:
+```console
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Backend",
+            "type": "shell",
+            "command": "D:\\freeswitch_admin\\backend\\venv\\Scripts\\Activate.ps1 && cd D:\\freeswitch_admin\\backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Run Frontend",
+            "type": "shell",
+            "command": "cd D:\\freeswitch_admin\\frontend && npm start",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Run All",
+            "dependsOn": ["Run Backend", "Run Frontend"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
+```
+
+2.- Ejecuta las tareas:
+- Presiona Ctrl+Shift+P, escribe y selecciona Tasks: Run Task.
+- Elige Run All para iniciar ambos al mismo tiempo.
+- VSCode abrirá dos terminales dedicadas: una para FastAPI y otra para React.
+ 
+## Opción 3: Usar un script externo (opcional)
+- Crea un archivo start_all.ps1 en D:\freeswitch_admin:
+```console
+# start_all.ps1
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd D:\freeswitch_admin\backend; .\venv\Scripts\Activate.ps1; uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd D:\freeswitch_admin\frontend; npm start"
+```
+
+- Ejecuta desde VSCode o PowerShell:
+```console
+.\start_all.ps1
+```
+
+## Verificación
+1.- Back-end:
+- Abre http://localhost:8000 en tu navegador o Postman.
+- Deberías ver {"message": "Welcome to FreeSWITCH Admin API"}.
+
+2.- Front-end:
+- Abre http://localhost:3000 en tu navegador.
+- Verás la interfaz con el menú lateral y la página de login.
+
+3.- Ambos corriendo:
+- En VSCode, revisa las terminales (o ventanas de PowerShell si usaste el script) para confirmar que FastAPI y React están activos.
+
+### Notas adicionales
+- Terminal predeterminada: Si prefieres CMD sobre PowerShell en VSCode:
+-- Ctrl+,, busca terminal.integrated.shell.windows, y configura:
+```console
+"terminal.integrated.defaultProfile.windows": "Command Prompt"
+```
+
+-- Activa el entorno con venv\Scripts\activate.bat en CMD.
+- Conflictos de puertos: Si algo ya usa el puerto 8000 o 3000, cámbialos (por ejemplo, --port 8001 para FastAPI).
+- Integración: Una vez que ambos corran, ajusta el Front-end para llamar al Back-end (por ejemplo, axios.get('http://localhost:8000/')).
+
+
