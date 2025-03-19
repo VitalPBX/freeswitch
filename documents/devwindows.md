@@ -72,7 +72,7 @@ git clone https://github.com/<tu_usuario>/<tu_repositorio>.git
 Si no, trabajarás desde cero y subirás después.
 
 ### Paso 3: Configurar el Back-end (FastAPI)
-1.- Crear un entorno virtual:
+#### 1.- Crear un entorno virtual:
 ```console
 cd backend
 python -m venv venv
