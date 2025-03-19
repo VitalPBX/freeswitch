@@ -162,7 +162,8 @@ class TwoFARequest(BaseModel):
     username: str
     otp: str
 
-# users_db = {"admin": {"password": "admin123", "secret": pyotp.random_base32()}}
+# Simulación de DB (reemplaza con tu tabla de usuarios en PostgreSQL)
+users_db = {"admin": {"password": "admin123", "secret": pyotp.random_base32()}}
 
 @router.post("/login")
 def login(request: LoginRequest):
