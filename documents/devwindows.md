@@ -184,6 +184,10 @@ def verify_2fa(request: TwoFARequest):
 ```
 
 ### 7.- Ejecutar el Back-end (en el entorno virtual: (venv) D:\freeswitch_admin\backend>):
+Para ingresar al entorno virtual:
+```console
+D:\freeswitch_admin\backend\venv\Scripts\Activate.ps1
+```
 ```console
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -194,6 +198,10 @@ Usa Postman:
 - Copia el OTP generado por pyotp.TOTP(users_db["admin"]["secret"]).now() y prueba POST http://localhost:8000/auth/2fa.
 
 ## Paso 4: Configurar el Front-end (React) (en el entorno virtual: (venv) D:\freeswitch_admin\backend>):
+Abre una nueva Terminal:
+```console
+D:\freeswitch_admin\backend\venv\Scripts\Activate.ps1
+```
 ### 1.- Crear el proyecto React:
 ```console
 cd ..\frontend
