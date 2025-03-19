@@ -12,7 +12,7 @@ C:\Windows\System32>python --version
 Python 3.13.2
 ```
 
-### 2.- Node.js 18 (LTS):
+### 2.- Node.js 22.14 (LTS):
 Descarga el instalador desde nodejs.org.
 Ejecuta el instalador con opciones predeterminadas (incluye npm).
 Verifica:
