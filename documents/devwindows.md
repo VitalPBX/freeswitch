@@ -193,7 +193,7 @@ Usa Postman:
 - POST http://localhost:8000/auth/login con {"username": "admin", "password": "admin123"}.
 - Copia el OTP generado por pyotp.TOTP(users_db["admin"]["secret"]).now() y prueba POST http://localhost:8000/auth/2fa.
 
-## Paso 4: Configurar el Front-end (React)
+## Paso 4: Configurar el Front-end (React) (en el entorno virtual: (venv) D:\freeswitch_admin\backend>):
 ### 1.- Crear el proyecto React:
 ```console
 cd ..\frontend
