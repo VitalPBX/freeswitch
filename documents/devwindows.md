@@ -546,8 +546,8 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd D:\freeswitch_
 "terminal.integrated.defaultProfile.windows": "Command Prompt"
 ```
 
--- Activa el entorno con venv\Scripts\activate.bat en CMD.
-- Conflictos de puertos: Si algo ya usa el puerto 8000 o 3000, cámbialos (por ejemplo, --port 8001 para FastAPI).
-- Integración: Una vez que ambos corran, ajusta el Front-end para llamar al Back-end (por ejemplo, axios.get('http://localhost:8000/')).
+- Activa el entorno con venv\Scripts\activate.bat en CMD.
+-- Conflictos de puertos: Si algo ya usa el puerto 8000 o 3000, cámbialos (por ejemplo, --port 8001 para FastAPI).
+-- Integración: Una vez que ambos corran, ajusta el Front-end para llamar al Back-end (por ejemplo, axios.get('http://localhost:8000/')).
 
 
