@@ -183,7 +183,7 @@ def verify_2fa(request: TwoFARequest):
     raise HTTPException(status_code=401, detail="Invalid OTP")
 ```
 
-### 7.- Ejecutar el Back-end:
+### 7.- Ejecutar el Back-end (en el entorno virtual: (venv) D:\freeswitch_admin\backend>):
 ```console
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
