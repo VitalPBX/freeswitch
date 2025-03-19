@@ -1,5 +1,233 @@
 # Pasos para instalar el entorno completo en Windows 11
 
+✅ Stack Tecnológico:
+| Área              | Tecnología Elegida                    |
+|-------------------|---------------------------------------|
+| SO Desarrollo     | Windows 11                            |
+| SO Freeswitch     | Debian 12 (virtualizado con Hyper-V)  |
+| Base de Datos     | PostgreSQL (instalado en Debian 12)   |
+| Virtualización    | Hyper-V                               |
+| Front-End	        | React.js                              |
+| Back-End          | FastAPI (Python)                      |
+| Seguridad y Login | JWT + Two-Factor Authentication (2FA) |
+| Control de Código | Git / GitHub                          |
+| API Testing       | Postman                               |
+
+📁 Estructura recomendada del proyecto:
+```console
+Ring2All/
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── v1/           # Versionado API REST
+│   │   │   │   ├── endpoints # Endpoints específicos
+│   │   │   │   └── routers.py
+│   │   ├── core/
+│   │   │   ├── config.py     # Configuración principal (Base de datos, JWT)
+│   │   │   └── security.py   # Manejo de JWT y 2FA
+│   │   ├── models/           # Modelos SQLAlchemy para PostgreSQL
+│   │   ├── schemas/          # Validación de datos (Pydantic)
+│   │   ├── services/         # Servicios externos o lógicas específicas
+│   │   ├── utils/            # Herramientas auxiliares, como manejo de logs
+│   │   └── main.py           # Archivo principal (FastAPI App)
+│   │
+│   ├── tests/                # Test del backend (opcional con pytest)
+│   ├── requirements.txt      # Dependencias Python
+│   └── Dockerfile            # Opcional (para futuros despliegues)
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── components/       # Componentes reutilizables (botones, menús, etc.)
+│   │   ├── pages/            # Vistas específicas (login, dashboard, etc.)
+│   │   ├── services/         # Lógica de API REST
+│   │   ├── context/          # Manejo global de estado
+│   │   ├── utils/            # Funciones auxiliares
+│   │   └── App.jsx           # App principal
+│   │
+│   ├── package.json
+│   └── tailwind.config.js (opcional, recomendado Tailwind CSS)
+│
+├── scripts_migracion/        # Tus scripts Python existentes para migración
+└── docs/                     # Documentación técnica (opcional, recomendado)
+```
+
+🚀 Paso 1: Preparar tu equipo con Windows 11
+🔹 Instalar Git
+- Descarga Git desde [aquí](https://git-scm.com/downloads/win).
+- Ejecuta el instalador y sigue los pasos predeterminados.
+- Verifica la instalación:
+```console
+git --version
+```
+🚀 Paso 2: Instalar Python y crear un Entorno Virtual
+🔹 Instalar Python (Última versión 3.12.x)
+- Descarga Python desde [python.org](https://www.python.org/downloads/windows/).
+- Marca la opción "Add Python 3.12.x to PATH" al instalar.
+- Completa la instalación con las opciones por defecto.
+- Verifica la instalación:
+```console
+python --version
+```
+🔹 Crear un Entorno Virtual
+Abre una ventana de PowerShell o CMD en tu carpeta del proyecto (ej: C:\Ring2All):
+```console
+python -m venv env
+```
+
+Activar el entorno virtual:
+- CMD
+```console
+.\env\Scripts\activate.bat
+```
+- PowerShell:
+```console
+.\env\Scripts\Activate.ps1
+```
+Una vez activado, verás (env) en tu consola.
+
+🚀 Paso 3: Instalar FastAPI y Dependencias
+Con el entorno virtual activado, ejecuta:
+```console
+pip install fastapi "uvicorn[standard]" sqlalchemy psycopg2-binary pydantic python-jose passlib[bcrypt] pyotp
+```
+FastAPI quedará listo para ejecutar.
+
+🔹 Iniciar FastAPI (Ejemplo básico)
+En backend/app/main.py crea:
+```console
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"mensaje": "Bienvenido a Ring2All"}
+```
+Inicia FastAPI:
+```console
+uvicorn app.main:app --reload
+```
+Ahora abre:
+👉 http://localhost:8000
+Verás la API corriendo.
+
+🚀 Paso 4: Instalar Node.js para React.js
+- Descarga el LTS desde [nodejs.org](https://nodejs.org/en/download).
+- Ejecuta el instalador con opciones predeterminadas.
+Verifica:
+```console
+node -v
+npm -v
+```
+
+🚀 Paso 5: Crear Proyecto React.js con Vite
+En la carpeta principal (Ring2All), crea el frontend:
+```console
+npm create vite@latest frontend -- --template react
+```
+Luego:
+```console
+cd frontend
+npm install
+```
+- Instala dependencias adicionales recomendadas:
+```console
+npm install axios react-router-dom shadcn-ui tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+```
+Configura Tailwind en tailwind.config.js:
+```console
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+```
+Modifica tu CSS src/index.css para añadir Tailwind:
+```console
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+- Ejecuta React.js:
+```console
+npm run dev
+```
+Abre:
+👉 http://localhost:5173
+
+
+
+
+
+
+
+
+2. Configuración inicial del Backend (FastAPI)
+```console
+# Crear entorno virtual para backend
+python -m venv env
+.\env\Scripts\activate
+pip install fastapi uvicorn psycopg2-binary sqlalchemy pydantic python-jose passlib[bcrypt] pyotp
+
+# Ejecutar FastAPI (Desarrollo)
+uvicorn app.main:app --reload
+```
+FastAPI correrá en http://localhost:8000.
+
+3. Configuración inicial del Frontend (React.js)
+```console
+# Inicializar proyecto React con Vite (recomendado)
+npm create vite@latest frontend -- --template react
+
+cd frontend
+npm install axios react-router-dom shadcn-ui tailwindcss postcss autoprefixer
+npm run dev
+```
+React.js correrá en http://localhost:5173.
+
+4. Configurar Autenticación (JWT + 2FA)
+- Backend con JWT usando python-jose.
+- Implementar 2FA utilizando pyotp para generar y validar códigos OTP.
+- Frontend usando Axios para manejo seguro de tokens JWT y UI para validación de OTP con aplicaciones como Authy o Google Authenticator.
+
+5. GitHub (Gestión del repositorio)
+- Inicializar tu repositorio (si aún no lo has hecho)
+```console
+git init
+git remote add origin <URL de tu repo>
+git add .
+git commit -m "Proyecto inicial Ring2All"
+git push -u origin main
+```
+- Puedes comenzar usando GitHub Desktop para hacerlo visualmente.
+
+🚀 Paso 5: Instalar y configurar Postman
+- Descarga e instala Postman: https://www.postman.com/downloads/
+- Crea un nuevo proyecto llamado Ring2All.
+- Configura peticiones básicas para probar tu API de FastAPI.
+
+✅ Checklist (Confirmar que tienes todo):
+- Windows 11 con Hyper-V ✔️
+- Debian 12 corriendo FreeSWITCH ✔️
+- PostgreSQL operativo ✔️
+- Python + FastAPI instalado y configurado
+- React.js configurado con librerías esenciales
+- Autenticación JWT + 2FA lista para implementar
+- Repositorio en GitHub listo para versionar
+- Postman configurado para probar APIs
+
+
+
+
+
 ## Paso 1: Instalar herramientas básicas
 ### 1.- Python 3.13:
 Descarga el instalador desde python.org.
