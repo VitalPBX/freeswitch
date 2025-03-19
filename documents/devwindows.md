@@ -161,11 +161,8 @@ class LoginRequest(BaseModel):
 class TwoFARequest(BaseModel):
     username: str
     otp: str
-```
 
-#### Simulación de DB (reemplaza con tu tabla de usuarios en PostgreSQL)
-```console
-users_db = {"admin": {"password": "admin123", "secret": pyotp.random_base32()}}
+# users_db = {"admin": {"password": "admin123", "secret": pyotp.random_base32()}}
 
 @router.post("/login")
 def login(request: LoginRequest):
