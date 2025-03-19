@@ -59,31 +59,45 @@ def clean_xml(xml_str, remove_include=True):
 
         # Construir el XML manualmente con tabulación precisa
         def build_xml(elem, level=0):
-            indent_str = "    " * level
+            indent_str = "\t" * level
             lines = []
+
+            # Determinar si la etiqueta debe ser autocerrada
+            is_self_closing = elem.tag in ["action", "anti-action"] and not elem.text and not len(elem)
 
             # Apertura de la etiqueta con atributos escapados
             attrs = " ".join(f'{k}="{saxutils.escape(v)}"' for k, v in elem.attrib.items())
-            tag_open = f"{indent_str}<{elem.tag}{' ' + attrs if attrs else ''}>"
-            lines.append(tag_open)
+            if is_self_closing:
+                lines.append(f"{indent_str}<{elem.tag}{' ' + attrs if attrs else ''}/>")
+            else:
+                lines.append(f"{indent_str}<{elem.tag}{' ' + attrs if attrs else ''}>")
 
-            # Contenido de texto (si existe)
-            if elem.text and elem.text.strip():
-                lines.append(f"{indent_str}    {saxutils.escape(elem.text.strip())}")
+                # Contenido de texto (si existe y no es solo espacios)
+                if elem.text and elem.text.strip():
+                    lines.append(f"{indent_str}\t{saxutils.escape(elem.text.strip())}")
 
-            # Hijos
-            for child in elem:
-                lines.extend(build_xml(child, level + 1))
+                # Hijos
+                for child in elem:
+                    lines.extend(build_xml(child, level + 1))
 
-            # Cierre de la etiqueta
-            lines.append(f"{indent_str}</{elem.tag}>")
+                # Cierre de la etiqueta (solo si no es autocerrada)
+                lines.append(f"{indent_str}</{elem.tag}>")
 
             return lines
 
         xml_lines = build_xml(root, 0)
-        return "\n".join(xml_lines)
+        formatted_xml = "\n".join(xml_lines)
+
+        # Validar el XML generado
+        try:
+            ET.fromstring(formatted_xml)
+        except ET.ParseError as e:
+            logging.error(f"❌ XML generado inválido: {e}\nXML:\n{formatted_xml}")
+            return None
+
+        return formatted_xml
     except ET.ParseError as e:
-        logging.error(f"❌ Error de sintaxis en XML: {e}")
+        logging.error(f"❌ Error de sintaxis en XML original: {e}")
         return None
     except ValueError as e:
         logging.error(f"❌ {e}")
@@ -134,8 +148,57 @@ def process_dialplan(file_path):
 
         for extension in root.findall(".//extension"):
             extension_name = extension.get("name", "unnamed")
-            extension_xml = clean_xml(ET.tostring(extension, encoding="unicode"), remove_include=False)
 
+            # Construir el XML de la extensión manualmente con condiciones anidadas
+            def build_extension_xml(elem, level=0):
+                indent_str = "\t" * level
+                lines = []
+
+                # Apertura de la extensión
+                attrs = " ".join(f'{k}="{saxutils.escape(v)}"' for k, v in elem.attrib.items())
+                lines.append(f"{indent_str}<{elem.tag}{' ' + attrs if attrs else ''}>")
+
+                # Procesar condiciones anidadas
+                conditions = elem.findall("condition")
+                if conditions:
+                    current_level = level + 1
+                    for i, condition in enumerate(conditions):
+                        cond_indent = indent_str + "\t" * current_level
+                        cond_attrs = " ".join(f'{k}="{saxutils.escape(v)}"' for k, v in condition.attrib.items())
+                        lines.append(f"{cond_indent}<condition{' ' + cond_attrs if cond_attrs else ''}>")
+
+                        # Acciones dentro de la condición
+                        for action in condition.findall("action"):
+                            action_indent = cond_indent + "\t"
+                            action_attrs = " ".join(f'{k}="{saxutils.escape(v)}"' for k, v in action.attrib.items())
+                            lines.append(f"{action_indent}<action{' ' + action_attrs if action_attrs else ''}/>")
+
+                        # Anti-acciones dentro de la condición
+                        for anti_action in condition.findall("anti-action"):
+                            anti_indent = cond_indent + "\t"
+                            anti_attrs = " ".join(f'{k}="{saxutils.escape(v)}"' for k, v in anti_action.attrib.items())
+                            lines.append(f"{anti_indent}<anti-action{' ' + anti_attrs if anti_attrs else ''}/>")
+
+                        # Anidar la siguiente condición si existe
+                        if i < len(conditions) - 1:
+                            current_level += 1
+                        else:
+                            # Cerrar todas las condiciones abiertas
+                            for j in range(current_level - level, 0, -1):
+                                close_indent = indent_str + "\t" * j
+                                lines.append(f"{close_indent}</condition>")
+
+                lines.append(f"{indent_str}</{elem.tag}>")
+                return lines
+
+            extension_xml_lines = build_extension_xml(extension, 0)
+            extension_xml = "\n".join(extension_xml_lines)
+
+            if extension_xml is None:
+                logging.error(f"❌ Error generando XML para extensión '{extension_name}' en {file_path}")
+                continue
+
+            # Obtener la primera condición para la expresión
             condition = extension.find(".//condition")
             expression = condition.get("expression", "") if condition is not None else ""
             expression_clean = expression.strip("^$")  # Limpiar ^ y $
@@ -164,7 +227,6 @@ def insert_or_update_dialplan(conn, tenant_uuid, context_name, description, expr
 
     try:
         cur = conn.cursor()
-        # Insertar sin ON CONFLICT porque no hay restricción única más allá de context_uuid
         cur.execute("""
             INSERT INTO public.dialplan (
                 context_uuid, tenant_uuid, context_name, description, expression, xml_data, enabled, insert_user
