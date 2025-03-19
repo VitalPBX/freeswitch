@@ -53,7 +53,7 @@ Ring2All/
 └── docs/                     # Documentación técnica (opcional, recomendado)
 ```
 
-🚀 Paso 1: Preparar tu equipo con Windows 11
+🚀 Paso 1: Preparar tu equipo con Windows 11 <br>
 🔹 Instalar Git
 - Descarga Git desde [aquí](https://git-scm.com/downloads/win).
 - Ejecuta el instalador y sigue los pasos predeterminados.
@@ -61,7 +61,7 @@ Ring2All/
 ```console
 git --version
 ```
-🚀 Paso 2: Instalar Python y crear un Entorno Virtual
+🚀 Paso 2: Instalar Python y crear un Entorno Virtual <br>
 🔹 Instalar Python (Última versión 3.12.x)
 - Descarga Python desde [python.org](https://www.python.org/downloads/windows/).
 - Marca la opción "Add Python 3.12.x to PATH" al instalar.
