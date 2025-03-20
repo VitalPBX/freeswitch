@@ -127,7 +127,7 @@ npm --version
 ```
 
 🚀 Paso 9: Crear tu proyecto React.js en VSCode
-Desde terminal integrada en VSCode, ejecuta (Select: Vanilla, JavaScript y Local:   http://localhost:5173/):
+Desde terminal integrada en VSCode, ejecuta (Select: Vanilla y JavaScript):
 ```console
 npm create vite@latest frontend -- --template react
 cd frontend
