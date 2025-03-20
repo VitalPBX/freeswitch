@@ -153,24 +153,6 @@ CREATE TABLE public.dialplan (
         ON DELETE CASCADE                                             -- If tenant is deleted, remove all related entries
 );
 
-CREATE TABLE public.dialplan (
-    dialplan_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),        -- Unique identifier for the dialplan entry, auto-generated UUID
-    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
-    context_name VARCHAR(255) NOT NULL,                               -- Context name (e.g., "public"), limited to 255 characters
-    description TEXT,                                                 -- Optional description of the context
-    expression TEXT,                                                  -- Regular expression used in the context (without "^" and "$")
-    category TEXT DEFAULT 'Uncategorized',                            -- Category for organization, defaults to "Uncategorized"
-    xml_data XML NOT NULL,                                            -- Stores the dialplan entry configuration in XML format
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the context is active (TRUE) or disabled (FALSE)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable),
-    CONSTRAINT fk_dialplan_tenants                                    -- Foreign key linking to the tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) 
-        ON DELETE CASCADE                                             -- If tenant is deleted, remove all related dialplan entries
-);
-
 -- Index to optimize searches by tenant UUID (for retrieving all dialplan contexts of a tenant)
 CREATE INDEX idx_dialplan_tenant_uuid ON public.dialplan (tenant_uuid);
 
