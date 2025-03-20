@@ -103,7 +103,7 @@ Abre Visual Studio Code, ve a la barra lateral izquierda y selecciona el icono E
 
 🚀 Paso 6: Crear tu entorno virtual desde VSCode
 - Abre VSCode.
-- Abre una terminal integrada (Ctrl + ñ o View → Terminal).
+- Abre una terminal integrada (View → Terminal).
 - Ejecuta en la terminal (PowerShell recomendado):
 ```console
 python -m venv env
