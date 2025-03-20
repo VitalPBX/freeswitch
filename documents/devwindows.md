@@ -142,7 +142,18 @@ Al ejecutar verás tu aplicación React funcionando localmente: 👉 http://loca
 ```console
 mkdir backend
 cd backend
+mkdir app
+cd app
+ni main.py
 ```
+Resultado final de la estructura:
+```console
+Ring2All
+└── backend/
+    └── app/
+        └── main.py
+```
+
 2.- Activar el entorno virtual. Asegúrate de ejecutar esto dentro de la carpeta backend:
 ```console
 python -m venv env
@@ -158,9 +169,10 @@ python.exe -m pip install --upgrade pip
 📌 Probar que FastAPI funciona correctamente
 - En VSCode, crea la estructura inicial:
 ```console
-backend/
-└── app/
-    └── main.py
+Ring2All
+└── backend/
+    └── app/
+        └── main.py
 ```
 -Dentro de main.py, coloca este código simple para verificar:
 ```console
