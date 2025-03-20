@@ -138,9 +138,20 @@ npm run dev
 Al ejecutar verás tu aplicación React funcionando localmente: 👉 http://localhost:5173
 
 🚀 Paso 10: Instalar dependencias del proyecto (FastAPI y otras)
-Abrir una nueva terminal con el entorno virtual activo:
+1.- Abrir una nueva terminal:
 ```console
+mkdir backend
+cd backend
+```
+2.- Activar el entorno virtual. Asegúrate de ejecutar esto dentro de la carpeta backend:
+```console
+python -m venv env
 .\env\Scripts\Activate.ps1
+```
+Ahora tienes un entorno virtual dentro de la carpeta backend.
+
+3.- Instalar FastAPI y todas las dependencias necesarias
+```console
 pip install fastapi "uvicorn[standard]" sqlalchemy psycopg2-binary pydantic python-jose passlib[bcrypt] pyotp
 python.exe -m pip install --upgrade pip
 ```
