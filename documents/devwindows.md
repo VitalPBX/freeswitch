@@ -137,7 +137,43 @@ npm run dev
 ```
 Al ejecutar verás tu aplicación React funcionando localmente: 👉 http://localhost:5173
 
-🚀 Paso 10: Conectar GitHub a tu proyecto desde VSCode
+🚀 Paso 10: Instalar dependencias del proyecto (FastAPI y otras)
+Abrir una nueva terminal con el entorno virtual activo:
+```console
+.\env\Scripts\Activate.ps1
+pip install fastapi "uvicorn[standard]" sqlalchemy psycopg2-binary pydantic python-jose passlib[bcrypt] pyotp
+python.exe -m pip install --upgrade pip
+```
+📌 Probar que FastAPI funciona correctamente
+- En VSCode, crea la estructura inicial:
+```console
+backend/
+└── app/
+    └── main.py
+```
+-Dentro de main.py, coloca este código simple para verificar:
+```console
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+async def read_root():
+    return {"mensaje": "Ring2All funcionando correctamente."}
+```
+- Ejecuta desde la terminal (dentro de backend):
+```console
+uvicorn app.main:app --reload
+```
+Deberías ver en la terminal algo como:
+```console
+INFO:     Uvicorn running on http://127.0.0.1:8000
+```
+👉 Verifica en tu navegador en:
+http://localhost:8000
+
+
+🚀 Paso 11: Conectar GitHub a tu proyecto desde VSCode
 1.- Inicializa Git: Desde tu terminal integrada en VSCode, ejecuta:
 ```console
 git init
@@ -154,7 +190,7 @@ git branch -M main
 git push -u origin main
 ```
 
-🚀 Paso 11: Configurar Postman
+🚀 Paso 12: Configurar Postman
 - Descarga e instala Postman desde: 👉 https://www.postman.com/downloads/
 - Abre Postman y crea un workspace nuevo llamado Ring2All.
 - Crea y prueba peticiones REST contra http://localhost:8000.
