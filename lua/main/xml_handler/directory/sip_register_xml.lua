@@ -40,8 +40,8 @@ return function()
     -- SQL query to fetch authentication details from `sip_users`
     local query = string.format([[
         SELECT su.username, su.password, su.xml_data, t.domain_name, su.enabled
-        FROM public.sip_users su
-        JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid
+        FROM core.sip_users su
+        JOIN tenants t ON su.tenant_uuid = t.tenant_uuid
         WHERE su.username = '%s' AND t.domain_name = '%s'
     ]], username, domain)
 
