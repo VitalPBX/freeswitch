@@ -19,7 +19,15 @@ CREATE SCHEMA IF NOT EXISTS auth;
 
 -- Give access to the scheme
 GRANT USAGE ON SCHEMA core TO $r2a_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA core TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $r2a_user;
+
+
 GRANT USAGE ON SCHEMA auth TO $r2a_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA cauth TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $r2a_user;
     
 -- Enable the uuid-ossp extension for UUID generation if not already enabled
 -- This provides the uuid_generate_v4() function for unique identifiers
