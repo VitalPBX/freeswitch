@@ -219,8 +219,8 @@ def process_dialplan(file_path):
         logging.error(f"❌ Error procesando {file_path}: {e}")
         return None, []
 
-def insert_or_update_dialplan(conn, tenant_uuid, context_name, description, expression, xml_data):
-    """Inserta o actualiza una entrada en la tabla `dialplan`."""
+def insert_or_update_dialplan(conn, tenant_uuid, context_name, name, description, expression, xml_data):
+    """Inserta o actualiza una entrada en la tabla `dialplan`, incluyendo el campo `name`."""
     if not xml_data:
         logging.warning(f"⚠️ XML vacío para {context_name}. No se insertará.")
         return
@@ -229,20 +229,31 @@ def insert_or_update_dialplan(conn, tenant_uuid, context_name, description, expr
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO core.dialplan (
-                context_uuid, tenant_uuid, context_name, description, expression, xml_data, enabled, insert_user
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (str(uuid.uuid4()), tenant_uuid, context_name, description, expression, xml_data, True, None))
-        
+                context_uuid, tenant_uuid, context_name, name, description, expression, xml_data, enabled, insert_user
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (str(uuid.uuid4()), tenant_uuid, context_name, name, description, expression, xml_data, True, None))
         conn.commit()
-        logging.info(f"✅ Extensión en contexto '{context_name}' con expresión '{expression}' insertada correctamente.")
         cur.close()
+        logging.info(f"✅ Extensión '{name}' en contexto '{context_name}' insertada correctamente.")
     except Exception as e:
         conn.rollback()
         logging.error(f"❌ Error insertando/actualizando {context_name}: {e}")
         raise
 
+def process_dialplan(file_path):
+    # ... (sin cambios hasta)
+
+            extensions.append({
+                "context_name": context_name,
+                "name": extension_name,
+                "description": f"Extension {extension_name} from {os.path.basename(file_path)}",
+                "expression": expression_clean,
+                "xml_data": extension_xml
+            })
+
+    # ...
+
 def migrate_dialplan():
-    """Migra el dialplan a la base de datos."""
     logging.info("🌟 Iniciando proceso de migración de dialplan...")
     conn = connect_db()
     tenant_uuid = get_tenant_uuid(conn)
@@ -255,7 +266,14 @@ def migrate_dialplan():
                 context_name, extensions = process_dialplan(file_path)
                 if context_name:
                     for ext in extensions:
-                        insert_or_update_dialplan(conn, tenant_uuid, ext["context_name"], ext["description"], ext["expression"], ext["xml_data"])
+                        insert_or_update_dialplan(
+                            conn, tenant_uuid,
+                            ext["context_name"],
+                            ext["name"],
+                            ext["description"],
+                            ext["expression"],
+                            ext["xml_data"]
+                        )
 
     logging.info("🏁 Migración de dialplan completada.")
     conn.close()
