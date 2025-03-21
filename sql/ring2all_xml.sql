@@ -477,6 +477,47 @@ CREATE INDEX idx_vm_msgs_voicemail_uuid ON core.voicemail_messages (voicemail_uu
 CREATE INDEX idx_vm_msgs_timestamp ON core.voicemail_messages (timestamp);
 CREATE INDEX idx_vm_msgs_read ON core.voicemail_messages (read);
 
+-- Tabla principal de condiciones de tiempo
+CREATE TABLE core.time_conditions (
+    time_condition_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(), -- Identificador único
+    tenant_uuid UUID NOT NULL,                                       -- Referencia al tenant
+    name TEXT NOT NULL,                                              -- Nombre de la condición de tiempo
+    description TEXT,                                                -- Descripción opcional
+    timezone TEXT DEFAULT 'UTC',                                     -- Zona horaria (por defecto UTC)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                           -- Activa o no
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user UUID,
+    CONSTRAINT fk_time_conditions_tenant
+        FOREIGN KEY (tenant_uuid) REFERENCES tenants(tenant_uuid)
+        ON DELETE CASCADE,
+    CONSTRAINT unique_time_condition_per_tenant UNIQUE (tenant_uuid, name)
+);
+
+-- Tabla de reglas dentro de cada condición de tiempo
+CREATE TABLE core.time_condition_rules (
+    rule_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),           -- ID único de la regla
+    time_condition_uuid UUID NOT NULL,                               -- Referencia a time_conditions
+    day_of_week TEXT[],                                              -- Lista de días (ej: ['monday','tuesday']) o NULL
+    start_time TIME,                                                 -- Hora de inicio (puede ser NULL)
+    end_time TIME,                                                   -- Hora de fin (puede ser NULL)
+    start_date DATE,                                                 -- Fecha de inicio (puede ser NULL)
+    end_date DATE,                                                   -- Fecha de fin (puede ser NULL)
+    action TEXT NOT NULL,                                            -- Acción (ej: "allow" o "deny")
+    description TEXT,
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user UUID,
+    CONSTRAINT fk_time_condition_rules_condition
+        FOREIGN KEY (time_condition_uuid) REFERENCES core.time_conditions(time_condition_uuid)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_time_conditions_tenant_uuid ON core.time_conditions (tenant_uuid);
+CREATE INDEX idx_time_condition_rules_condition_uuid ON core.time_condition_rules (time_condition_uuid);
+CREATE INDEX idx_time_condition_rules_days ON core.time_condition_rules USING GIN (day_of_week);
 
 
 
@@ -546,7 +587,6 @@ CREATE TRIGGER update_core_conference_profiles_timestamp
     BEFORE UPDATE ON core.conference_profiles
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
-
 CREATE TRIGGER update_core_callcenter_queues_timestamp
     BEFORE UPDATE ON core.callcenter_queues
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
@@ -557,6 +597,18 @@ CREATE TRIGGER update_core_callcenter_agents_timestamp
 
 CREATE TRIGGER update_core_callcenter_tiers_timestamp
     BEFORE UPDATE ON core.callcenter_tiers
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_voicemail_boxes_timestamp
+    BEFORE UPDATE ON core.voicemail_boxes
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_time_conditions_timestamp
+    BEFORE UPDATE ON core.time_conditions
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_time_condition_rules_timestamp
+    BEFORE UPDATE ON core.time_condition_rules
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Set ownership of tables to the application role
