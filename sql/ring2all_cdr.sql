@@ -14,7 +14,7 @@ CREATE DATABASE $r2a_cdr_database;
 \connect $r2a_cdr_database
 
 -- Create the CDR (Call Detail Record) table to store call metadata
-CREATE TABLE public.cdr (
+CREATE TABLE cdr (
     id SERIAL PRIMARY KEY,                           -- Auto-incrementing unique identifier for each CDR entry
     local_ip_v4 INET,                                -- Local IP address where the call was handled (using INET for IP validation)
     caller_id_name VARCHAR(255),                     -- Caller’s name (e.g., "John Doe"), limited to 255 characters, nullable
@@ -35,13 +35,13 @@ CREATE TABLE public.cdr (
 );
 
 -- Create indexes to optimize query performance on frequently accessed columns
-CREATE INDEX idx_cdr_tenant_id ON public.cdr (tenant_id) WHERE tenant_id IS NOT NULL;       -- Index for tenant filtering (partial index for nullable column)
-CREATE INDEX idx_cdr_start_stamp ON public.cdr (start_stamp) WHERE start_stamp IS NOT NULL; -- Index for date-based queries (partial index for nullable column)
-CREATE INDEX idx_cdr_caller_id_number ON public.cdr (caller_id_number) WHERE caller_id_number IS NOT NULL; -- Index for caller number searches
-CREATE INDEX idx_cdr_destination_number ON public.cdr (destination_number) WHERE destination_number IS NOT NULL; -- Index for destination number searches
-CREATE INDEX idx_cdr_hangup_cause ON public.cdr (hangup_cause) WHERE hangup_cause IS NOT NULL; -- Index for hangup cause filtering
-CREATE INDEX idx_cdr_accountcode ON public.cdr (accountcode) WHERE accountcode IS NOT NULL; -- Index for account code queries
-CREATE INDEX idx_cdr_uuid ON public.cdr (uuid);                                            -- Index for UUID lookups (already unique, but explicit index for performance)
+CREATE INDEX idx_cdr_local_ip_v4 ON cdr (local_ip_v4); 
+CREATE INDEX idx_cdr_start_stamp ON dr (start_stamp) WHERE start_stamp IS NOT NULL; -- Index for date-based queries (partial index for nullable column)
+CREATE INDEX idx_cdr_caller_id_number ON cdr (caller_id_number) WHERE caller_id_number IS NOT NULL; -- Index for caller number searches
+CREATE INDEX idx_cdr_destination_number ON cdr (destination_number) WHERE destination_number IS NOT NULL; -- Index for destination number searches
+CREATE INDEX idx_cdr_hangup_cause ON cdr (hangup_cause) WHERE hangup_cause IS NOT NULL; -- Index for hangup cause filtering
+CREATE INDEX idx_cdr_accountcode ON cdr (accountcode) WHERE accountcode IS NOT NULL; -- Index for account code queries
+CREATE INDEX idx_cdr_uuid ON cdr (uuid);                                            -- Index for UUID lookups (already unique, but explicit index for performance)
 
 -- Create the $r2a_cdr_database role if it does not exist and configure privileges
 DO $$ 
@@ -56,10 +56,10 @@ GRANT ALL PRIVILEGES ON DATABASE $r2a_cdr_database TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_cdr_user;
-GRANT EXECUTE ON FUNCTION public.update_timestamp() TO $r2a_cdr_user;
-GRANT ALL PRIVILEGES ON public.cdr TO $r2a_cdr_user;
-GRANT ALL PRIVILEGES ON public.cdr_id_seq TO $r2a_cdr_user;
+GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_cdr_user;
+GRANT ALL PRIVILEGES ON cdr TO $r2a_cdr_user;
+GRANT ALL PRIVILEGES ON cdr_id_seq TO $r2a_cdr_user;
 
 -- Set ownership of the CDR table and related objects to the ring2all_cdr user
-ALTER TABLE public.cdr OWNER TO $r2a_cdr_user;
-ALTER FUNCTION public.update_timestamp() OWNER TO $r2a_cdr_user;
+ALTER TABLE cdr OWNER TO $r2a_cdr_user;
+ALTER FUNCTION update_timestamp() OWNER TO $r2a_cdr_user;
