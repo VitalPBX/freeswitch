@@ -9,11 +9,13 @@
 -- Note: This assumes execution as the postgres superuser
 
 CREATE DATABASE $r2a_database;
-CREATE SCHEMA IF NOT EXISTS core;
 
 -- Connect to the ring2all database
 \connect $r2a_database
 
+-- Create Schema core
+CREATE SCHEMA IF NOT EXISTS core;
+    
 -- Enable the uuid-ossp extension for UUID generation if not already enabled
 -- This provides the uuid_generate_v4() function for unique identifiers
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
