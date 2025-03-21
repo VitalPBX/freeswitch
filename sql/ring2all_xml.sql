@@ -271,7 +271,7 @@ CREATE TABLE core.directory_group_members (
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp
     update_user UUID,                                                 -- UUID of the user who last updated the entry
     CONSTRAINT fk_group_members_group                                 -- Foreign key to groups
-        FOREIGN KEY (group_uuid) REFERENCES core.user_groups (group_uuid) ON DELETE CASCADE,
+        FOREIGN KEY (group_uuid) REFERENCES core.directory_groups (group_uuid) ON DELETE CASCADE,
     CONSTRAINT fk_group_members_user                                  -- Foreign key to users
         FOREIGN KEY (sip_user_uuid) REFERENCES core.sip_users (sip_user_uuid) ON DELETE CASCADE,
     CONSTRAINT unique_user_per_group                                  -- Avoid duplicate user membership in the same group
