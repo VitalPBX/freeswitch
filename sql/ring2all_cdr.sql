@@ -36,7 +36,7 @@ CREATE TABLE cdr (
 
 -- Create indexes to optimize query performance on frequently accessed columns
 CREATE INDEX idx_cdr_local_ip_v4 ON cdr (local_ip_v4); 
-CREATE INDEX idx_cdr_start_stamp ON dr (start_stamp) WHERE start_stamp IS NOT NULL; -- Index for date-based queries (partial index for nullable column)
+CREATE INDEX idx_cdr_start_stamp ON cdr (start_stamp) WHERE start_stamp IS NOT NULL; -- Index for date-based queries (partial index for nullable column)
 CREATE INDEX idx_cdr_caller_id_number ON cdr (caller_id_number) WHERE caller_id_number IS NOT NULL; -- Index for caller number searches
 CREATE INDEX idx_cdr_destination_number ON cdr (destination_number) WHERE destination_number IS NOT NULL; -- Index for destination number searches
 CREATE INDEX idx_cdr_hangup_cause ON cdr (hangup_cause) WHERE hangup_cause IS NOT NULL; -- Index for hangup cause filtering
@@ -56,10 +56,8 @@ GRANT ALL PRIVILEGES ON DATABASE $r2a_cdr_database TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_cdr_user;
-GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON cdr TO $r2a_cdr_user;
 GRANT ALL PRIVILEGES ON cdr_id_seq TO $r2a_cdr_user;
 
 -- Set ownership of the CDR table and related objects to the ring2all_cdr user
 ALTER TABLE cdr OWNER TO $r2a_cdr_user;
-ALTER FUNCTION update_timestamp() OWNER TO $r2a_cdr_user;
