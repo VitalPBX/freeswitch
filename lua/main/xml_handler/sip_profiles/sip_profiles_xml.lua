@@ -40,7 +40,7 @@ return function(settings)
     end
 
     -- Query para obtener los perfiles SIP
-    local profile_query = "SELECT profile_name, xml_data FROM public.sip_profiles"
+    local profile_query = "SELECT profile_name, xml_data FROM core.sip_profiles"
     log("debug", "Executing profile query: " .. profile_query)
 
     local xml = {
