@@ -70,7 +70,7 @@ def migrate_profiles():
         
         # Insertar en la tabla sip_profiles
         cursor.execute("""
-            INSERT INTO public.sip_profiles (profile_uuid, profile_name, xml_data, enabled, insert_date)
+            INSERT INTO core.sip_profiles (profile_uuid, profile_name, xml_data, enabled, insert_date)
             VALUES (?, ?, ?, ?, ?)
         """, (profile_uuid, profile_name, xml_data, True, 'NOW()'))
         
