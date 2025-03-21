@@ -361,6 +361,78 @@ CREATE INDEX idx_conf_profiles_tenant_uuid ON core.conference_profiles (tenant_u
 CREATE INDEX idx_conf_profiles_name ON core.conference_profiles (profile_name);
 CREATE INDEX idx_conf_profiles_insert_date ON core.conference_profiles (insert_date);
 
+-- SQL para crear las tablas del módulo de Call Center (colas FIFO)
+
+-- Tabla de colas (FIFO)
+CREATE TABLE core.callcenter_queues (
+    queue_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Identificador único de la cola
+    tenant_uuid UUID NOT NULL,                                       -- Identificador del tenant
+    queue_name TEXT NOT NULL,                                        -- Nombre de la cola
+    strategy TEXT NOT NULL DEFAULT 'longest-idle-agent',             -- Estrategia de distribución
+    moh_sound TEXT DEFAULT '$${hold_music}',                         -- Música en espera
+    max_wait_time INTEGER DEFAULT 0,                                 -- Tiempo máximo de espera (0 = ilimitado)
+    description TEXT,                                                -- Descripción opcional
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),     -- Fecha de inserción
+    insert_user UUID,                                                -- Usuario que insertó
+    update_date TIMESTAMP WITH TIME ZONE,                            -- Fecha de modificación
+    update_user UUID,                                                -- Usuario que modificó
+    CONSTRAINT fk_cc_queue_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_queue_per_tenant UNIQUE (tenant_uuid, queue_name)
+);
+
+-- Índices para callcenter_queues
+CREATE INDEX idx_cc_queues_tenant_uuid ON core.callcenter_queues (tenant_uuid);
+CREATE INDEX idx_cc_queues_name ON core.callcenter_queues (queue_name);
+CREATE INDEX idx_cc_queues_insert_date ON core.callcenter_queues (insert_date);
+
+-- Tabla de agentes
+CREATE TABLE core.callcenter_agents (
+    agent_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Identificador único del agente
+    tenant_uuid UUID NOT NULL,                                       -- Tenant asociado
+    agent_name TEXT NOT NULL,                                        -- Nombre único del agente
+    contact TEXT,                                                    -- Contacto (sofia/user/1001@domain)
+    status TEXT DEFAULT 'Available',                                 -- Estado del agente
+    wrap_up_time INTEGER DEFAULT 0,                                  -- Tiempo de wrap-up
+    description TEXT,                                                -- Descripción opcional
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),     -- Fecha de inserción
+    insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user UUID,
+    CONSTRAINT fk_cc_agent_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_agent_per_tenant UNIQUE (tenant_uuid, agent_name)
+);
+
+-- Índices para callcenter_agents
+CREATE INDEX idx_cc_agents_tenant_uuid ON core.callcenter_agents (tenant_uuid);
+CREATE INDEX idx_cc_agents_name ON core.callcenter_agents (agent_name);
+CREATE INDEX idx_cc_agents_insert_date ON core.callcenter_agents (insert_date);
+
+-- Tabla que relaciona agentes con colas (múltiples agentes por cola y viceversa)
+CREATE TABLE core.callcenter_tiers (
+    tier_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),           -- Identificador único
+    queue_uuid UUID NOT NULL,                                        -- Cola asociada
+    agent_uuid UUID NOT NULL,                                        -- Agente asociado
+    level INTEGER DEFAULT 1,                                         -- Nivel de prioridad (menor = más prioridad)
+    position INTEGER DEFAULT 1,                                      -- Posición en el nivel
+    state TEXT DEFAULT 'Ready',                                      -- Estado del tier
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    insert_user UUID,
+    update_date TIMESTAMP WITH TIME ZONE,
+    update_user UUID,
+    CONSTRAINT fk_tier_queue FOREIGN KEY (queue_uuid)
+        REFERENCES core.callcenter_queues (queue_uuid) ON DELETE CASCADE,
+    CONSTRAINT fk_tier_agent FOREIGN KEY (agent_uuid)
+        REFERENCES core.callcenter_agents (agent_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_agent_in_queue UNIQUE (queue_uuid, agent_uuid)
+);
+
+-- Índices para callcenter_tiers
+CREATE INDEX idx_cc_tiers_queue_uuid ON core.callcenter_tiers (queue_uuid);
+CREATE INDEX idx_cc_tiers_agent_uuid ON core.callcenter_tiers (agent_uuid);
+CREATE INDEX idx_cc_tiers_insert_date ON core.callcenter_tiers (insert_date);
+
 -- === END FULL SCHEMA DEFINITION ===
 
 -- Create audit trigger function to auto-update the "update_date" column
@@ -423,6 +495,19 @@ CREATE TRIGGER update_core_conference_controls_timestamp
 
 CREATE TRIGGER update_core_conference_profiles_timestamp
     BEFORE UPDATE ON core.conference_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+
+CREATE TRIGGER update_core_callcenter_queues_timestamp
+    BEFORE UPDATE ON core.callcenter_queues
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_callcenter_agents_timestamp
+    BEFORE UPDATE ON core.callcenter_agents
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_callcenter_tiers_timestamp
+    BEFORE UPDATE ON core.callcenter_tiers
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Set ownership of tables to the application role
