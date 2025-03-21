@@ -282,6 +282,85 @@ CREATE TABLE core.directory_group_members (
 CREATE INDEX idx_directory_group_members_group_uuid ON core.directory_group_members (group_uuid);
 CREATE INDEX idx_directory_group_members_sip_user_uuid ON core.directory_group_members (sip_user_uuid);
 
+-- SQL para crear las tablas relacionadas a conferencias y sus índices
+
+-- Tabla principal para conferencias
+CREATE TABLE core.conference_rooms (
+    conference_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Identificador único para la conferencia
+    tenant_uuid UUID NOT NULL,                                           -- Identificador del tenant
+    room_name TEXT NOT NULL,                                            -- Nombre de la sala (ej: 3001@$${domain})
+    status TEXT,                                                        -- Estado (ej: FreeSWITCH)
+    description TEXT,                                                   -- Descripción opcional
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),        -- Fecha de creación
+    insert_user UUID,                                                   -- Usuario que insertó el registro
+    update_date TIMESTAMP WITH TIME ZONE,                               -- Fecha de última modificación
+    update_user UUID,                                                   -- Usuario que modificó por última vez
+    CONSTRAINT fk_conference_rooms_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES tenants (tenant_uuid) ON DELETE CASCADE
+);
+
+-- Índices para conference_rooms
+CREATE INDEX idx_conf_rooms_tenant_uuid ON core.conference_rooms (tenant_uuid);
+CREATE INDEX idx_conf_rooms_name ON core.conference_rooms (room_name);
+CREATE INDEX idx_conf_rooms_insert_date ON core.conference_rooms (insert_date);
+
+-- Tabla para grupos de controles de llamada
+CREATE TABLE core.conference_control_groups (
+    group_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),              -- Identificador único
+    tenant_uuid UUID NOT NULL,                                           -- Identificador del tenant
+    group_name TEXT NOT NULL,                                           -- Nombre del grupo (ej: default)
+    description TEXT,                                                   -- Descripción opcional
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),        -- Fecha de creación
+    insert_user UUID,                                                   -- Usuario que insertó el registro
+    update_date TIMESTAMP WITH TIME ZONE,                               -- Fecha de última modificación
+    update_user UUID,                                                   -- Usuario que modificó por última vez
+    CONSTRAINT fk_control_groups_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES tenants (tenant_uuid) ON DELETE CASCADE
+);
+
+-- Índices para conference_control_groups
+CREATE INDEX idx_conf_ctrl_groups_tenant_uuid ON core.conference_control_groups (tenant_uuid);
+CREATE INDEX idx_conf_ctrl_groups_name ON core.conference_control_groups (group_name);
+
+-- Tabla para controles de llamada por grupo
+CREATE TABLE core.conference_controls (
+    control_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),            -- Identificador único
+    group_uuid UUID NOT NULL,                                            -- Grupo al que pertenece
+    action TEXT NOT NULL,                                               -- Acción (ej: mute, hangup, etc.)
+    digits TEXT NOT NULL,                                               -- DTMF asociado a la acción
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),        -- Fecha de creación
+    insert_user UUID,                                                   -- Usuario que insertó el registro
+    update_date TIMESTAMP WITH TIME ZONE,                               -- Fecha de última modificación
+    update_user UUID,                                                   -- Usuario que modificó por última vez
+    CONSTRAINT fk_controls_group FOREIGN KEY (group_uuid)
+        REFERENCES core.conference_control_groups (group_uuid) ON DELETE CASCADE
+);
+
+-- Índices para conference_controls
+CREATE INDEX idx_conf_controls_group_uuid ON core.conference_controls (group_uuid);
+CREATE INDEX idx_conf_controls_action ON core.conference_controls (action);
+CREATE INDEX idx_conf_controls_digits ON core.conference_controls (digits);
+
+-- Tabla de perfiles de conferencia
+CREATE TABLE core.conference_profiles (
+    profile_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),            -- Identificador único
+    tenant_uuid UUID NOT NULL,                                           -- Tenant asociado
+    profile_name TEXT NOT NULL,                                          -- Nombre del perfil (ej: default, wideband)
+    xml_data XML NOT NULL,                                               -- Configuración XML completa del perfil
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),         -- Fecha de creación
+    insert_user UUID,                                                    -- Usuario que insertó el registro
+    update_date TIMESTAMP WITH TIME ZONE,                                -- Fecha de última modificación
+    update_user UUID,                                                    -- Usuario que modificó por última vez
+    CONSTRAINT fk_conference_profiles_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_profile_per_tenant UNIQUE (tenant_uuid, profile_name)
+);
+
+-- Índices para conference_profiles
+CREATE INDEX idx_conf_profiles_tenant_uuid ON core.conference_profiles (tenant_uuid);
+CREATE INDEX idx_conf_profiles_name ON core.conference_profiles (profile_name);
+CREATE INDEX idx_conf_profiles_insert_date ON core.conference_profiles (insert_date);
+
 -- === END FULL SCHEMA DEFINITION ===
 
 -- Create audit trigger function to auto-update the "update_date" column
@@ -328,6 +407,22 @@ CREATE TRIGGER update_core_directory_groups_timestamp
 
 CREATE TRIGGER update_core_directory_group_members_timestamp
     BEFORE UPDATE ON core.directory_group_members
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_conference_rooms_timestamp
+    BEFORE UPDATE ON core.conference_rooms
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_conference_control_groups_timestamp
+    BEFORE UPDATE ON core.conference_control_groups
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_conference_controls_timestamp
+    BEFORE UPDATE ON core.conference_controls
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_conference_profiles_timestamp
+    BEFORE UPDATE ON core.conference_profiles
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Set ownership of tables to the application role
