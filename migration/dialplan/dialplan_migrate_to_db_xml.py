@@ -291,7 +291,7 @@ def migrate_ivr_menus():
             if file.endswith(".xml"):
                 file_path = os.path.join(root_dir, file)
                 with open(file_path, "r", encoding="utf-8") as f:
-                    xml_data = clean_xml(f.read(), remove_include=True)  # Eliminar <include>
+                    xml_data = clean_xml(f.read(), remove_include=True)
 
                 if xml_data is None:
                     logging.error(f"❌ XML inválido o vacío en archivo: {file_path}")
@@ -312,7 +312,7 @@ def migrate_ivr_menus():
 
                     conn.commit()
 
-                    ivr_uuid = cur.execute("SELECT ivr_uuid FROM core.ivr_menus WHERE ivr_name = ?", (ivr_name,)).fetchone()[0]
+                    ivr_uuid = cur.execute("SELECT ivr_uuid FROM core.ivr_menus WHERE ivr_name = ? AND tenant_uuid = ?", (ivr_name, tenant_uuid)).fetchone()[0]
                     cur.execute("DELETE FROM core.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
 
                     for entry in root.findall(".//entry"):
@@ -321,8 +321,9 @@ def migrate_ivr_menus():
                         param = entry.get("param", "")
 
                         cur.execute("""
-                            INSERT INTO core.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
-                            VALUES (?, ?, ?, ?, ?)
+                            INSERT INTO core.ivr_menu_options (
+                                option_uuid, ivr_uuid, digits, action, param
+                            ) VALUES (?, ?, ?, ?, ?)
                         """, (str(uuid.uuid4()), ivr_uuid, digits, action, param))
 
                     conn.commit()
