@@ -72,7 +72,7 @@ CREATE INDEX idx_tenant_settings_name ON public.tenant_settings (name);
 CREATE INDEX idx_tenant_settings_insert_date ON public.tenant_settings (insert_date);
 
 -- Create the sip_users table for SIP user accounts
-CREATE TABLE public.sip_users (
+CREATE TABLE core.sip_users (
     sip_user_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),        -- Unique identifier for the SIP user, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     username VARCHAR(50) NOT NULL UNIQUE,                             -- Unique SIP username (e.g., "user123"), limited to 50 characters
@@ -95,25 +95,25 @@ CREATE TABLE public.sip_users (
 );
 
 -- Index to speed up queries filtering by tenant (frequent in multi-tenant environments)
-CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_users (tenant_uuid);
+CREATE INDEX idx_sip_users_tenant_uuid ON core.sip_users (tenant_uuid);
 
 -- Index to speed up searches by extension number (common lookup)
-CREATE INDEX idx_sip_users_extension ON public.sip_users (extension);
+CREATE INDEX idx_sip_users_extension ON core.sip_users (extension);
 
 -- Index to speed up username lookups (explicit index even though it's UNIQUE)
-CREATE INDEX idx_sip_users_username ON public.sip_users (username);
+CREATE INDEX idx_sip_users_username ON core.sip_users (username);
 
 -- Index to optimize caller ID number lookups
-CREATE INDEX idx_sip_users_caller_id_number ON public.sip_users (effective_caller_id_number);
+CREATE INDEX idx_sip_users_caller_id_number ON core.sip_users (effective_caller_id_number);
 
 -- Index to optimize filtering by active users
-CREATE INDEX idx_sip_users_enabled ON public.sip_users (enabled);
+CREATE INDEX idx_sip_users_enabled ON core.sip_users (enabled);
 
 -- Index for faster queries ordered by creation date (useful for reports)
-CREATE INDEX idx_sip_users_insert_date ON public.sip_users (insert_date);
+CREATE INDEX idx_sip_users_insert_date ON core.sip_users (insert_date);
 
 -- Create the sip_profiles table for SIP profiles configuration
-CREATE TABLE public.sip_profiles (
+CREATE TABLE core.sip_profiles (
     profile_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the SIP profile, auto-generated UUID
     profile_name VARCHAR(255) NOT NULL UNIQUE,                        -- Unique profile name (e.g., "internal"), limited to 255 characters
     xml_data XML NOT NULL,                                            -- Stores the SIP profile configuration in XML format
@@ -125,16 +125,16 @@ CREATE TABLE public.sip_profiles (
 );
 
 -- Index for optimized lookups by profile_name (ensuring uniqueness)
-CREATE UNIQUE INDEX idx_sip_profiles_name ON public.sip_profiles (profile_name);
+CREATE UNIQUE INDEX idx_sip_profiles_name ON core.sip_profiles (profile_name);
 
 -- Index for enabled profiles to optimize queries filtering active profiles
-CREATE INDEX idx_sip_profiles_enabled ON public.sip_profiles (enabled);
+CREATE INDEX idx_sip_profiles_enabled ON core.sip_profiles (enabled);
 
 -- Index for faster retrieval of recent entries (useful for logs and audits)
-CREATE INDEX idx_sip_profiles_insert_date ON public.sip_profiles (insert_date);
+CREATE INDEX idx_sip_profiles_insert_date ON core.sip_profiles (insert_date);
 
 -- Create the dialplan_contexts table for FreeSWITCH dialplan contexts
-CREATE TABLE public.dialplan (
+CREATE TABLE core.dialplan (
     context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the dialplan entry, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     context_name VARCHAR(255) NOT NULL,                               -- Context name (e.g., "public"), limited to 255 characters
@@ -154,22 +154,22 @@ CREATE TABLE public.dialplan (
 );
 
 -- Index to optimize searches by tenant UUID (for retrieving all dialplan contexts of a tenant)
-CREATE INDEX idx_dialplan_tenant_uuid ON public.dialplan (tenant_uuid);
+CREATE INDEX idx_dialplan_tenant_uuid ON core.dialplan (tenant_uuid);
 
 -- Index to optimize searches by context name (useful when filtering by name)
-CREATE INDEX idx_dialplan_name ON public.dialplan (context_name);
+CREATE INDEX idx_dialplan_name ON core.dialplan (context_name);
 
 -- Index to optimize searches of active dialplan contexts
-CREATE INDEX idx_dialplan_enabled ON public.dialplan (enabled);
+CREATE INDEX idx_dialplan_enabled ON core.dialplan (enabled);
 
 -- Index for faster queries ordered by creation date (useful for logs and tracking changes)
-CREATE INDEX idx_dialplan_insert_date ON public.dialplan (insert_date);
+CREATE INDEX idx_dialplan_insert_date ON core.dialplan (insert_date);
 
 -- Full-text search index on the "expression" field to optimize regex searches
-CREATE INDEX idx_dialplan_expression ON public.dialplan USING GIN (expression gin_trgm_ops);
+CREATE INDEX idx_dialplan_expression ON core.dialplan USING GIN (expression gin_trgm_ops);
 
 -- Create the ivr_menus table for IVR menu configurations
-CREATE TABLE public.ivr_menus (
+CREATE TABLE core.ivr_menus (
     ivr_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),             -- Unique identifier for the IVR menu, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     ivr_name VARCHAR(255) NOT NULL,                                   -- Unique IVR menu name (e.g., "Main Menu")
@@ -194,16 +194,16 @@ CREATE TABLE public.ivr_menus (
 );
 
 -- Index to optimize searches by tenant UUID (for retrieving all IVRs of a tenant)
-CREATE INDEX idx_ivr_menus_tenant_uuid ON public.ivr_menus (tenant_uuid);
+CREATE INDEX idx_ivr_menus_tenant_uuid ON core.ivr_menus (tenant_uuid);
 
 -- Index to optimize searches by IVR name (useful when filtering by name)
-CREATE INDEX idx_ivr_menus_name ON public.ivr_menus (ivr_name);
+CREATE INDEX idx_ivr_menus_name ON core.ivr_menus (ivr_name);
 
 -- Index to optimize listing active IVRs
-CREATE INDEX idx_ivr_menus_insert_date ON public.ivr_menus (insert_date);
+CREATE INDEX idx_ivr_menus_insert_date ON core.ivr_menus (insert_date);
 
 -- Create the ivr_menu_options table to store IVR menu options
-CREATE TABLE public.ivr_menu_options (
+CREATE TABLE core.ivr_menu_options (
     option_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the IVR option, auto-generated UUID
     ivr_uuid UUID NOT NULL,                                           -- Foreign key to the associated IVR menu
     digits VARCHAR(50) NOT NULL,                                      -- Input digits (e.g., "1", "2", "9", "*")
@@ -221,13 +221,13 @@ CREATE TABLE public.ivr_menu_options (
 );
 
 -- Index to optimize searches by IVR UUID (for retrieving all options of an IVR menu)
-CREATE INDEX idx_ivr_menu_options_ivr_uuid ON public.ivr_menu_options (ivr_uuid);
+CREATE INDEX idx_ivr_menu_options_ivr_uuid ON core.ivr_menu_options (ivr_uuid);
 
 -- Index to optimize searches by input digits
-CREATE INDEX idx_ivr_menu_options_digits ON public.ivr_menu_options (digits);
+CREATE INDEX idx_ivr_menu_options_digits ON core.ivr_menu_options (digits);
 
 -- Index to optimize action lookups
-CREATE INDEX idx_ivr_menu_options_action ON public.ivr_menu_options (action);
+CREATE INDEX idx_ivr_menu_options_action ON core.ivr_menu_options (action);
 
 -- Create the ring2all role if it does not exist and configure privileges
 DO $$ 
@@ -245,7 +245,7 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
 
 -- This function sets the update_date column to the current timestamp on update
-CREATE OR REPLACE FUNCTION public.update_timestamp()
+CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.update_date = NOW(); -- Assign current timestamp to update_date
@@ -255,47 +255,47 @@ $$ LANGUAGE plpgsql;
 
 -- Create triggers to automatically update the update_date column on table updates
 CREATE TRIGGER update_tenants_timestamp
-    BEFORE UPDATE ON public.tenants
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+    BEFORE UPDATE ON tenants
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 CREATE TRIGGER update_tenant_settings_timestamp
-    BEFORE UPDATE ON public.tenant_settings
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+    BEFORE UPDATE ON tenant_settings
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
-CREATE TRIGGER update_sip_users_timestamp
-    BEFORE UPDATE ON public.sip_users
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_core_sip_users_timestamp
+    BEFORE UPDATE ON core.sip_users
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
-CREATE TRIGGER update_sip_profiles_timestamp
-    BEFORE UPDATE ON public.sip_profiles
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_core_sip_profiles_timestamp
+    BEFORE UPDATE ON core.sip_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
-CREATE TRIGGER update_dialplan_timestamp
-    BEFORE UPDATE ON public.dialplan
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_core_dialplan_timestamp
+    BEFORE UPDATE ON core.dialplan
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
-CREATE TRIGGER update_ivr_menus_timestamp
-    BEFORE UPDATE ON public.ivr_menus
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_core_ivr_menus_timestamp
+    BEFORE UPDATE ON core.ivr_menus
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
-CREATE TRIGGER update_ivr_menu_options_timestamp
-    BEFORE UPDATE ON public.ivr_menu_options
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_core_ivr_menu_options_timestamp
+    BEFORE UPDATE ON core.ivr_menu_options
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Set ownership of all tables to the $r2a_user role
-ALTER TABLE public.tenants OWNER TO $r2a_user;
-ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
-ALTER TABLE public.sip_users OWNER TO $r2a_user;
-ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
-ALTER TABLE public.dialplan OWNER TO $r2a_user;
-ALTER TABLE public.ivr_menus OWNER TO $r2a_user;
-ALTER TABLE public.ivr_menu_options OWNER TO $r2a_user;
+ALTER TABLE tenants OWNER TO $r2a_user;
+ALTER TABLE tenant_settings OWNER TO $r2a_user;
+ALTER TABLE core.sip_users OWNER TO $r2a_user;
+ALTER TABLE core.sip_profiles OWNER TO $r2a_user;
+ALTER TABLE core.dialplan OWNER TO $r2a_user;
+ALTER TABLE core.ivr_menus OWNER TO $r2a_user;
+ALTER TABLE core.ivr_menu_options OWNER TO $r2a_user;
 
 -- Grant EXECUTE permission on the update_timestamp function to $r2a_user
-GRANT EXECUTE ON FUNCTION public.update_timestamp() TO $r2a_user;
+GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;
 
 -- Insert Demo Tenant: Default
-INSERT INTO public.tenants (tenant_uuid, parent_tenant_uuid, name, domain_name, enabled, insert_user)
+INSERT INTO tenants (tenant_uuid, parent_tenant_uuid, name, domain_name, enabled, insert_user)
 VALUES (
     gen_random_uuid(),  -- Generate a unique UUID for the Tenant
     NULL,               -- No parent Tenant (this is a main Tenant)
@@ -305,23 +305,23 @@ VALUES (
     NULL                -- No specific user assigned at this moment (can be updated later)
 );
 
-INSERT INTO public.tenant_settings (
+INSERT INTO tenant_settings (
     tenant_uuid,  -- Reference to the Tenant this setting applies to
     name,         -- Setting name (e.g., "max_extensions", "max_trunks", "call_recording")
     value         -- The actual setting value (stored as TEXT for flexibility)
 ) 
 VALUES 
     -- Setting the maximum number of extensions for "Default" to 100
-    ((SELECT tenant_uuid FROM public.tenants WHERE name = 'Default'), 
+    ((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 
      'max_extensions', 
      '100'),
 
     -- Setting the maximum number of SIP trunks for "Default" to 10
-    ((SELECT tenant_uuid FROM public.tenants WHERE name = 'Default'), 
+    ((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 
      'max_trunks', 
      '10'),
 
     -- Enabling call recording for "Default"
-    ((SELECT tenant_uuid FROM public.tenants WHERE name = 'Default'), 
+    ((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 
      'call_recording', 
      'true');
