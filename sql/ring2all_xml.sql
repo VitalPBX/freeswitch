@@ -240,6 +240,48 @@ CREATE INDEX idx_ivr_menu_options_digits ON core.ivr_menu_options (digits);
 CREATE INDEX idx_ivr_menu_options_action ON core.ivr_menu_options (action);
 
 
+-- Create the user groups table
+CREATE TABLE core.user_groups (
+    group_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),           -- Unique identifier for the group
+    tenant_uuid UUID NOT NULL,                                        -- Reference to the associated tenant
+    group_name VARCHAR(255) NOT NULL,                                 -- Name of the group (e.g., "sales", "support")
+    description TEXT,                                                 -- Optional description of the group
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp
+    insert_user UUID,                                                 -- UUID of the user who created the group
+    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp
+    update_user UUID,                                                 -- UUID of the user who last updated the group
+    CONSTRAINT fk_user_groups_tenants                                 -- Foreign key constraint to tenants
+        FOREIGN KEY (tenant_uuid) REFERENCES tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_group_name_per_tenant                           -- Ensure unique group names per tenant
+        UNIQUE (tenant_uuid, group_name)
+);
+
+-- Indexes for user_groups
+CREATE INDEX idx_user_groups_tenant_uuid ON core.user_groups (tenant_uuid);
+CREATE INDEX idx_user_groups_group_name ON core.user_groups (group_name);
+CREATE INDEX idx_user_groups_insert_date ON core.user_groups (insert_date);
+
+-- Create the group_members table to associate SIP users to groups
+CREATE TABLE core.group_members (
+    member_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the membership
+    group_uuid UUID NOT NULL,                                         -- Reference to the user group
+    sip_user_uuid UUID NOT NULL,                                      -- Reference to the SIP user
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp
+    insert_user UUID,                                                 -- UUID of the user who created the entry
+    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp
+    update_user UUID,                                                 -- UUID of the user who last updated the entry
+    CONSTRAINT fk_group_members_group                                 -- Foreign key to groups
+        FOREIGN KEY (group_uuid) REFERENCES core.user_groups (group_uuid) ON DELETE CASCADE,
+    CONSTRAINT fk_group_members_user                                  -- Foreign key to users
+        FOREIGN KEY (sip_user_uuid) REFERENCES core.sip_users (sip_user_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_user_per_group                                  -- Avoid duplicate user membership in the same group
+        UNIQUE (group_uuid, sip_user_uuid)
+);
+
+-- Indexes for group_members
+CREATE INDEX idx_group_members_group_uuid ON core.group_members (group_uuid);
+CREATE INDEX idx_group_members_sip_user_uuid ON core.group_members (sip_user_uuid);
+
 -- === END FULL SCHEMA DEFINITION ===
 
 -- Create audit trigger function to auto-update the "update_date" column
