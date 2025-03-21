@@ -241,7 +241,36 @@ def insert_or_update_dialplan(conn, tenant_uuid, context_name, name, description
         raise
 
 def process_dialplan(file_path):
-    # ... (sin cambios hasta)
+    extensions = []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            xml_str = f.read()
+
+        # Limpiar comentarios
+        xml_str = re.sub(r'<!--[\s\S]*?-->', '', xml_str).strip()
+        if not xml_str:
+            logging.error(f"❌ Archivo vacío: {file_path}")
+            return None, []
+
+        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=False, insert_pis=False))
+        root = ET.fromstring(xml_str, parser=parser)
+
+        if root.tag == "include":
+            root = root[0]  # suele ser <context>
+
+        context_name = root.get("name", "default")
+
+        for extension in root.findall(".//extension"):
+            extension_name = extension.get("name", "unnamed")
+
+            # Obtener expresión
+            condition = extension.find(".//condition")
+            expression = condition.get("expression", "") if condition is not None else ""
+            expression_clean = expression.strip("^$")
+
+            # Construir XML completo de la extensión
+            extension_xml_str = ET.tostring(extension, encoding="unicode")
+            extension_xml = clean_xml(extension_xml_str, remove_include=False)
 
             extensions.append({
                 "context_name": context_name,
@@ -251,7 +280,12 @@ def process_dialplan(file_path):
                 "xml_data": extension_xml
             })
 
-    # ...
+        logging.info(f"🔹 Procesado contexto '{context_name}' con {len(extensions)} extensiones desde {file_path}")
+        return context_name, extensions
+
+    except Exception as e:
+        logging.error(f"❌ Error procesando {file_path}: {e}")
+        return None, []
 
 def migrate_dialplan():
     logging.info("🌟 Iniciando proceso de migración de dialplan...")
