@@ -41,7 +41,7 @@ def get_tenant_uuid(conn):
     """Obtiene el UUID del tenant predeterminado desde la base de datos."""
     try:
         cur = conn.cursor()
-        cur.execute("SELECT tenant_uuid FROM public.tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
+        cur.execute("SELECT tenant_uuid FROM tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
         result = cur.fetchone()
         cur.close()
         
@@ -125,7 +125,7 @@ def insert_sip_user(conn, tenant_uuid, user_data):
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO public.sip_users (
+            INSERT INTO core.sip_users (
                 tenant_uuid, username, password, vm_password, extension,
                 toll_allow, accountcode, user_context,
                 effective_caller_id_name, effective_caller_id_number, xml_data, insert_user
@@ -172,7 +172,7 @@ def update_all_user_passwords(conn, tenant_uuid):
     try:
         cur = conn.cursor()
         cur.execute("""
-            UPDATE public.sip_users 
+            UPDATE core.sip_users 
             SET password = ? 
             WHERE tenant_uuid = ?
         """, (FIXED_PASSWORD, tenant_uuid))
@@ -191,7 +191,7 @@ def verify_user_1000(conn, tenant_uuid):
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT username, password FROM public.sip_users WHERE username = '1000' AND tenant_uuid = ?
+            SELECT username, password FROM core.sip_users WHERE username = '1000' AND tenant_uuid = ?
         """, (tenant_uuid,))
         
         user_1000 = cur.fetchone()
