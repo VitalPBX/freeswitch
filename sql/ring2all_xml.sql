@@ -219,7 +219,7 @@ CREATE TABLE core.ivr_menu_options (
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
     update_user VARCHAR(255),                                         -- User who last updated the record (nullable),
     CONSTRAINT fk_ivr_menu_options_menus                              -- Foreign key linking to ivr_menus table
-        FOREIGN KEY (ivr_uuid) REFERENCES public.ivr_menus (ivr_uuid) 
+        FOREIGN KEY (ivr_uuid) REFERENCES core.ivr_menus (ivr_uuid) 
         ON DELETE CASCADE                                             -- If IVR menu is deleted, remove related options
 );
 
