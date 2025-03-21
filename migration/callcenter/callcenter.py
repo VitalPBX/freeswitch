@@ -16,10 +16,10 @@ logging.basicConfig(
     ]
 )
 
-# Configuraciones
+# DSN y directorio de configuración
 ODBC_DSN = "ring2all"
+CALLCENTER_CONF = "/etc/freeswitch/autoload_configs/callcenter.conf.xml"
 DEFAULT_TENANT_NAME = "Default"
-CALLCENTER_DIR = "/etc/freeswitch/autoload_configs"
 
 
 def connect_db():
@@ -33,126 +33,114 @@ def connect_db():
 
 
 def get_tenant_uuid(conn):
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT tenant_uuid FROM tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
-        result = cur.fetchone()
-        cur.close()
-        if result:
-            return result[0]
-        raise Exception(f"Tenant '{DEFAULT_TENANT_NAME}' no encontrado.")
-    except Exception as e:
-        logging.error(f"❌ Error obteniendo UUID del tenant: {e}")
-        raise
+    cur = conn.cursor()
+    cur.execute("SELECT tenant_uuid FROM tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
+    result = cur.fetchone()
+    cur.close()
+    if result:
+        return result[0]
+    raise Exception(f"Tenant '{DEFAULT_TENANT_NAME}' no encontrado.")
 
 
-def process_callcenter_config(file_path):
+def parse_callcenter_xml(path):
     try:
-        tree = ET.parse(file_path)
+        tree = ET.parse(path)
         root = tree.getroot()
-
-        queues = []
-        agents = []
-        tiers = []
-
-        for queue in root.findall("./queues/queue"):
-            queues.append({
-                "name": queue.get("name"),
-                "strategy": queue.get("strategy", "longest-idle-agent"),
-                "moh_sound": queue.get("music-on-hold", "default"),
-                "max_wait_time": int(queue.get("max-wait-time", 0)),
-                "record_template": queue.get("record-template"),
-            })
-
-        for agent in root.findall("./agents/agent"):
-            agents.append({
-                "name": agent.get("name"),
-                "type": agent.get("type", "callback"),
-                "contact": agent.get("contact"),
-                "status": agent.get("status", "Available"),
-                "max_no_answer": int(agent.get("max-no-answer", 3)),
-                "wrap_up_time": int(agent.get("wrap-up-time", 10)),
-                "reject_delay_time": int(agent.get("reject-delay-time", 10)),
-                "busy_delay_time": int(agent.get("busy-delay-time", 10))
-            })
-
-        for tier in root.findall("./tiers/tier"):
-            tiers.append({
-                "queue_name": tier.get("queue"),
-                "agent_name": tier.get("agent"),
-                "level": int(tier.get("level", 1)),
-                "position": int(tier.get("position", 1))
-            })
-
+        queues = root.findall(".//queue")
+        agents = root.findall(".//agent")
+        tiers = root.findall(".//tier")
         return queues, agents, tiers
-
     except Exception as e:
-        logging.error(f"❌ Error procesando {file_path}: {e}")
-        return [], [], []
-
-
-def insert_data(conn, tenant_uuid, queues, agents, tiers):
-    try:
-        cur = conn.cursor()
-
-        queue_map = {}
-        agent_map = {}
-
-        for q in queues:
-            q_uuid = str(uuid.uuid4())
-            queue_map[q["name"]] = q_uuid
-            cur.execute("""
-                INSERT INTO core.callcenter_queues (
-                    queue_uuid, tenant_uuid, name, strategy, moh_sound, max_wait_time, record_template
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (q_uuid, tenant_uuid, q["name"], q["strategy"], q["moh_sound"], q["max_wait_time"], q["record_template"])
-            )
-
-        for a in agents:
-            a_uuid = str(uuid.uuid4())
-            agent_map[a["name"]] = a_uuid
-            cur.execute("""
-                INSERT INTO core.callcenter_agents (
-                    agent_uuid, tenant_uuid, name, type, contact, status, max_no_answer, wrap_up_time,
-                    reject_delay_time, busy_delay_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (a_uuid, tenant_uuid, a["name"], a["type"], a["contact"], a["status"], a["max_no_answer"],
-                 a["wrap_up_time"], a["reject_delay_time"], a["busy_delay_time"])
-            )
-
-        for t in tiers:
-            cur.execute("""
-                INSERT INTO core.callcenter_tiers (
-                    tier_uuid, tenant_uuid, queue_uuid, agent_uuid, level, position
-                ) VALUES (?, ?, ?, ?, ?, ?)""",
-                (str(uuid.uuid4()), tenant_uuid, queue_map.get(t["queue_name"]), agent_map.get(t["agent_name"]),
-                 t["level"], t["position"])
-            )
-
-        conn.commit()
-        cur.close()
-        logging.info("✅ Datos de Call Center insertados correctamente.")
-    except Exception as e:
-        conn.rollback()
-        logging.error(f"❌ Error insertando datos de Call Center: {e}")
+        logging.error(f"❌ Error procesando XML {path}: {e}")
         raise
 
 
-def main():
-    logging.info("🌟 Iniciando migración de configuración de Call Center...")
+def insert_queue(conn, tenant_uuid, queue):
+    name = queue.get("name")
+    strategy = queue.get("strategy")
+    moh_sound = queue.get("moh-sound")
+    record_template = queue.get("record-template")
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO core.callcenter_queues (
+            queue_uuid, tenant_uuid, name, strategy, moh_sound, record_template
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_uuid, name) DO UPDATE SET
+            strategy = EXCLUDED.strategy,
+            moh_sound = EXCLUDED.moh_sound,
+            record_template = EXCLUDED.record_template
+    """, (
+        str(uuid.uuid4()), tenant_uuid, name, strategy, moh_sound, record_template
+    ))
+    cur.close()
+
+
+def insert_agent(conn, tenant_uuid, agent):
+    name = agent.get("name")
+    contact = agent.get("contact")
+    type_ = agent.get("type")
+    status = agent.get("status")
+    max_no_answer = agent.get("max-no-answer")
+    wrap_up_time = agent.get("wrap-up-time")
+    reject_delay_time = agent.get("reject-delay-time")
+    busy_delay_time = agent.get("busy-delay-time")
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO core.callcenter_agents (
+            agent_uuid, tenant_uuid, name, contact, type, status,
+            max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_uuid, name) DO UPDATE SET
+            contact = EXCLUDED.contact,
+            type = EXCLUDED.type,
+            status = EXCLUDED.status,
+            max_no_answer = EXCLUDED.max_no_answer,
+            wrap_up_time = EXCLUDED.wrap_up_time,
+            reject_delay_time = EXCLUDED.reject_delay_time,
+            busy_delay_time = EXCLUDED.busy_delay_time
+    """, (
+        str(uuid.uuid4()), tenant_uuid, name, contact, type_, status,
+        max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time
+    ))
+    cur.close()
+
+
+def insert_tier(conn, tenant_uuid, tier):
+    queue = tier.get("queue")
+    agent = tier.get("agent")
+    level = int(tier.get("level", 1))
+    position = int(tier.get("position", 1))
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO core.callcenter_tiers (
+            tier_uuid, tenant_uuid, queue_name, agent_name, level, position
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_uuid, queue_name, agent_name) DO UPDATE SET
+            level = EXCLUDED.level,
+            position = EXCLUDED.position
+    """, (
+        str(uuid.uuid4()), tenant_uuid, queue, agent, level, position
+    ))
+    cur.close()
+
+
+def migrate_callcenter():
+    logging.info("🌟 Iniciando migración del call center...")
     conn = connect_db()
     tenant_uuid = get_tenant_uuid(conn)
+    queues, agents, tiers = parse_callcenter_xml(CALLCENTER_CONF)
 
-    for root_dir, _, files in os.walk(CALLCENTER_DIR):
-        for file in files:
-            if file == "callcenter.conf.xml":
-                file_path = os.path.join(root_dir, file)
-                queues, agents, tiers = process_callcenter_config(file_path)
-                insert_data(conn, tenant_uuid, queues, agents, tiers)
+    for queue in queues:
+        insert_queue(conn, tenant_uuid, queue)
+    for agent in agents:
+        insert_agent(conn, tenant_uuid, agent)
+    for tier in tiers:
+        insert_tier(conn, tenant_uuid, tier)
 
+    conn.commit()
     conn.close()
-    logging.info("🔒 Conexión cerrada. Migración finalizada.")
+    logging.info("✅ Migración de call center completada correctamente.")
 
 
 if __name__ == "__main__":
-    main()
+    migrate_callcenter()
