@@ -9,6 +9,7 @@
 -- Note: This assumes execution as the postgres superuser
 
 CREATE DATABASE $r2a_database;
+CREATE SCHEMA IF NOT EXISTS core;
 
 -- Connect to the ring2all database
 \connect $r2a_database
@@ -19,7 +20,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"  WITH SCHEMA public;
 
 -- Create the tenants table to store tenant information
-CREATE TABLE public.tenants (
+CREATE TABLE tenants (
     tenant_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the tenant, auto-generated UUID
     parent_tenant_uuid UUID,                                          -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
@@ -35,19 +36,19 @@ CREATE TABLE public.tenants (
 );
 
 -- Index to optimize searches by tenant name
-CREATE INDEX idx_tenants_name ON public.tenants (name);
+CREATE INDEX idx_tenants_name ON tenants (name);
 
 -- Index to optimize searches by domain name
-CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);
+CREATE INDEX idx_tenants_domain_name ON tenants (domain_name);
 
 -- Index to optimize searches of active tenants
-CREATE INDEX idx_tenants_enabled ON public.tenants (enabled);
+CREATE INDEX idx_tenants_enabled ON tenants (enabled);
 
 -- Index for faster queries ordered by creation date
-CREATE INDEX idx_tenants_insert_date ON public.tenants (insert_date);
+CREATE INDEX idx_tenants_insert_date ON tenants (insert_date);
 
 -- Create the tenant_settings table for tenant-specific configurations
-CREATE TABLE public.tenant_settings (
+CREATE TABLE tenant_settings (
     tenant_setting_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),  -- Unique identifier for the setting, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     name TEXT NOT NULL,                                               -- Setting name (e.g., "max_calls")
@@ -63,13 +64,13 @@ CREATE TABLE public.tenant_settings (
 );
 
 -- Index to optimize searches by tenant UUID
-CREATE INDEX idx_tenant_settings_tenant_uuid ON public.tenant_settings (tenant_uuid);
+CREATE INDEX idx_tenant_settings_tenant_uuid ON tenant_settings (tenant_uuid);
 
 -- Index to optimize searches by setting name within a tenant
-CREATE INDEX idx_tenant_settings_name ON public.tenant_settings (name);
+CREATE INDEX idx_tenant_settings_name ON tenant_settings (name);
 
 -- Index for faster queries ordered by creation date
-CREATE INDEX idx_tenant_settings_insert_date ON public.tenant_settings (insert_date);
+CREATE INDEX idx_tenant_settings_insert_date ON tenant_settings (insert_date);
 
 -- Create the sip_users table for SIP user accounts
 CREATE TABLE core.sip_users (
