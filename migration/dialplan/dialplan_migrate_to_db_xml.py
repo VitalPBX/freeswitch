@@ -110,7 +110,7 @@ def get_tenant_uuid(conn):
     """Obtiene el UUID del tenant por defecto."""
     try:
         cur = conn.cursor()
-        cur.execute("SELECT tenant_uuid FROM public.tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
+        cur.execute("SELECT tenant_uuid FROM tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
         result = cur.fetchone()
         cur.close()
         if result:
@@ -228,7 +228,7 @@ def insert_or_update_dialplan(conn, tenant_uuid, context_name, description, expr
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO public.dialplan (
+            INSERT INTO core.dialplan (
                 context_uuid, tenant_uuid, context_name, description, expression, xml_data, enabled, insert_user
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (str(uuid.uuid4()), tenant_uuid, context_name, description, expression, xml_data, True, None))
@@ -285,7 +285,7 @@ def migrate_ivr_menus():
                 try:
                     cur = conn.cursor()
                     cur.execute("""
-                        INSERT INTO public.ivr_menus (
+                        INSERT INTO core.ivr_menus (
                             ivr_uuid, tenant_uuid, ivr_name, xml_data, insert_user
                         ) VALUES (?, ?, ?, ?, ?)
                         ON CONFLICT (tenant_uuid, ivr_name) 
@@ -294,8 +294,8 @@ def migrate_ivr_menus():
 
                     conn.commit()
 
-                    ivr_uuid = cur.execute("SELECT ivr_uuid FROM public.ivr_menus WHERE ivr_name = ?", (ivr_name,)).fetchone()[0]
-                    cur.execute("DELETE FROM public.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
+                    ivr_uuid = cur.execute("SELECT ivr_uuid FROM core.ivr_menus WHERE ivr_name = ?", (ivr_name,)).fetchone()[0]
+                    cur.execute("DELETE FROM core.ivr_menu_options WHERE ivr_uuid = ?", (ivr_uuid,))
 
                     for entry in root.findall(".//entry"):
                         digits = entry.get("digits", "")
@@ -303,7 +303,7 @@ def migrate_ivr_menus():
                         param = entry.get("param", "")
 
                         cur.execute("""
-                            INSERT INTO public.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
+                            INSERT INTO core.ivr_menu_options (option_uuid, ivr_uuid, digits, action, param)
                             VALUES (?, ?, ?, ?, ?)
                         """, (str(uuid.uuid4()), ivr_uuid, digits, action, param))
 
