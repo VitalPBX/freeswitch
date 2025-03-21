@@ -30,7 +30,7 @@ return function(settings)
     }
 
     -- Consulta SQL para ivr_menus
-    local ivr_query = "SELECT * FROM public.ivr_menus"
+    local ivr_query = "SELECT * FROM core.ivr_menus"
     dbh:query(ivr_query, function(row)
         table.insert(xml, '        <menu name="' .. row.ivr_name .. '"')
         table.insert(xml, '              greet-long="' .. (row.greet_long or "") .. '"')
@@ -42,7 +42,7 @@ return function(settings)
         table.insert(xml, '              max-timeouts="' .. (row.max_timeouts or "3") .. '">')
 
         -- Consulta SQL para las opciones del menú
-        local options_query = string.format("SELECT * FROM public.ivr_menu_options WHERE ivr_uuid = '%s'", row.ivr_uuid)
+        local options_query = string.format("SELECT * FROM core.ivr_menu_options WHERE ivr_uuid = '%s'", row.ivr_uuid)
         dbh:query(options_query, function(option)
             table.insert(xml, '          <entry action="' .. option.action .. '" digits="' .. option.digits .. '" param="' .. (option.param or "") .. '"/>')
         end)
