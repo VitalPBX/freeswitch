@@ -168,14 +168,14 @@ def insert_groups_and_members(conn, tenant_uuid, groups, insert_user=None):
         for group_name, user_list in groups:
             group_uuid = str(uuid.uuid4())
             cur.execute("""
-                SELECT 1 FROM core.user_groups WHERE tenant_uuid = ? AND group_name = ?
+                SELECT 1 FROM core.directory_groups WHERE tenant_uuid = ? AND group_name = ?
             """, (tenant_uuid, group_name))
             if cur.fetchone():
                 logging.info(f"⚠️ Grupo '{group_name}' ya existe. Saltando...")
                 continue
 
             cur.execute("""
-                INSERT INTO core.user_groups (
+                INSERT INTO core.directory_groups (
                     group_uuid, tenant_uuid, group_name, insert_user
                 ) VALUES (?, ?, ?, ?)
             """, (group_uuid, tenant_uuid, group_name, insert_user))
@@ -192,7 +192,7 @@ def insert_groups_and_members(conn, tenant_uuid, groups, insert_user=None):
                 for user_uuid, _ in users:
                     # Verificar si ya existe la relación entre grupo y usuario
                     cur.execute("""
-                        SELECT 1 FROM core.group_members 
+                        SELECT 1 FROM core.directory_group_members 
                         WHERE group_uuid = ? AND sip_user_uuid = ?
                     """, (group_uuid, user_uuid))
                     if cur.fetchone():
@@ -201,7 +201,7 @@ def insert_groups_and_members(conn, tenant_uuid, groups, insert_user=None):
 
                     member_uuid = str(uuid.uuid4())
                     cur.execute("""
-                    INSERT INTO core.group_members (
+                    INSERT INTO core.directory_group_members (
                         member_uuid, group_uuid, sip_user_uuid, insert_user
                     ) VALUES (?, ?, ?, ?)
                 """, (member_uuid, group_uuid, user_uuid, insert_user))
