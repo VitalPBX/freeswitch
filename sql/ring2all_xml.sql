@@ -15,6 +15,11 @@ CREATE DATABASE $r2a_database;
 
 -- Create Schema core
 CREATE SCHEMA IF NOT EXISTS core;
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Give access to the scheme
+GRANT USAGE ON SCHEMA core TO $r2a_user;
+GRANT USAGE ON SCHEMA auth TO $r2a_user;
     
 -- Enable the uuid-ossp extension for UUID generation if not already enabled
 -- This provides the uuid_generate_v4() function for unique identifiers
