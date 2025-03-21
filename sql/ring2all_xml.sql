@@ -433,6 +433,55 @@ CREATE INDEX idx_cc_tiers_queue_uuid ON core.callcenter_tiers (queue_uuid);
 CREATE INDEX idx_cc_tiers_agent_uuid ON core.callcenter_tiers (agent_uuid);
 CREATE INDEX idx_cc_tiers_insert_date ON core.callcenter_tiers (insert_date);
 
+-- SQL para crear tablas relacionadas al módulo de Voicemail
+
+-- Tabla principal: buzones de voz
+CREATE TABLE core.voicemail_boxes (
+    voicemail_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),       -- Identificador único del buzón de voz
+    tenant_uuid UUID NOT NULL,                                       -- Tenant al que pertenece el buzón
+    username VARCHAR(50) NOT NULL,                                   -- Nombre de usuario / extensión
+    domain_name TEXT NOT NULL,                                       -- Dominio asociado (sip.domain.com)
+    password VARCHAR(50) NOT NULL,                                   -- Contraseña del buzón de voz
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                           -- Buzón activo o no
+    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),     -- Fecha de inserción
+    insert_user UUID,                                                -- Usuario que creó el registro
+    update_date TIMESTAMP WITH TIME ZONE,                            -- Fecha de modificación
+    update_user UUID,                                                -- Usuario que modificó por última vez
+    CONSTRAINT fk_voicemail_boxes_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT unique_voicemail_per_user UNIQUE (tenant_uuid, username, domain_name)
+);
+
+-- Índices para voicemail_boxes
+CREATE INDEX idx_vm_boxes_tenant_uuid ON core.voicemail_boxes (tenant_uuid);
+CREATE INDEX idx_vm_boxes_username ON core.voicemail_boxes (username);
+CREATE INDEX idx_vm_boxes_enabled ON core.voicemail_boxes (enabled);
+
+-- Tabla para registrar los mensajes dejados en los buzones
+CREATE TABLE core.voicemail_messages (
+    message_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Identificador único del mensaje
+    voicemail_uuid UUID NOT NULL,                                     -- Buzón al que pertenece
+    caller_id_name TEXT,                                              -- Nombre de quien dejó el mensaje
+    caller_id_number TEXT,                                            -- Número de quien dejó el mensaje
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),                 -- Fecha y hora del mensaje
+    read BOOLEAN NOT NULL DEFAULT FALSE,                              -- Si el mensaje fue escuchado o no
+    duration INTEGER,                                                 -- Duración del mensaje en segundos
+    file_path TEXT NOT NULL,                                          -- Ruta al archivo de audio en el filesystem
+    insert_user UUID,                                                 -- Usuario que insertó
+    CONSTRAINT fk_voicemail_messages_box FOREIGN KEY (voicemail_uuid)
+        REFERENCES core.voicemail_boxes (voicemail_uuid) ON DELETE CASCADE
+);
+
+-- Índices para voicemail_messages
+CREATE INDEX idx_vm_msgs_voicemail_uuid ON core.voicemail_messages (voicemail_uuid);
+CREATE INDEX idx_vm_msgs_timestamp ON core.voicemail_messages (timestamp);
+CREATE INDEX idx_vm_msgs_read ON core.voicemail_messages (read);
+
+
+
+
+
+
 -- === END FULL SCHEMA DEFINITION ===
 
 -- Create audit trigger function to auto-update the "update_date" column
