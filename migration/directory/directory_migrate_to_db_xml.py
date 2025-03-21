@@ -201,15 +201,10 @@ def insert_groups_and_members(conn, tenant_uuid, groups, insert_user=None):
 
                     member_uuid = str(uuid.uuid4())
                     cur.execute("""
-                        INSERT INTO core.group_members (
-                            member_uuid, group_uuid, sip_user_uuid, insert_user
-                        ) VALUES (?, ?, ?, ?)
-                    """, (member_uuid, group_uuid, user_uuid, insert_user))
-                    cur.execute("""
-                        INSERT INTO core.group_members (
-                            member_uuid, group_uuid, sip_user_uuid, insert_user
-                        ) VALUES (?, ?, ?, ?)
-                    """, (member_uuid, group_uuid, user_uuid, insert_user))
+                    INSERT INTO core.group_members (
+                        member_uuid, group_uuid, sip_user_uuid, insert_user
+                    ) VALUES (?, ?, ?, ?)
+                """, (member_uuid, group_uuid, user_uuid, insert_user))
             logging.info(f"✅ Grupo '{group_name}' insertado con {len(user_list)} miembros.")
         conn.commit()
         cur.close()
