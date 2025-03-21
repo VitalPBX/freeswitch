@@ -519,9 +519,31 @@ CREATE INDEX idx_time_conditions_tenant_uuid ON core.time_conditions (tenant_uui
 CREATE INDEX idx_time_condition_rules_condition_uuid ON core.time_condition_rules (time_condition_uuid);
 CREATE INDEX idx_time_condition_rules_days ON core.time_condition_rules USING GIN (day_of_week);
 
+-- Tabla: core.blacklist
+-- Descripción: Almacena los números bloqueados por tenant, incluyendo el tipo de bloqueo, notas y metadatos de auditoría.
 
+CREATE TABLE core.blacklist (
+    blacklist_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),       -- Identificador único de la entrada de blacklist
+    tenant_uuid UUID NOT NULL,                                       -- Referencia al tenant que posee esta entrada
+    number_pattern TEXT NOT NULL,                                    -- Patrón de número (regex, exacto o wildcard)
+    type TEXT DEFAULT 'inbound',                                     -- Tipo de blacklist: 'inbound', 'outbound' u 'all'
+    description TEXT,                                                -- Descripción opcional o notas del bloqueo
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                           -- Indica si esta entrada está activa
+    insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),              -- Fecha de inserción
+    insert_user UUID,                                                -- Usuario que insertó el registro
+    update_date TIMESTAMP WITH TIME ZONE,                            -- Fecha de última actualización
+    update_user UUID,                                                -- Usuario que actualizó el registro
+    CONSTRAINT fk_blacklist_tenant FOREIGN KEY (tenant_uuid)
+        REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE,
+    CONSTRAINT blacklist_unique_per_tenant UNIQUE (tenant_uuid, number_pattern, type) -- Evita duplicados por tenant
+);
 
-
+-- Índices para optimizar consultas
+CREATE INDEX idx_blacklist_tenant_uuid ON core.blacklist (tenant_uuid);
+CREATE INDEX idx_blacklist_number_pattern ON core.blacklist (number_pattern);
+CREATE INDEX idx_blacklist_type ON core.blacklist (type);
+CREATE INDEX idx_blacklist_enabled ON core.blacklist (enabled);
+CREATE INDEX idx_blacklist_insert_date ON core.blacklist (insert_date);
 
 -- === END FULL SCHEMA DEFINITION ===
 
@@ -609,6 +631,10 @@ CREATE TRIGGER update_core_time_conditions_timestamp
 
 CREATE TRIGGER update_core_time_condition_rules_timestamp
     BEFORE UPDATE ON core.time_condition_rules
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_blacklist_timestamp
+    BEFORE UPDATE ON core.blacklist
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Set ownership of tables to the application role
