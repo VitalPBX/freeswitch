@@ -36,7 +36,7 @@ return function()
     -- Consulta SQL para obtener las extensiones del contexto
     local query = string.format([[
         SELECT context_name, description, expression, xml_data
-        FROM public.dialplan
+        FROM core.dialplan
         WHERE context_name = '%s' AND enabled = TRUE
     ]], context)
 
