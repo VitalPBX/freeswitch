@@ -241,7 +241,7 @@ CREATE INDEX idx_ivr_menu_options_action ON core.ivr_menu_options (action);
 
 
 -- Create the user groups table
-CREATE TABLE core.user_groups (
+CREATE TABLE core.directory_groups (
     group_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),           -- Unique identifier for the group
     tenant_uuid UUID NOT NULL,                                        -- Reference to the associated tenant
     group_name VARCHAR(255) NOT NULL,                                 -- Name of the group (e.g., "sales", "support")
@@ -257,12 +257,12 @@ CREATE TABLE core.user_groups (
 );
 
 -- Indexes for user_groups
-CREATE INDEX idx_user_groups_tenant_uuid ON core.user_groups (tenant_uuid);
-CREATE INDEX idx_user_groups_group_name ON core.user_groups (group_name);
-CREATE INDEX idx_user_groups_insert_date ON core.user_groups (insert_date);
+CREATE INDEX idx_directory_groups_tenant_uuid ON core.directory_groups (tenant_uuid);
+CREATE INDEX idx_directory_groups_group_name ON core.directory_groups (group_name);
+CREATE INDEX idx_directory_groups_insert_date ON core.directory_groups (insert_date);
 
 -- Create the group_members table to associate SIP users to groups
-CREATE TABLE core.group_members (
+CREATE TABLE core.directory_group_members (
     member_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the membership
     group_uuid UUID NOT NULL,                                         -- Reference to the user group
     sip_user_uuid UUID NOT NULL,                                      -- Reference to the SIP user
@@ -279,8 +279,8 @@ CREATE TABLE core.group_members (
 );
 
 -- Indexes for group_members
-CREATE INDEX idx_group_members_group_uuid ON core.group_members (group_uuid);
-CREATE INDEX idx_group_members_sip_user_uuid ON core.group_members (sip_user_uuid);
+CREATE INDEX idx_directory_group_members_group_uuid ON core.directory_group_members (group_uuid);
+CREATE INDEX idx_directory_group_members_sip_user_uuid ON core.directory_group_members (sip_user_uuid);
 
 -- === END FULL SCHEMA DEFINITION ===
 
@@ -320,6 +320,14 @@ CREATE TRIGGER update_core_ivr_menus_timestamp
 
 CREATE TRIGGER update_core_ivr_menu_options_timestamp
     BEFORE UPDATE ON core.ivr_menu_options
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_directory_groups_timestamp
+    BEFORE UPDATE ON core.directory_groups
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+CREATE TRIGGER update_core_directory_group_members_timestamp
+    BEFORE UPDATE ON core.directory_group_members
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- Set ownership of tables to the application role
