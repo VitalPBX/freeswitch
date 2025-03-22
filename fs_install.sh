@@ -244,11 +244,11 @@ FakeOidIndex        = No
 [ring2all]
 Description=Conexión remota a VitalPBX
 Driver=MariaDB
-Server=192.168.10.29     ; IP del servidor con VitalPBX
+Server=192.168.10.29
+Port=3306
 Database=ombutel
 User=ring2all
 Password=r2a2025
-Port=3306
 Option=3
 
 [ring2all_cdr]
