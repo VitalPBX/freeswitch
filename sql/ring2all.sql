@@ -1553,7 +1553,7 @@ FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
 -- Insert demo tenant for testing and default use
-INSERT INTO tenants (id, parent_tenant_id, name, domain_name, enabled, insert_user)
+INSERT INTO core.tenants (id, parent_tenant_id, name, domain_name, enabled, insert_user)
 VALUES (
     uuid_generate_v4(),                 -- Generate a unique UUID for the tenant
     NULL,                               -- No parent tenant
@@ -1564,7 +1564,7 @@ VALUES (
 );
 
 -- Insert default tenant settings
-INSERT INTO tenant_settings (tenant_id, name, value)
+INSERT INTO core.tenant_settings (tenant_id, name, value)
 VALUES
 ((SELECT id FROM tenants WHERE name = 'Default'), 'max_extensions', '100'),
 ((SELECT id FROM tenants WHERE name = 'Default'), 'max_trunks', '10'),
