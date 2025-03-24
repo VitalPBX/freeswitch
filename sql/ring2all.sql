@@ -70,8 +70,8 @@ GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
 
 -- Create the tenants table to store tenant information
 CREATE TABLE core.tenants (
-    tenant_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the tenant, auto-generated UUID
-    parent_tenant_uuid UUID,                                          -- Optional reference to a parent tenant for hierarchical structure
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                   -- Unique identifier for the tenant, auto-generated UUID
+    parent_tenant_id UUID,                                            -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
     domain_name TEXT NOT NULL UNIQUE,                                 -- Unique domain name used in FreeSWITCH (e.g., sip.example.com)
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the tenant is active (TRUE) or disabled (FALSE)
@@ -80,8 +80,8 @@ CREATE TABLE core.tenants (
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
     update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
     CONSTRAINT fk_tenants_parent                                      -- Foreign key to support tenant hierarchy
-        FOREIGN KEY (parent_tenant_uuid) REFERENCES tenants (tenant_uuid) 
-        ON DELETE SET NULL                                            -- Sets parent_tenant_uuid to NULL if parent is deleted
+        FOREIGN KEY (parent_tenant_id) REFERENCES core.tenants (id) 
+        ON DELETE SET NULL                                            -- Sets parent_tenant_id to NULL if parent is deleted
 );
 
 -- Indexes for tenants
@@ -92,8 +92,8 @@ CREATE INDEX idx_tenants_insert_date ON core.tenants (insert_date);
 
 -- Create the tenant_settings table for tenant-specific configurations
 CREATE TABLE core.tenant_settings (
-    tenant_setting_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),  -- Unique identifier for the setting, auto-generated UUID
-    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                   -- Unique identifier for the setting, auto-generated UUID
+    tenant_id UUID NOT NULL,                                          -- Foreign key to the associated tenant
     name TEXT NOT NULL,                                               -- Setting name (e.g., "max_calls")
     value TEXT NOT NULL,                                              -- Setting value (e.g., "100")
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
@@ -101,13 +101,13 @@ CREATE TABLE core.tenant_settings (
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
     update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
     CONSTRAINT fk_tenant_settings_tenants                             -- Foreign key to tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES tenants (tenant_uuid) 
+        FOREIGN KEY (tenant_id) REFERENCES core.tenants(id) 
         ON DELETE CASCADE,                                            -- Deletes settings when a tenant is removed
-    CONSTRAINT unique_tenant_setting UNIQUE (tenant_uuid, name)       -- Ensures each tenant has unique setting names
+    CONSTRAINT unique_tenant_setting UNIQUE (tenant_id, name)       -- Ensures each tenant has unique setting names
 );
 
 -- Indexes for tenant_settings
-CREATE INDEX idx_tenant_settings_tenant_uuid ON core.tenant_settings (tenant_uuid);
+CREATE INDEX idx_tenant_settings_tenant_id ON core.tenant_settings (tenant_id);
 CREATE INDEX idx_tenant_settings_name ON core.tenant_settings (name);
 CREATE INDEX idx_tenant_settings_insert_date ON core.tenant_settings (insert_date);
 
@@ -145,7 +145,7 @@ CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -
 
 CREATE TABLE core.sip_profile_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP profile setting
-    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Foreign key to the SIP profile
+    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(profile_id) ON DELETE CASCADE, -- Foreign key to the SIP profile
     name TEXT NOT NULL,                                                   -- Name of the setting (e.g., rtp-ip, sip-ip)
     type TEXT,                                                            -- Optional setting category (e.g., media, auth, network)
     value TEXT NOT NULL,                                                  -- Value of the setting
@@ -170,7 +170,7 @@ CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (
 
 CREATE TABLE core.gateways (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID for the gateway
-    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                  -- Gateway name (must be unique per tenant)
     username TEXT,                                                       -- SIP username (if authentication is required)
     password TEXT,                                                       -- SIP password
@@ -229,7 +229,7 @@ CREATE INDEX idx_gateway_settings_type ON core.gateway_settings (setting_type);
 
 CREATE TABLE core.sip_trunks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                          -- Unique ID for the SIP trunk
-    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE,  -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,  -- Associated tenant
     name TEXT NOT NULL,                                                     -- Name of the trunk (unique per tenant)
     description TEXT,                                                       -- Optional description
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this trunk is enabled
@@ -264,7 +264,7 @@ CREATE TABLE core.trunk_gateways (
 
 CREATE TABLE core.media_services (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID
-    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                   -- Name of the media service
     type TEXT NOT NULL,                                                   -- Type of service (e.g., ivr, announcement, moh)
     description TEXT,                                                     -- Optional description
@@ -289,7 +289,7 @@ CREATE INDEX idx_media_services_enabled ON core.media_services (enabled);
 
 CREATE TABLE core.webrtc_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for the WebRTC profile
-    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                   -- Name of the WebRTC profile
     description TEXT,                                                     -- Optional description
     stun_server TEXT,                                                     -- Optional STUN server
@@ -317,7 +317,7 @@ CREATE INDEX idx_webrtc_profiles_enabled ON core.webrtc_profiles (enabled);
 
 CREATE TABLE core.sip_users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the SIP user
-    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
     username TEXT NOT NULL,                                              -- SIP username (e.g., extension number)
     password TEXT NOT NULL,                                              -- SIP password (should be securely hashed)
     voicemail_enabled BOOLEAN DEFAULT FALSE,                             -- Whether voicemail is enabled for this user
@@ -368,7 +368,7 @@ CREATE INDEX idx_sip_user_settings_update_user ON core.sip_user_settings (update
 CREATE TABLE core.voicemail (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the voicemail box
     sip_user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- Link to the SIP user that owns this mailbox
-    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant that owns this voicemail box
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant that owns this voicemail box
     password TEXT NOT NULL,                                               -- Voicemail PIN/password
     greeting TEXT,                                                        -- Optional path or reference to custom greeting
     email TEXT,                                                           -- Optional email for voicemail to email
@@ -401,7 +401,7 @@ CREATE INDEX idx_voicemail_update_user ON core.voicemail (update_user);     -- I
 
 CREATE TABLE core.dialplan (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the dialplan
-    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE,   -- Tenant that owns this dialplan
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,   -- Tenant that owns this dialplan
     name TEXT NOT NULL,                                                     -- Dialplan name (e.g., default, public)
     context TEXT NOT NULL,                                                  -- Context name used in FreeSWITCH
     order INTEGER DEFAULT 100,                                              -- Execution order of this dialplan
@@ -426,7 +426,7 @@ CREATE INDEX idx_dialplan_update_user ON core.dialplan (update_user);         --
 
 CREATE TABLE core.voicemail_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the voicemail profile
-    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                 -- Name of the voicemail profile (e.g., default)
     description TEXT,                                                   -- Optional description of the profile
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                              -- Whether the profile is enabled
@@ -1553,9 +1553,9 @@ FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
 -- Insert demo tenant for testing and default use
-INSERT INTO tenants (tenant_uuid, parent_tenant_uuid, name, domain_name, enabled, insert_user)
+INSERT INTO tenants (id, parent_tenant_id, name, domain_name, enabled, insert_user)
 VALUES (
-    gen_random_uuid(),                  -- Generate a unique UUID for the tenant
+    uuid_generate_v4(),                 -- Generate a unique UUID for the tenant
     NULL,                               -- No parent tenant
     'Default',                          -- Tenant name
     '192.168.10.21',                    -- Domain name for FreeSWITCH (can be replaced in install)
@@ -1564,8 +1564,8 @@ VALUES (
 );
 
 -- Insert default tenant settings
-INSERT INTO tenant_settings (tenant_uuid, name, value)
+INSERT INTO tenant_settings (tenant_id, name, value)
 VALUES
-((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 'max_extensions', '100'),
-((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 'max_trunks', '10'),
-((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 'call_recording', 'true');
+((SELECT id FROM tenants WHERE name = 'Default'), 'max_extensions', '100'),
+((SELECT id FROM tenants WHERE name = 'Default'), 'max_trunks', '10'),
+((SELECT id FROM tenants WHERE name = 'Default'), 'call_recording', 'true');
