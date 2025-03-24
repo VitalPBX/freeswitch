@@ -610,6 +610,63 @@ CREATE TABLE core.paging_group_members (
 CREATE INDEX idx_paging_group_members_group_id ON core.paging_group_members (paging_group_id);  -- Group join
 CREATE INDEX idx_paging_group_members_user_id ON core.paging_group_members (user_id);            -- User join
 
+-- ===========================
+-- Table: core.conference_rooms
+-- Description: Defines conference rooms for tenants
+-- ===========================
+
+CREATE TABLE core.conference_rooms (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                     -- Unique conference room ID
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                -- Room extension or name
+    description TEXT,                                                  -- Optional description
+    max_participants INTEGER DEFAULT 50,                               -- Max allowed participants
+    moderator_pin TEXT,                                                -- Optional moderator PIN
+    participant_pin TEXT,                                              -- Optional participant PIN
+    profile TEXT DEFAULT 'default',                                    -- Conference profile (FreeSWITCH)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                             -- Whether the room is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                    -- Created timestamp
+    insert_user UUID,                                                  -- Created by
+    update_date TIMESTAMPTZ,                                           -- Last update timestamp
+    update_user UUID                                                   -- Updated by
+);
+
+-- Indexes for core.conference_rooms
+CREATE INDEX idx_conference_rooms_tenant_id ON core.conference_rooms (tenant_id); -- Tenant-level filtering
+CREATE UNIQUE INDEX uq_conference_rooms_tenant_name ON core.conference_rooms (tenant_id, name); -- Unique name per tenant
+
+-- ===========================
+-- Table: core.conference_room_settings
+-- Description: Key-value settings for conference rooms
+-- ===========================
+
+CREATE TABLE core.conference_room_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                     -- Unique setting ID
+    conference_room_id UUID NOT NULL REFERENCES core.conference_rooms(id) ON DELETE CASCADE, -- Related room
+    category TEXT,                                                      -- Optional category (media, control, etc.)
+    name TEXT NOT NULL,                                                -- Setting name
+    value TEXT NOT NULL,                                               -- Setting value
+    setting_type TEXT DEFAULT 'media',                                 -- Type: media, control, security, etc.
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                    -- Created timestamp
+    insert_user UUID,                                                  -- Created by
+    update_date TIMESTAMPTZ,                                           -- Last update timestamp
+    update_user UUID                                                   -- Updated by
+);
+
+-- Indexes for core.conference_room_settings
+CREATE INDEX idx_conference_room_settings_room_id ON core.conference_room_settings (conference_room_id); -- Join by room
+CREATE INDEX idx_conference_room_settings_name ON core.conference_room_settings (name); -- Filter by setting name
+
+
+
+
+
+
+
+
+-- ============================================================================================================
 -- Function: core.set_update_timestamp()
 -- Description: Automatically sets update_date to current timestamp on UPDATE
 
@@ -708,6 +765,16 @@ EXECUTE FUNCTION core.set_update_timestamp();
 
 CREATE TRIGGER trg_set_update_paging_group_members
 BEFORE UPDATE ON core.paging_group_members
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_conference_rooms
+BEFORE UPDATE ON core.conference_rooms
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_conference_room_settings
+BEFORE UPDATE ON core.conference_room_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
