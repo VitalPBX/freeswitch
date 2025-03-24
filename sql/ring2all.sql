@@ -1506,3 +1506,21 @@ CREATE TRIGGER trg_set_update_webrtc_profiles
 BEFORE UPDATE ON core.webrtc_profiles
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
+
+-- Insert demo tenant for testing and default use
+INSERT INTO tenants (tenant_uuid, parent_tenant_uuid, name, domain_name, enabled, insert_user)
+VALUES (
+    gen_random_uuid(),                  -- Generate a unique UUID for the tenant
+    NULL,                               -- No parent tenant
+    'Default',                          -- Tenant name
+    '192.168.10.21',                    -- Domain name for FreeSWITCH (can be replaced in install)
+    TRUE,                               -- Tenant is enabled
+    NULL                                -- Inserted by system
+);
+
+-- Insert default tenant settings
+INSERT INTO tenant_settings (tenant_uuid, name, value)
+VALUES
+((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 'max_extensions', '100'),
+((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 'max_trunks', '10'),
+((SELECT tenant_uuid FROM tenants WHERE name = 'Default'), 'call_recording', 'true');
