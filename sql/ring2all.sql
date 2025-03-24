@@ -147,8 +147,8 @@ CREATE TABLE core.sip_profile_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP profile setting
     sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Foreign key to the SIP profile
     name TEXT NOT NULL,                                                   -- Name of the setting (e.g., rtp-ip, sip-ip)
+    type TEXT,                                                            -- Optional setting category (e.g., media, auth, network)
     value TEXT NOT NULL,                                                  -- Value of the setting
-    type TEXT,                                                            -- Optional type or category (e.g., media, auth, network)
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
@@ -197,8 +197,8 @@ CREATE TABLE core.gateway_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the gateway setting
     gateway_id UUID NOT NULL REFERENCES core.gateways(id) ON DELETE CASCADE, -- Foreign key to the SIP gateway
     name TEXT NOT NULL,                                                   -- Name of the setting (e.g., username, password, proxy)
-    value TEXT NOT NULL,                                                  -- Value of the setting
     type TEXT,                                                            -- Optional type or category (e.g., auth, transport, registration)
+    value TEXT NOT NULL,                                                  -- Value of the setting
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
@@ -247,8 +247,8 @@ CREATE TABLE core.sip_user_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP user setting
     sip_user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- Foreign key to the SIP user
     name TEXT NOT NULL,                                                   -- Name of the setting (e.g., caller-id, auth-acl)
-    value TEXT NOT NULL,                                                  -- Value of the setting
     type TEXT,                                                            -- Optional type or category (e.g., auth, codec, network)
+    value TEXT NOT NULL,                                                  -- Value of the setting
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
@@ -297,6 +297,58 @@ CREATE INDEX idx_voicemail_tenant_id ON core.voicemail (tenant_id);         -- I
 CREATE INDEX idx_voicemail_insert_user ON core.voicemail (insert_user);     -- Index for querying creator
 CREATE INDEX idx_voicemail_update_user ON core.voicemail (update_user);     -- Index for querying updater
 
+-- ===========================
+-- Table: core.dialplan
+-- Description: Defines dialplan contexts and execution order
+-- ===========================
+
+CREATE TABLE core.dialplan (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the dialplan
+    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE,   -- Tenant that owns this dialplan
+    name TEXT NOT NULL,                                                     -- Dialplan name (e.g., default, public)
+    context TEXT NOT NULL,                                                  -- Context name used in FreeSWITCH
+    order INTEGER DEFAULT 100,                                              -- Execution order of this dialplan
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this dialplan is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                         -- Creation timestamp
+    insert_user UUID,                                                       -- UUID of user who created the record
+    update_date TIMESTAMPTZ,                                                -- Last update timestamp
+    update_user UUID                                                        -- UUID of user who last updated the record
+);
+
+-- Indexes for core.dialplan
+CREATE INDEX idx_dialplan_tenant_id ON core.dialplan (tenant_id);             -- For filtering by tenant
+CREATE INDEX idx_dialplan_name ON core.dialplan (name);                       -- For lookups by dialplan name
+CREATE INDEX idx_dialplan_insert_user ON core.dialplan (insert_user);         -- For querying creator
+CREATE INDEX idx_dialplan_update_user ON core.dialplan (update_user);         -- For querying updater
+
+-- ===========================
+-- Table: core.dialplan_settings
+-- Description: Key-value settings for dialplans
+-- ===========================
+
+CREATE TABLE core.dialplan_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                          -- Unique identifier for the dialplan setting
+    dialplan_id UUID NOT NULL REFERENCES core.dialplan(id) ON DELETE CASCADE, -- Foreign key to the dialplan
+    name TEXT NOT NULL,                                                     -- Setting name (e.g., condition, action, regex)
+    value TEXT NOT NULL,                                                    -- Setting value (e.g., destination_number ^\d+$)
+    type TEXT,                                                              -- Optional category (e.g., condition, action, anti-action)
+    setting_scope TEXT,                                                     -- Optional grouping or priority (e.g., main, fallback)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this setting is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                         -- Creation timestamp
+    insert_user UUID,                                                       -- UUID of user who created the setting
+    update_date TIMESTAMPTZ,                                                -- Last update timestamp
+    update_user UUID                                                        -- UUID of user who last updated the setting
+);
+
+-- Indexes for core.dialplan_settings
+CREATE INDEX idx_dialplan_settings_dialplan_id ON core.dialplan_settings (dialplan_id); -- For joining with dialplans
+CREATE INDEX idx_dialplan_settings_name ON core.dialplan_settings (name);               -- For querying by setting name
+CREATE INDEX idx_dialplan_settings_insert_user ON core.dialplan_settings (insert_user); -- For querying creator
+CREATE INDEX idx_dialplan_settings_update_user ON core.dialplan_settings (update_user); -- For querying updater
+
+
 
 
 -- Function: core.set_update_timestamp()
@@ -335,5 +387,12 @@ BEFORE UPDATE ON core.voicemail
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
+CREATE TRIGGER trg_set_update_dialplan
+BEFORE UPDATE ON core.dialplan
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
 
-
+CREATE TRIGGER trg_set_update_dialplan_settings
+BEFORE UPDATE ON core.dialplan_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
