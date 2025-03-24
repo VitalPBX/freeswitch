@@ -223,6 +223,94 @@ CREATE INDEX idx_gateway_settings_name ON core.gateway_settings (name);         
 CREATE INDEX idx_gateway_settings_type ON core.gateway_settings (setting_type);     -- Lookup by setting type
 
 -- ===========================
+-- Table: core.sip_trunks
+-- Description: SIP Trunks aggregating multiple gateways or profiles
+-- ===========================
+
+CREATE TABLE core.sip_trunks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                          -- Unique ID for the SIP trunk
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,  -- Associated tenant
+    name TEXT NOT NULL,                                                     -- Name of the trunk (unique per tenant)
+    description TEXT,                                                       -- Optional description
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this trunk is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                         -- Created timestamp
+    insert_user UUID,                                                       -- Created by
+    update_date TIMESTAMPTZ,                                                -- Last update timestamp
+    update_user UUID                                                        -- Updated by
+);
+
+-- Indexes for core.sip_trunks
+CREATE INDEX idx_sip_trunks_tenant_id ON core.sip_trunks (tenant_id);       -- Lookup trunks by tenant
+CREATE INDEX idx_sip_trunks_name ON core.sip_trunks (name);                 -- Lookup by trunk name
+CREATE INDEX idx_sip_trunks_enabled ON core.sip_trunks (enabled);           -- Filter by enabled trunks
+
+-- ===========================
+-- Table: core.trunk_gateways
+-- Description: Link table between trunks and gateways
+-- ===========================
+
+CREATE TABLE core.trunk_gateways (
+    trunk_id UUID NOT NULL REFERENCES core.sip_trunks(id) ON DELETE CASCADE,   -- Linked trunk
+    gateway_id UUID NOT NULL REFERENCES core.gateways(id) ON DELETE CASCADE,   -- Linked gateway
+    priority INTEGER DEFAULT 1,                                                -- Order of preference
+    PRIMARY KEY (trunk_id, gateway_id)                                         -- Composite key
+);
+
+-- ===========================
+-- Table: core.media_services
+-- Description: Media services configuration (e.g., IVR, announcements, hold music)
+-- ===========================
+
+CREATE TABLE core.media_services (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,-- Associated tenant
+    name TEXT NOT NULL,                                                   -- Name of the media service
+    type TEXT NOT NULL,                                                   -- Type of service (e.g., ivr, announcement, moh)
+    description TEXT,                                                     -- Optional description
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether this service is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
+);
+
+-- Indexes for core.media_services
+CREATE INDEX idx_media_services_tenant_id ON core.media_services (tenant_id); -- Lookup by tenant
+CREATE INDEX idx_media_services_name ON core.media_services (name);           -- Lookup by name
+CREATE INDEX idx_media_services_type ON core.media_services (type);           -- Lookup by type
+CREATE INDEX idx_media_services_enabled ON core.media_services (enabled);     -- Filter by active
+
+-- ===========================
+-- Table: core.webrtc_profiles
+-- Description: Configuration for WebRTC profiles
+-- ===========================
+
+CREATE TABLE core.webrtc_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for the WebRTC profile
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,-- Associated tenant
+    name TEXT NOT NULL,                                                   -- Name of the WebRTC profile
+    description TEXT,                                                     -- Optional description
+    stun_server TEXT,                                                     -- Optional STUN server
+    turn_server TEXT,                                                     -- Optional TURN server
+    turn_user TEXT,                                                       -- TURN username
+    turn_password TEXT,                                                   -- TURN password
+    wss_url TEXT,                                                         -- WebSocket URL for signaling
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether WebRTC is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
+);
+
+-- Indexes for core.webrtc_profiles
+CREATE INDEX idx_webrtc_profiles_tenant_id ON core.webrtc_profiles (tenant_id); -- Lookup by tenant
+CREATE INDEX idx_webrtc_profiles_name ON core.webrtc_profiles (name);           -- Lookup by profile name
+CREATE INDEX idx_webrtc_profiles_enabled ON core.webrtc_profiles (enabled);     -- Filter by active profiles
+
+-- ===========================
 -- Table: core.sip_users
 -- Description: Defines SIP users (extensions) per tenant
 -- ===========================
@@ -1389,3 +1477,22 @@ BEFORE UPDATE ON core.outbound_routes
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
+CREATE TRIGGER trg_set_update_sip_trunks
+BEFORE UPDATE ON core.sip_trunks
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_trunk_gateways
+BEFORE UPDATE ON core.trunk_gateways
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_media_services
+BEFORE UPDATE ON core.media_services
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_webrtc_profiles
+BEFORE UPDATE ON core.webrtc_profiles
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
