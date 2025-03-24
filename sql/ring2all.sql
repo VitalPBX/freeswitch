@@ -1,24 +1,75 @@
 -- File: create_ring2all.sql
 -- Description: Creates and configures the ring2all database for FreeSWITCH integration.
---              Includes tables for tenants, SIP users, groups, dialplans, and SIP profiles,
---              with triggers for automatic updates and optimized indexes for performance.
--- Usage: sudo -u postgres psql -d ring2all -f ring2all.sql
+--              Includes schemas (core, auth), tables for tenants, SIP users, IVRs, dialplans, and SIP profiles.
+--              Also sets up user privileges, triggers, and initial demo tenant.
+-- Usage: sudo -u postgres psql -d postgres -f create_ring2all.sql
 -- Prerequisites: Replace $r2a_database, $r2a_user, and $r2a_password with actual values before running.
 
 -- Create the ring2all database if it does not exist
--- Note: This assumes execution as the postgres superuser
-
 CREATE DATABASE $r2a_database;
 
 -- Connect to the ring2all database
 \connect $r2a_database
 
--- Enable the uuid-ossp extension for UUID generation if not already enabled
--- This provides the uuid_generate_v4() function for unique identifiers
+-- Create schemas for modular design
+CREATE SCHEMA IF NOT EXISTS core;
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Enable useful PostgreSQL extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA public;
+
+-- Create the role if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
+        EXECUTE 'CREATE ROLE ' || quote_ident('$r2a_user') || ' WITH LOGIN PASSWORD ' || quote_literal('$r2a_password');
+    END IF;
+END $$;
+
+-- Grant privileges on the database
+GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
+
+-- Grant full access on schemas
+GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON SCHEMA core TO $r2a_user;
+GRANT ALL PRIVILEGES ON SCHEMA auth TO $r2a_user;
+
+-- Grant full privileges on all current tables and sequences
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA core TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth TO $r2a_user;
+
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA core TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA auth TO $r2a_user;
+
+-- Grant privileges on all existing functions
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO $r2a_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA core TO $r2a_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO $r2a_user;
+
+-- Ensure full access to future tables and sequences
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth
+GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth
+GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
+
+-- === TABLES, INDEXES, TRIGGERS, AND DEMO DATA CONTINUE ===
+-- === BEGIN FULL SCHEMA DEFINITION ===
 
 -- Create the tenants table to store tenant information
-CREATE TABLE public.tenants (
+CREATE TABLE tenants (
     tenant_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the tenant, auto-generated UUID
     parent_tenant_uuid UUID,                                          -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
@@ -27,13 +78,20 @@ CREATE TABLE public.tenants (
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user UUID,                                                 -- UUID of the user who created the record (nullable for system inserts)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_tenants_parent FOREIGN KEY (parent_tenant_uuid)     -- Foreign key to support tenant hierarchy
-        REFERENCES public.tenants (tenant_uuid) ON DELETE SET NULL    -- Sets parent_tenant_uuid to NULL if parent is deleted
+    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
+    CONSTRAINT fk_tenants_parent                                      -- Foreign key to support tenant hierarchy
+        FOREIGN KEY (parent_tenant_uuid) REFERENCES tenants (tenant_uuid) 
+        ON DELETE SET NULL                                            -- Sets parent_tenant_uuid to NULL if parent is deleted
 );
 
+-- Indexes for tenants
+CREATE INDEX idx_tenants_name ON tenants (name);
+CREATE INDEX idx_tenants_domain_name ON tenants (domain_name);
+CREATE INDEX idx_tenants_enabled ON tenants (enabled);
+CREATE INDEX idx_tenants_insert_date ON tenants (insert_date);
+
 -- Create the tenant_settings table for tenant-specific configurations
-CREATE TABLE public.tenant_settings (
+CREATE TABLE tenant_settings (
     tenant_setting_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),  -- Unique identifier for the setting, auto-generated UUID
     tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
     name TEXT NOT NULL,                                               -- Setting name (e.g., "max_calls")
@@ -41,361 +99,241 @@ CREATE TABLE public.tenant_settings (
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
+    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
     CONSTRAINT fk_tenant_settings_tenants                             -- Foreign key to tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_uuid) REFERENCES tenants (tenant_uuid) 
+        ON DELETE CASCADE,                                            -- Deletes settings when a tenant is removed
     CONSTRAINT unique_tenant_setting UNIQUE (tenant_uuid, name)       -- Ensures each tenant has unique setting names
 );
 
--- Create the sip_users table for SIP user accounts
-CREATE TABLE public.sip_users (
-    sip_user_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),        -- Unique identifier for the SIP user, auto-generated UUID
-    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
-    username VARCHAR(50) NOT NULL UNIQUE,                             -- Unique SIP username (e.g., "user123"), limited to 50 characters
-    password VARCHAR(50) NOT NULL,                                    -- SIP authentication password, limited to 50 characters
-    vm_password VARCHAR(50),                                          -- Voicemail password (nullable), limited to 50 characters
-    extension VARCHAR(20) NOT NULL,                                   -- Extension number (e.g., "1001"), limited to 20 characters
-    toll_allow VARCHAR(100),                                          -- Allowed toll call types (e.g., "international"), nullable
-    accountcode VARCHAR(50),                                          -- Account code for billing (nullable), limited to 50 characters
-    user_context VARCHAR(50) NOT NULL DEFAULT 'default',              -- FreeSWITCH context for call routing, defaults to 'default'
-    effective_caller_id_name VARCHAR(100),                            -- Caller ID name (e.g., "John Doe"), nullable
-    effective_caller_id_number VARCHAR(50),                           -- Caller ID number (e.g., "1234567890"), nullable
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the user is active (TRUE) or disabled (FALSE)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_sip_users_tenants                                   -- Foreign key to tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
+-- Indexes for tenant_settings
+CREATE INDEX idx_tenant_settings_tenant_uuid ON tenant_settings (tenant_uuid);
+CREATE INDEX idx_tenant_settings_name ON tenant_settings (name);
+CREATE INDEX idx_tenant_settings_insert_date ON tenant_settings (insert_date);
+
+-- ===========================
+-- Table: core.sip_profiles
+-- Description: Defines SIP profiles with multi-transport and port support
+-- ===========================
+
+CREATE TABLE core.sip_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the SIP profile
+    name TEXT NOT NULL UNIQUE,                                           -- Unique name for the SIP profile (e.g., internal, external)
+    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
+    description TEXT,                                                    -- Optional profile description
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the profile is enabled or not
+    bind_address TEXT,                                                   -- Bind address (e.g., 0.0.0.0:5060)
+    sip_port INTEGER,                                                    -- SIP port number (e.g., 5060, 7443)
+    transport TEXT,                                                      -- Transport type (e.g., udp, tcp, tls, ws, wss)
+    tls_enabled BOOLEAN DEFAULT FALSE,                                   -- Whether TLS is enabled for the profile
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp with timezone
+    insert_user UUID,                                                    -- UUID of the user who created the record (nullable for system inserts)
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp with timezone (updated by trigger)
+    update_user UUID                                                     -- UUID of the user who last updated the record (nullable)
 );
 
--- Create the groups table for user group definitions
-CREATE TABLE public.groups (
-    group_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),           -- Unique identifier for the group, auto-generated UUID
-    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
-    group_name VARCHAR(50) NOT NULL,                                  -- Group name (e.g., "admins"), limited to 50 characters
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_groups_tenants                                      -- Foreign key to tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE,
-    CONSTRAINT unique_group_name_per_tenant UNIQUE (tenant_uuid, group_name) -- Ensures unique group names per tenant
+-- Indexes for core.sip_profiles
+CREATE INDEX idx_sip_profiles_tenant_id ON core.sip_profiles (tenant_id);      -- Index for filtering by tenant
+CREATE INDEX idx_sip_profiles_insert_user ON core.sip_profiles (insert_user);  -- Index for querying creator
+CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -- Index for querying last updater
+
+-- ===========================
+-- Table: core.sip_profile_settings
+-- Description: Key-value settings for SIP profiles
+-- ===========================
+
+CREATE TABLE core.sip_profile_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP profile setting
+    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Foreign key to the SIP profile
+    name TEXT NOT NULL,                                                   -- Name of the setting (e.g., rtp-ip, sip-ip)
+    value TEXT NOT NULL,                                                  -- Value of the setting
+    type TEXT,                                                            -- Optional type or category (e.g., media, auth, network)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
+    insert_user UUID,                                                     -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp with timezone (updated by trigger)
+    update_user UUID                                                      -- UUID of the user who last updated the record (nullable)
 );
 
--- Create the user_groups table to associate SIP users with groups
-CREATE TABLE public.user_groups (
-    sip_user_uuid UUID NOT NULL,                                      -- Foreign key to the SIP user
-    group_uuid UUID NOT NULL,                                         -- Foreign key to the group
-    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    PRIMARY KEY (sip_user_uuid, group_uuid),                          -- Composite primary key to ensure unique user-group pairs
-    CONSTRAINT fk_user_groups_sip_users                               -- Foreign key to sip_users table
-        FOREIGN KEY (sip_user_uuid) REFERENCES public.sip_users (sip_user_uuid) ON DELETE CASCADE,
-    CONSTRAINT fk_user_groups_groups                                  -- Foreign key to groups table
-        FOREIGN KEY (group_uuid) REFERENCES public.groups (group_uuid) ON DELETE CASCADE,
-    CONSTRAINT fk_user_groups_tenants                                 -- Foreign key to tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
+-- Indexes for core.sip_profile_settings
+CREATE INDEX idx_sip_profile_settings_profile_id ON core.sip_profile_settings (sip_profile_id); -- Index for joining with SIP profiles
+CREATE INDEX idx_sip_profile_settings_name ON core.sip_profile_settings (name);                 -- Index for querying by setting name
+CREATE INDEX idx_sip_profile_settings_insert_user ON core.sip_profile_settings (insert_user);   -- Index for querying creator
+CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (update_user);   -- Index for querying last updater
+
+-- ===========================
+-- Table: core.gateways
+-- Description: Defines SIP gateways per tenant, linked optionally to a SIP profile
+-- ===========================
+
+CREATE TABLE core.gateways (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the gateway
+    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
+    sip_profile_id UUID REFERENCES core.sip_profiles(id) ON DELETE SET NULL, -- Associated SIP profile (nullable)
+    name TEXT NOT NULL,                                                 -- Name of the gateway (e.g., provider1)
+    description TEXT,                                                   -- Optional description of the gateway
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                              -- Indicates if the gateway is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                     -- Creation timestamp with timezone
+    insert_user UUID,                                                   -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMPTZ,                                            -- Last update timestamp with timezone (updated by trigger)
+    update_user UUID                                                    -- UUID of the user who last updated the record (nullable)
 );
 
--- Create the dialplan_contexts table for FreeSWITCH dialplan contexts
-CREATE TABLE public.dialplan_contexts (
-    context_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the context, auto-generated UUID
-    tenant_uuid UUID NOT NULL,                                        -- Foreign key to the associated tenant
-    context_name VARCHAR(255) NOT NULL,                               -- Context name (e.g., "public"), limited to 255 characters
-    description TEXT,                                                 -- Optional description of the context
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the context is active (TRUE) or disabled (FALSE)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable)
-    CONSTRAINT fk_dialplan_contexts_tenants                           -- Foreign key to tenants table
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE,
-    CONSTRAINT unique_context_name_per_tenant UNIQUE (tenant_uuid, context_name) -- Ensures unique context names per tenant
+-- Indexes for core.gateways
+CREATE INDEX idx_gateways_tenant_id ON core.gateways (tenant_id);            -- Index for filtering by tenant
+CREATE INDEX idx_gateways_sip_profile_id ON core.gateways (sip_profile_id);  -- Index for joining with SIP profiles
+CREATE INDEX idx_gateways_insert_user ON core.gateways (insert_user);        -- Index for querying creator
+CREATE INDEX idx_gateways_update_user ON core.gateways (update_user);        -- Index for querying last updater
+
+-- ===========================
+-- Table: core.gateway_settings
+-- Description: Key-value settings for SIP gateways
+-- ===========================
+
+CREATE TABLE core.gateway_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the gateway setting
+    gateway_id UUID NOT NULL REFERENCES core.gateways(id) ON DELETE CASCADE, -- Foreign key to the SIP gateway
+    name TEXT NOT NULL,                                                   -- Name of the setting (e.g., username, password, proxy)
+    value TEXT NOT NULL,                                                  -- Value of the setting
+    type TEXT,                                                            -- Optional type or category (e.g., auth, transport, registration)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
+    insert_user UUID,                                                     -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp with timezone (updated by trigger)
+    update_user UUID                                                      -- UUID of the user who last updated the record (nullable)
 );
 
--- Create the dialplan_extensions table for dialplan extensions within contexts
-CREATE TABLE public.dialplan_extensions (
-    extension_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),       -- Unique identifier for the extension, auto-generated UUID
-    context_uuid UUID NOT NULL,                                       -- Foreign key to the associated context
-    extension_name VARCHAR(255) NOT NULL,                             -- Extension name (e.g., "incoming"), limited to 255 characters
-    continue BOOLEAN DEFAULT FALSE,                                   -- Whether to continue processing after this extension
-    priority INTEGER NOT NULL DEFAULT 1 CHECK (priority >= 1),        -- Priority order (1 or higher), higher executes first
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable)
-    CONSTRAINT fk_dialplan_extensions_contexts                        -- Foreign key to dialplan_contexts table
-        FOREIGN KEY (context_uuid) REFERENCES public.dialplan_contexts (context_uuid) ON DELETE CASCADE
+-- Indexes for core.gateway_settings
+CREATE INDEX idx_gateway_settings_gateway_id ON core.gateway_settings (gateway_id);     -- Index for joining with gateways
+CREATE INDEX idx_gateway_settings_name ON core.gateway_settings (name);                 -- Index for querying by setting name
+CREATE INDEX idx_gateway_settings_insert_user ON core.gateway_settings (insert_user);   -- Index for querying creator
+CREATE INDEX idx_gateway_settings_update_user ON core.gateway_settings (update_user);   -- Index for querying last updater
+
+-- ===========================
+-- Table: core.sip_users
+-- Description: Defines SIP users (extensions) per tenant
+-- ===========================
+
+CREATE TABLE core.sip_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the SIP user
+    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
+    username TEXT NOT NULL,                                              -- SIP username (e.g., extension number)
+    password TEXT NOT NULL,                                              -- SIP password (should be securely hashed)
+    voicemail_enabled BOOLEAN DEFAULT FALSE,                             -- Whether voicemail is enabled for this user
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the SIP user is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp with timezone
+    insert_user UUID,                                                    -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp with timezone
+    update_user UUID                                                     -- UUID of the user who last updated the record (nullable)
 );
 
--- Create the dialplan_conditions table for conditions within extensions
-CREATE TABLE public.dialplan_conditions (
-    condition_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),       -- Unique identifier for the condition, auto-generated UUID
-    extension_uuid UUID NOT NULL,                                     -- Foreign key to the associated extension
-    field VARCHAR(255) NOT NULL,                                      -- Field to evaluate (e.g., "destination_number")
-    expression VARCHAR(255) NOT NULL,                                 -- Regex or value to match (e.g., "^1234$")
-    break_on_match VARCHAR(50) NOT NULL DEFAULT 'on-false',           -- Break behavior (e.g., 'on-true', 'on-false', 'never')
-    condition_order INTEGER NOT NULL DEFAULT 1 CHECK (condition_order >= 1), -- Order of evaluation (1 or higher)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable)
-    CONSTRAINT fk_dialplan_conditions_extensions                      -- Foreign key to dialplan_extensions table
-        FOREIGN KEY (extension_uuid) REFERENCES public.dialplan_extensions (extension_uuid) ON DELETE CASCADE,
-    CONSTRAINT valid_break_on_match CHECK (break_on_match IN ('on-true', 'on-false', 'never')) -- Restrict valid values
+-- Indexes for core.sip_users
+CREATE INDEX idx_sip_users_tenant_id ON core.sip_users (tenant_id);              -- Index for filtering by tenant
+CREATE INDEX idx_sip_users_username ON core.sip_users (username);                -- Index for querying by SIP username
+CREATE INDEX idx_sip_users_insert_user ON core.sip_users (insert_user);          -- Index for querying creator
+CREATE INDEX idx_sip_users_update_user ON core.sip_users (update_user);          -- Index for querying last updater
+
+-- ===========================
+-- Table: core.sip_user_settings
+-- Description: Key-value settings for SIP users
+-- ===========================
+
+CREATE TABLE core.sip_user_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP user setting
+    sip_user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- Foreign key to the SIP user
+    name TEXT NOT NULL,                                                   -- Name of the setting (e.g., caller-id, auth-acl)
+    value TEXT NOT NULL,                                                  -- Value of the setting
+    type TEXT,                                                            -- Optional type or category (e.g., auth, codec, network)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
+    insert_user UUID,                                                     -- UUID of the user who created the record (nullable)
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp with timezone
+    update_user UUID                                                      -- UUID of the user who last updated the record (nullable)
 );
 
--- Create the dialplan_actions table for actions within conditions
-CREATE TABLE public.dialplan_actions (
-    action_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),          -- Unique identifier for the action, auto-generated UUID
-    condition_uuid UUID NOT NULL,                                     -- Foreign key to the associated condition
-    action_type VARCHAR(50) NOT NULL DEFAULT 'action',                -- Type of action (e.g., 'action', 'anti-action'), defaults to 'action'
-    application VARCHAR(255) NOT NULL,                                -- FreeSWITCH application (e.g., "bridge")
-    data TEXT,                                                        -- Application data (e.g., "user/1001"), nullable
-    action_order INTEGER NOT NULL DEFAULT 1 CHECK (action_order >= 1),-- Order of execution (1 or higher)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user VARCHAR(255),                                         -- User who created the record (text, nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user VARCHAR(255),                                         -- User who last updated the record (text, nullable)
-    CONSTRAINT fk_dialplan_actions_conditions                         -- Foreign key to dialplan_conditions table
-        FOREIGN KEY (condition_uuid) REFERENCES public.dialplan_conditions (condition_uuid) ON DELETE CASCADE,
-    CONSTRAINT valid_action_type CHECK (action_type IN ('action', 'anti-action')) -- Restrict valid action types
+-- Indexes for core.sip_user_settings
+CREATE INDEX idx_sip_user_settings_user_id ON core.sip_user_settings (sip_user_id);     -- Index for joining with SIP users
+CREATE INDEX idx_sip_user_settings_name ON core.sip_user_settings (name);               -- Index for querying by setting name
+CREATE INDEX idx_sip_user_settings_insert_user ON core.sip_user_settings (insert_user); -- Index for querying creator
+CREATE INDEX idx_sip_user_settings_update_user ON core.sip_user_settings (update_user); -- Index for querying last updater
+
+-- ===========================
+-- Table: core.voicemail
+-- Description: Voicemail inbox configuration per SIP user
+-- ===========================
+
+CREATE TABLE core.voicemail (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the voicemail box
+    sip_user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- Link to the SIP user that owns this mailbox
+    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant that owns this voicemail box
+    password TEXT NOT NULL,                                               -- Voicemail PIN/password
+    greeting TEXT,                                                        -- Optional path or reference to custom greeting
+    email TEXT,                                                           -- Optional email for voicemail to email
+    max_messages INTEGER DEFAULT 100,                                     -- Maximum number of voicemail messages allowed
+    storage_path TEXT,                                                    -- Optional path override for voicemail message storage
+    notification_enabled BOOLEAN DEFAULT TRUE,                            -- Whether email or webhook notification is enabled
+    transcribe_enabled BOOLEAN DEFAULT FALSE,                             -- Whether speech-to-text transcription is enabled
+    email_attachment BOOLEAN DEFAULT TRUE,                                -- Whether to include the audio file in email notifications
+    email_template TEXT,                                                  -- Optional template name for email body
+    language TEXT DEFAULT 'en',                                           -- Preferred language for prompts (e.g., en, es, fr)
+    timezone TEXT DEFAULT 'UTC',                                          -- Timezone for timestamps in notifications
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether the voicemail is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
+    insert_user UUID,                                                     -- UUID of the user who created the record
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- UUID of the user who last updated the record
 );
 
--- Tabla de Menús IVR
-CREATE TABLE public.ivr_menus (
-    ivr_uuid UUID PRIMARY KEY,
-    tenant_uuid UUID REFERENCES public.tenants(tenant_uuid),
-    ivr_name VARCHAR(255) UNIQUE,
-    greet_long VARCHAR(255),
-    greet_short VARCHAR(255),
-    invalid_sound VARCHAR(255),
-    exit_sound VARCHAR(255),
-    timeout INTEGER DEFAULT 10000,
-    max_failures INTEGER DEFAULT 3,
-    max_timeouts INTEGER DEFAULT 3,
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    insert_user VARCHAR(255),
-    update_date TIMESTAMP WITH TIME ZONE,
-    update_user VARCHAR(255),
-    CONSTRAINT fk_ivr_menus_tenants
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE CASCADE
-);
+-- Indexes for core.voicemail
+CREATE INDEX idx_voicemail_sip_user_id ON core.voicemail (sip_user_id);     -- Index for linking to SIP users
+CREATE INDEX idx_voicemail_tenant_id ON core.voicemail (tenant_id);         -- Index for filtering by tenant
+CREATE INDEX idx_voicemail_insert_user ON core.voicemail (insert_user);     -- Index for querying creator
+CREATE INDEX idx_voicemail_update_user ON core.voicemail (update_user);     -- Index for querying updater
 
--- Tabla de Opciones del IVR
-CREATE TABLE public.ivr_menu_options (
-    option_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    ivr_uuid UUID NOT NULL,
-    digits VARCHAR(50) NOT NULL,
-    action VARCHAR(255) NOT NULL,
-    param TEXT,
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    insert_user VARCHAR(255),
-    update_date TIMESTAMP WITH TIME ZONE,
-    update_user VARCHAR(255),
-    CONSTRAINT fk_ivr_menu_options_menus
-        FOREIGN KEY (ivr_uuid) REFERENCES public.ivr_menus (ivr_uuid) ON DELETE CASCADE
-);
 
--- Create the sip_profiles table for SIP profiles configuration
-CREATE TABLE public.sip_profiles (
-    profile_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the SIP profile, auto-generated UUID
-    tenant_uuid UUID,                                                 -- Foreign key to the associated tenant (nullable for global profiles)
-    profile_name VARCHAR(255) NOT NULL,                               -- Profile name (e.g., "internal"), limited to 255 characters
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the profile is active (TRUE) or disabled (FALSE)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_sip_profiles_tenants                                -- Foreign key to tenants table (nullable)
-        FOREIGN KEY (tenant_uuid) REFERENCES public.tenants (tenant_uuid) ON DELETE SET NULL,
-    CONSTRAINT unique_sip_profile_name_per_tenant UNIQUE (tenant_uuid, profile_name) -- Ensures unique profile names per tenant
-);
 
--- Create the sip_profile_settings table for individual SIP profile settings
-CREATE TABLE public.sip_profile_settings (
-    setting_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the setting, auto-generated UUID
-    profile_uuid UUID NOT NULL,                                       -- Foreign key to the associated SIP profile
-    name VARCHAR(255) NOT NULL,                                       -- Setting name (e.g., "sip-port")
-    value TEXT NOT NULL,                                              -- Setting value (e.g., "5080")
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_sip_profile_settings_profiles                       -- Foreign key to sip_profiles table
-        FOREIGN KEY (profile_uuid) REFERENCES public.sip_profiles (profile_uuid) ON DELETE CASCADE,
-    CONSTRAINT unique_sip_profile_setting UNIQUE (profile_uuid, name) -- Ensures unique settings per profile
-);
+-- Function: core.set_update_timestamp()
+-- Description: Automatically sets update_date to current timestamp on UPDATE
 
--- Create the sip_profile_gateways table for gateways associated with SIP profiles
-CREATE TABLE public.sip_profile_gateways (
-    gateway_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the gateway, auto-generated UUID
-    profile_uuid UUID NOT NULL,                                       -- Foreign key to the associated SIP profile
-    gateway_name VARCHAR(255) NOT NULL,                               -- Gateway name (e.g., "provider1"), limited to 255 characters
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the gateway is active (TRUE) or disabled (FALSE)
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_sip_profile_gateways_profiles                       -- Foreign key to sip_profiles table
-        FOREIGN KEY (profile_uuid) REFERENCES public.sip_profiles (profile_uuid) ON DELETE CASCADE,
-    CONSTRAINT unique_sip_profile_gateway UNIQUE (profile_uuid, gateway_name) -- Ensures unique gateway names per profile
-);
-
--- Create the sip_profile_gateway_settings table for individual gateway settings
-CREATE TABLE public.sip_profile_gateway_settings (
-    setting_uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),         -- Unique identifier for the setting, auto-generated UUID
-    gateway_uuid UUID NOT NULL,                                       -- Foreign key to the associated gateway
-    name VARCHAR(255) NOT NULL,                                       -- Setting name (e.g., "username")
-    value TEXT NOT NULL,                                              -- Setting value (e.g., "user123")
-    insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
-    insert_user UUID,                                                 -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID,                                                 -- UUID of the user who last updated the record (nullable)
-    CONSTRAINT fk_sip_profile_gateway_settings_gateways               -- Foreign key to sip_profile_gateways table
-        FOREIGN KEY (gateway_uuid) REFERENCES public.sip_profile_gateways (gateway_uuid) ON DELETE CASCADE,
-    CONSTRAINT unique_sip_profile_gateway_setting UNIQUE (gateway_uuid, name) -- Ensures unique settings per gateway
-);
-
--- Define a function to automatically update the update_date column on row updates
--- This function sets the update_date to the current timestamp with timezone
-CREATE OR REPLACE FUNCTION public.update_timestamp()
+CREATE OR REPLACE FUNCTION core.set_update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.update_date = NOW();
+    NEW.update_date := NOW();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Create triggers to automatically update the update_date column for all tables
-CREATE TRIGGER update_tenants_timestamp
-    BEFORE UPDATE ON public.tenants
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER trg_set_update_sip_profiles
+BEFORE UPDATE ON core.sip_profiles
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER update_tenant_settings_timestamp
-    BEFORE UPDATE ON public.tenant_settings
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER trg_set_update_sip_profile_settings
+BEFORE UPDATE ON core.sip_profile_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER update_sip_users_timestamp
-    BEFORE UPDATE ON public.sip_users
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER trg_set_update_sip_users
+BEFORE UPDATE ON core.sip_users
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER update_groups_timestamp
-    BEFORE UPDATE ON public.groups
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER trg_set_update_sip_user_settings
+BEFORE UPDATE ON core.sip_user_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER update_user_groups_timestamp
-    BEFORE UPDATE ON public.user_groups
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER trg_set_update_voicemail
+BEFORE UPDATE ON core.voicemail
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER update_dialplan_contexts_timestamp
-    BEFORE UPDATE ON public.dialplan_contexts
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
-CREATE TRIGGER update_dialplan_extensions_timestamp
-    BEFORE UPDATE ON public.dialplan_extensions
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
-CREATE TRIGGER update_dialplan_conditions_timestamp
-    BEFORE UPDATE ON public.dialplan_conditions
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_dialplan_actions_timestamp
-    BEFORE UPDATE ON public.dialplan_actions
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_sip_profiles_timestamp
-    BEFORE UPDATE ON public.sip_profiles
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_sip_profile_settings_timestamp
-    BEFORE UPDATE ON public.sip_profile_settings
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_sip_profile_gateways_timestamp
-    BEFORE UPDATE ON public.sip_profile_gateways
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_sip_profile_gateway_settings_timestamp
-    BEFORE UPDATE ON public.sip_profile_gateway_settings
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_ivr_menus_timestamp
-    BEFORE UPDATE ON public.ivr_menus
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
-CREATE TRIGGER update_ivr_menu_options_timestamp
-    BEFORE UPDATE ON public.ivr_menu_options
-    FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
-
--- Create indexes to optimize query performance and enforce referential integrity
-CREATE INDEX idx_tenants_name ON public.tenants (name);                     -- Index for tenant name lookups
-CREATE INDEX idx_tenants_domain_name ON public.tenants (domain_name);       -- Index for domain name lookups
-CREATE INDEX idx_tenants_parent_tenant_uuid ON public.tenants (parent_tenant_uuid); -- Index for parent tenant relationships
-CREATE INDEX idx_tenant_settings_tenant_uuid ON public.tenant_settings (tenant_uuid); -- Index for tenant settings lookups
-CREATE INDEX idx_sip_users_tenant_uuid ON public.sip_users (tenant_uuid);   -- Index for SIP user lookups by tenant
-CREATE INDEX idx_sip_users_username ON public.sip_users (username);         -- Index for SIP username lookups
-CREATE INDEX idx_groups_tenant_uuid ON public.groups (tenant_uuid);         -- Index for group lookups by tenant
-CREATE INDEX idx_user_groups_tenant_uuid ON public.user_groups (tenant_uuid); -- Index for user-group lookups by tenant
-CREATE INDEX idx_user_groups_sip_user_uuid ON public.user_groups (sip_user_uuid); -- Index for user-group lookups by user
-CREATE INDEX idx_user_groups_group_uuid ON public.user_groups (group_uuid); -- Index for user-group lookups by group
-CREATE INDEX idx_dialplan_contexts_tenant_uuid ON public.dialplan_contexts (tenant_uuid); -- Index for context lookups by tenant
-CREATE INDEX idx_dialplan_extensions_context_uuid ON public.dialplan_extensions (context_uuid); -- Index for extension lookups by context
-CREATE INDEX idx_dialplan_conditions_extension_uuid ON public.dialplan_conditions (extension_uuid); -- Index for condition lookups by extension
-CREATE INDEX idx_dialplan_actions_condition_uuid ON public.dialplan_actions (condition_uuid); -- Index for action lookups by condition
-CREATE INDEX idx_ivr_menus_tenant_uuid ON public.ivr_menus(tenant_uuid);
-CREATE INDEX idx_ivr_menus_name ON public.ivr_menus(ivr_name);
-CREATE INDEX idx_ivr_menu_options_ivr_uuid ON public.ivr_menu_options(ivr_uuid);
-CREATE INDEX idx_ivr_menu_options_digits ON public.ivr_menu_options(digits);
-CREATE INDEX idx_ivr_menus_insert_date ON public.ivr_menus(insert_date);
-CREATE INDEX idx_ivr_menu_options_insert_date ON public.ivr_menu_options(insert_date);
-CREATE INDEX idx_ivr_menus_update_user ON public.ivr_menus(update_user);
-CREATE INDEX idx_ivr_menu_options_update_user ON public.ivr_menu_options(update_user);
-CREATE INDEX idx_sip_profiles_tenant_uuid ON public.sip_profiles (tenant_uuid); -- Index for SIP profile lookups by tenant
-CREATE INDEX idx_sip_profile_settings_profile_uuid ON public.sip_profile_settings (profile_uuid); -- Index for setting lookups by profile
-CREATE INDEX idx_sip_profile_gateways_profile_uuid ON public.sip_profile_gateways (profile_uuid); -- Index for gateway lookups by profile
-CREATE INDEX idx_sip_profile_gateway_settings_gateway_uuid ON public.sip_profile_gateway_settings (gateway_uuid); -- Index for gateway setting lookups
-
--- Insert a default tenant if it does not already exist
-INSERT INTO public.tenants (name, domain_name, enabled, insert_user)
-VALUES ('Default', '192.168.10.22', TRUE, NULL)
-ON CONFLICT (name) DO NOTHING;
-
--- Create the ring2all role if it does not exist and configure privileges
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
-        EXECUTE 'CREATE ROLE ' || quote_ident('$r2a_user') || ' WITH LOGIN PASSWORD ' || quote_literal('$r2a_password');
-    END IF;
-END $$;
-
--- Grant full privileges to the ring2all user on the database and schema
-GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
-GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
-GRANT EXECUTE ON FUNCTION public.update_timestamp() TO $r2a_user;
-
--- Set ownership of all tables to the ring2all user
-ALTER TABLE public.tenants OWNER TO $r2a_user;
-ALTER TABLE public.tenant_settings OWNER TO $r2a_user;
-ALTER TABLE public.sip_users OWNER TO $r2a_user;
-ALTER TABLE public.groups OWNER TO $r2a_user;
-ALTER TABLE public.user_groups OWNER TO $r2a_user;
-ALTER TABLE public.dialplan_contexts OWNER TO $r2a_user;
-ALTER TABLE public.dialplan_extensions OWNER TO $r2a_user;
-ALTER TABLE public.dialplan_conditions OWNER TO $r2a_user;
-ALTER TABLE public.dialplan_actions OWNER TO $r2a_user;
-ALTER TABLE public.ivr_menus OWNER TO $r2a_user;
-ALTER TABLE public.ivr_menu_options OWNER TO $r2a_user;
-ALTER TABLE public.sip_profiles OWNER TO $r2a_user;
-ALTER TABLE public.sip_profile_settings OWNER TO $r2a_user;
-ALTER TABLE public.sip_profile_gateways OWNER TO $r2a_user;
-ALTER TABLE public.sip_profile_gateway_settings OWNER TO $r2a_user;
-
--- Grant EXECUTE on the trigger function to ring2all
-GRANT EXECUTE ON FUNCTION update_timestamp() TO $r2a_user;
