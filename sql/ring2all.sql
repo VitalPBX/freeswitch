@@ -348,7 +348,64 @@ CREATE INDEX idx_dialplan_settings_name ON core.dialplan_settings (name);       
 CREATE INDEX idx_dialplan_settings_insert_user ON core.dialplan_settings (insert_user); -- For querying creator
 CREATE INDEX idx_dialplan_settings_update_user ON core.dialplan_settings (update_user); -- For querying updater
 
+-- ===========================
+-- Table: core.ivr
+-- Description: Defines IVR menus for call routing and DTMF input
+-- ===========================
 
+CREATE TABLE core.ivr (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the IVR menu
+    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant that owns this IVR
+    name TEXT NOT NULL,                                                  -- Human-readable name for the IVR menu
+    greet_long TEXT,                                                     -- Path or name of the long greeting audio file
+    greet_short TEXT,                                                    -- Path or name of the short greeting audio file
+    invalid_sound TEXT,                                                  -- Sound played on invalid input
+    exit_sound TEXT,                                                     -- Sound played on exit
+    timeout INTEGER DEFAULT 5,                                           -- Seconds to wait for DTMF input
+    max_failures INTEGER DEFAULT 3,                                      -- Maximum number of failures before exit
+    max_timeouts INTEGER DEFAULT 3,                                      -- Maximum number of timeouts before exit
+    direct_dial BOOLEAN DEFAULT FALSE,                                   -- Whether to allow direct extension dialing
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the IVR is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- UUID of user who created the IVR
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- UUID of user who last updated the IVR
+);
+
+-- Indexes for core.ivr
+CREATE INDEX idx_ivr_tenant_id ON core.ivr (tenant_id);               -- For filtering IVRs by tenant
+CREATE INDEX idx_ivr_name ON core.ivr (name);                         -- For querying IVR by name
+CREATE INDEX idx_ivr_insert_user ON core.ivr (insert_user);           -- By creator
+CREATE INDEX idx_ivr_update_user ON core.ivr (update_user);           -- By last updater
+
+-- ===========================
+-- Table: core.ivr_settings
+-- Description: Advanced IVR options and DTMF mappings, supporting submenus and dynamic logic
+-- ===========================
+
+CREATE TABLE core.ivr_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the IVR setting
+    ivr_id UUID NOT NULL REFERENCES core.ivr(id) ON DELETE CASCADE,       -- Foreign key to the IVR
+    digits TEXT NOT NULL,                                                 -- DTMF digits pressed (e.g., "1", "*", "0")
+    action TEXT NOT NULL,                                                 -- Action to perform (e.g., transfer, playback, hangup, submenu, set)
+    destination TEXT,                                                     -- Destination value (e.g., extension, dialplan, IVR ID for submenu, variable name)
+    condition TEXT,                                                       -- Optional condition (e.g., ${caller_id_number} =~ ^123)
+    break_on_match BOOLEAN DEFAULT FALSE,                                 -- Whether to stop evaluation after this match
+    order INTEGER DEFAULT 100,                                            -- Execution order of this setting
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether this DTMF option is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp
+    insert_user UUID,                                                     -- Creator UUID
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Last updater UUID
+);
+
+-- Indexes for core.ivr_settings
+CREATE INDEX idx_ivr_settings_ivr_id ON core.ivr_settings (ivr_id);       -- For joining with IVRs
+CREATE INDEX idx_ivr_settings_digits ON core.ivr_settings (digits);       -- For fast lookup of digit mappings
+CREATE INDEX idx_ivr_settings_insert_user ON core.ivr_settings (insert_user); -- Creator index
+CREATE INDEX idx_ivr_settings_update_user ON core.ivr_settings (update_user); -- Updater index
 
 
 -- Function: core.set_update_timestamp()
@@ -394,5 +451,15 @@ EXECUTE FUNCTION core.set_update_timestamp();
 
 CREATE TRIGGER trg_set_update_dialplan_settings
 BEFORE UPDATE ON core.dialplan_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_ivr
+BEFORE UPDATE ON core.ivr
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_ivr_settings
+BEFORE UPDATE ON core.ivr_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
