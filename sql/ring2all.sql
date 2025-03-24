@@ -145,7 +145,7 @@ CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -
 
 CREATE TABLE core.sip_profile_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP profile setting
-    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(profile_id) ON DELETE CASCADE, -- Foreign key to the SIP profile
+    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Foreign key to the SIP profile
     name TEXT NOT NULL,                                                   -- Name of the setting (e.g., rtp-ip, sip-ip)
     type TEXT,                                                            -- Optional setting category (e.g., media, auth, network)
     value TEXT NOT NULL,                                                  -- Value of the setting
@@ -404,7 +404,7 @@ CREATE TABLE core.dialplan (
     tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,   -- Tenant that owns this dialplan
     name TEXT NOT NULL,                                                     -- Dialplan name (e.g., default, public)
     context TEXT NOT NULL,                                                  -- Context name used in FreeSWITCH
-    order INTEGER DEFAULT 100,                                              -- Execution order of this dialplan
+    priority INTEGER DEFAULT 100,                                           -- Execution order of this dialplan
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this dialplan is enabled
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                         -- Creation timestamp
