@@ -8,12 +8,6 @@ from datetime import datetime
 ODBC_DSN = "ring2all"
 DIRECTORY_PATH = "/etc/freeswitch/directory"
 
-# Colores ANSI
-GREEN = "\033[32m"
-RED = "\033[31m"
-YELLOW = "\033[33m"
-RESET = "\033[0m"
-
 # Conexión a la base de datos
 conn = pyodbc.connect(f"DSN={ODBC_DSN}")
 cursor = conn.cursor()
@@ -22,7 +16,7 @@ cursor = conn.cursor()
 cursor.execute("SELECT id FROM core.tenants WHERE name = 'Default'")
 tenant_row = cursor.fetchone()
 if not tenant_row:
-    raise Exception(f"{RED}❌ El tenant 'Default' no existe en la base de datos{RESET}")
+    raise Exception("❌ El tenant 'Default' no existe en la base de datos")
 tenant_uuid = tenant_row[0]
 
 def process_user_file(xml_file):
@@ -35,7 +29,7 @@ def process_user_file(xml_file):
 
         password = user_elem.findtext('params/param[@name="password"]')
         if not password:
-            print(f"{YELLOW}⚠️ Usuario {username} sin password definido, asignando 'r2a1234'.{RESET}")
+            print(f"⚠️ Usuario {username} sin password definido, asignando 'r2a1234'.")
             password = "r2a1234"
 
         settings = []
@@ -89,7 +83,7 @@ def process_user_file(xml_file):
             ))
 
         conn.commit()
-        print(f"{GREEN}✔ Usuario {username} migrado exitosamente.{RESET}")
+        print(f"✅ Usuario {username} migrado exitosamente.")
 
 def migrate_directory():
     for dirpath, _, filenames in os.walk(DIRECTORY_PATH):
@@ -99,10 +93,10 @@ def migrate_directory():
                 try:
                     process_user_file(full_path)
                 except Exception as e:
-                    print(f"{RED}❌ Error procesando {full_path}: {e}{RESET}")
+                    print(f"❌ Error procesando {full_path}: {e}")
 
 migrate_directory()
 
 cursor.close()
 conn.close()
-print(f"{GREEN}✔ Migración de usuarios SIP completada.{RESET}")
+print("✅ Migración de usuarios SIP completada.")
