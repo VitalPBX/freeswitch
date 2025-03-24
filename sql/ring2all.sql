@@ -165,53 +165,62 @@ CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (
 
 -- ===========================
 -- Table: core.gateways
--- Description: Defines SIP gateways per tenant, linked optionally to a SIP profile
+-- Description: SIP Gateways used for outbound and inbound communication
 -- ===========================
 
 CREATE TABLE core.gateways (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the gateway
-    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
-    sip_profile_id UUID REFERENCES core.sip_profiles(id) ON DELETE SET NULL, -- Associated SIP profile (nullable)
-    name TEXT NOT NULL,                                                 -- Name of the gateway (e.g., provider1)
-    description TEXT,                                                   -- Optional description of the gateway
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                              -- Indicates if the gateway is active
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID for the gateway
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Gateway name (must be unique per tenant)
+    username TEXT,                                                       -- SIP username (if authentication is required)
+    password TEXT,                                                       -- SIP password
+    realm TEXT,                                                          -- Authentication realm (optional)
+    proxy TEXT,                                                          -- SIP proxy address (e.g., sip.provider.com)
+    register BOOLEAN NOT NULL DEFAULT TRUE,                              -- Whether to register to the SIP provider
+    register_transport TEXT DEFAULT 'udp',                               -- Transport protocol for registration (udp, tcp, tls)
+    expire_seconds INTEGER DEFAULT 3600,                                 -- Expiry time in seconds
+    retry_seconds INTEGER DEFAULT 30,                                    -- Retry time on failure
+    from_user TEXT,                                                      -- From-user SIP header
+    from_domain TEXT,                                                    -- From-domain SIP header
+    contact_params TEXT,                                                 -- Additional contact parameters
+    context TEXT DEFAULT 'public',                                       -- Dialplan context
+    description TEXT,                                                    -- Optional description
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether this gateway is active
 
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                     -- Creation timestamp with timezone
-    insert_user UUID,                                                   -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMPTZ,                                            -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID                                                    -- UUID of the user who last updated the record (nullable)
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
 );
 
 -- Indexes for core.gateways
-CREATE INDEX idx_gateways_tenant_id ON core.gateways (tenant_id);            -- Index for filtering by tenant
-CREATE INDEX idx_gateways_sip_profile_id ON core.gateways (sip_profile_id);  -- Index for joining with SIP profiles
-CREATE INDEX idx_gateways_insert_user ON core.gateways (insert_user);        -- Index for querying creator
-CREATE INDEX idx_gateways_update_user ON core.gateways (update_user);        -- Index for querying last updater
+CREATE INDEX idx_gateways_tenant_id ON core.gateways (tenant_id);       -- Lookup gateways by tenant
+CREATE INDEX idx_gateways_name ON core.gateways (name);                 -- Lookup by gateway name
+CREATE INDEX idx_gateways_enabled ON core.gateways (enabled);           -- Filter by active gateways
 
 -- ===========================
 -- Table: core.gateway_settings
--- Description: Key-value settings for SIP gateways
+-- Description: Settings for SIP gateways (advanced parameters)
 -- ===========================
 
 CREATE TABLE core.gateway_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the gateway setting
-    gateway_id UUID NOT NULL REFERENCES core.gateways(id) ON DELETE CASCADE, -- Foreign key to the SIP gateway
-    name TEXT NOT NULL,                                                   -- Name of the setting (e.g., username, password, proxy)
-    type TEXT,                                                            -- Optional type or category (e.g., auth, transport, registration)
-    value TEXT NOT NULL,                                                  -- Value of the setting
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID for the gateway setting
+    gateway_id UUID NOT NULL REFERENCES core.gateways(id) ON DELETE CASCADE, -- Associated gateway
+    category TEXT DEFAULT 'default',                                      -- Optional grouping/category for the setting
+    name TEXT NOT NULL,                                                  -- Setting name (e.g., extension-in-contact)
+    value TEXT NOT NULL,                                                 -- Setting value
+    setting_type TEXT DEFAULT 'param',                                   -- Type: param | variable | codec | custom
 
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
-    insert_user UUID,                                                     -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMPTZ,                                              -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID                                                      -- UUID of the user who last updated the record (nullable)
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
 );
 
 -- Indexes for core.gateway_settings
-CREATE INDEX idx_gateway_settings_gateway_id ON core.gateway_settings (gateway_id);     -- Index for joining with gateways
-CREATE INDEX idx_gateway_settings_name ON core.gateway_settings (name);                 -- Index for querying by setting name
-CREATE INDEX idx_gateway_settings_insert_user ON core.gateway_settings (insert_user);   -- Index for querying creator
-CREATE INDEX idx_gateway_settings_update_user ON core.gateway_settings (update_user);   -- Index for querying last updater
+CREATE INDEX idx_gateway_settings_gateway_id ON core.gateway_settings (gateway_id); -- Lookup settings by gateway
+CREATE INDEX idx_gateway_settings_name ON core.gateway_settings (name);             -- Lookup by setting name
+CREATE INDEX idx_gateway_settings_type ON core.gateway_settings (setting_type);     -- Lookup by setting type
 
 -- ===========================
 -- Table: core.sip_users
@@ -906,6 +915,107 @@ CREATE TABLE core.call_flow_settings (
     update_user UUID                                                     -- Updated by
 );
 
+-- ===========================
+-- Table: core.forwarding
+-- Description: Call forwarding configurations per user and condition
+-- ===========================
+
+CREATE TABLE core.forwarding (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the forwarding rule
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- Target user for forwarding
+    type TEXT NOT NULL,                                                  -- Type of forwarding (e.g., always, busy, no_answer, unavailable)
+    destination TEXT NOT NULL,                                           -- Forward-to destination (e.g., number, extension)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether this forwarding rule is enabled
+    delay_seconds INT DEFAULT 0,                                         -- Optional delay before forwarding (used in no_answer type)
+    notes TEXT,                                                          -- Optional description or internal note
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- ===========================
+-- Table: core.dnd
+-- Description: Do Not Disturb settings for SIP users
+-- ===========================
+
+CREATE TABLE core.dnd (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for DND rule
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- SIP user the DND rule applies to
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,                              -- TRUE if DND is enabled for the user
+    reason TEXT,                                                         -- Optional reason or note (e.g., vacation, meeting)
+    temporary_until TIMESTAMPTZ,                                         -- Optional end time for temporary DND
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- ===========================
+-- Table: core.call_block
+-- Description: Blocked numbers and patterns by tenant and optionally per user
+-- ===========================
+
+CREATE TABLE core.call_block (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the block entry
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant scope
+    user_id UUID REFERENCES core.sip_users(id) ON DELETE CASCADE,        -- Optional user-specific block
+    number_pattern TEXT NOT NULL,                                        -- Number or pattern to block (e.g., 1900*, +44*)
+    block_type TEXT DEFAULT 'incoming',                                  -- Direction of block: incoming, outgoing, both
+    reason TEXT,                                                         -- Description or reason for block
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- TRUE if the block is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- ===========================
+-- Table: core.presence
+-- Description: Presence tracking for SIP users (manual or auto-generated)
+-- ===========================
+
+CREATE TABLE core.presence (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique presence entry ID
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant ownership
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- Associated SIP user
+    status TEXT NOT NULL,                                                -- Presence status (available, away, busy, etc.)
+    note TEXT,                                                           -- Optional note ("In a meeting", etc.)
+    manual_override BOOLEAN NOT NULL DEFAULT FALSE,                      -- Whether this was manually set
+    expires_at TIMESTAMPTZ,                                              -- When this presence expires (optional)
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Updated timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- ===========================
+-- Table: core.hot_desk
+-- Description: Hot desking support for temporary SIP user login on devices
+-- ===========================
+
+CREATE TABLE core.hot_desk (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique record ID
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant scope
+    device_id UUID NOT NULL,                                             -- Unique ID representing device or endpoint
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- SIP user currently assigned
+    login_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Time when user logged in
+    logout_time TIMESTAMPTZ,                                             -- Optional logout time
+    auto_logout_interval INT,                                            -- Timeout in seconds for automatic logout
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether hot desking is active for this record
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Record creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last modified timestamp
+    update_user UUID                                                     -- Modified by
+);
+
 -- Indexes for core.call_flows
 CREATE INDEX idx_call_flows_tenant_id ON core.call_flows (tenant_id);                    -- Fast tenant-based filtering
 CREATE INDEX idx_call_flows_feature_code ON core.call_flows (feature_code);              -- Lookup by toggle code
@@ -914,9 +1024,158 @@ CREATE INDEX idx_call_flows_feature_code ON core.call_flows (feature_code);     
 CREATE INDEX idx_call_flow_settings_call_flow_id ON core.call_flow_settings (call_flow_id); -- Fast setting lookup per flow
 CREATE INDEX idx_call_flow_settings_category ON core.call_flow_settings (category);         -- Filter settings by category
 
+-- Indexes for core.forwarding
+CREATE INDEX idx_forwarding_tenant_id ON core.forwarding (tenant_id);                     -- Fast filtering by tenant
+CREATE INDEX idx_forwarding_user_id ON core.forwarding (user_id);                         -- Fast filtering by user
+CREATE INDEX idx_forwarding_type ON core.forwarding (type);                               -- Filter by forwarding type
+CREATE INDEX idx_forwarding_enabled ON core.forwarding (enabled);                         -- Optimize active/inactive queries
 
+-- Indexes for core.dnd
+CREATE INDEX idx_dnd_tenant_id ON core.dnd (tenant_id);                                   -- Tenant-based filtering
+CREATE INDEX idx_dnd_user_id ON core.dnd (user_id);                                       -- User-level filtering
+CREATE INDEX idx_dnd_enabled ON core.dnd (enabled);                                       -- Enabled/disabled state lookup
 
+-- Indexes for core.call_block
+CREATE INDEX idx_call_block_tenant_id ON core.call_block (tenant_id);                     -- Filter blocked numbers by tenant
+CREATE INDEX idx_call_block_user_id ON core.call_block (user_id);                         -- Filter user-specific blocks
+CREATE INDEX idx_call_block_enabled ON core.call_block (enabled);                         -- Optimize active/inactive block lookups
 
+-- Indexes for core.presence
+CREATE INDEX idx_presence_tenant_id ON core.presence (tenant_id);                         -- Presence filtering by tenant
+CREATE INDEX idx_presence_user_id ON core.presence (user_id);                             -- Filter presence by user
+CREATE INDEX idx_presence_status ON core.presence (status);                               -- Presence status quick lookup
+
+-- Indexes for core.hot_desk
+CREATE INDEX idx_hot_desk_tenant_id ON core.hot_desk (tenant_id);                         -- Hot desk lookup by tenant
+CREATE INDEX idx_hot_desk_user_id ON core.hot_desk (user_id);                             -- Lookup hot desk sessions by user
+CREATE INDEX idx_hot_desk_device_id ON core.hot_desk (device_id);                         -- Lookup by device
+CREATE INDEX idx_hot_desk_enabled ON core.hot_desk (enabled);                             -- Optimize active sessions
+
+-- ===========================
+-- Table: core.fax
+-- Description: Fax-to-email and email-to-fax configurations
+-- ===========================
+
+CREATE TABLE core.fax (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the fax configuration
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    user_id UUID REFERENCES core.sip_users(id) ON DELETE CASCADE,        -- Optional user assigned to this fax
+    extension TEXT NOT NULL,                                             -- Extension associated with this fax
+    email TEXT NOT NULL,                                                 -- Destination email for received faxes
+    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound', 'both')), -- Direction of fax handling
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether the fax configuration is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.fax
+CREATE INDEX idx_fax_tenant_id ON core.fax (tenant_id);                 -- Fax filtering by tenant
+CREATE INDEX idx_fax_user_id ON core.fax (user_id);                     -- Lookup fax by user
+CREATE INDEX idx_fax_extension ON core.fax (extension);                 -- Lookup by fax extension
+
+-- ===========================
+-- Table: core.announcements
+-- Description: Audio announcements to be used in IVRs or call flows
+-- ===========================
+
+CREATE TABLE core.announcements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID for the announcement
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Name of the announcement
+    file_path TEXT NOT NULL,                                             -- Path to the audio file (e.g., /sounds/...) 
+    description TEXT,                                                    -- Optional description
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- TRUE if active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.announcements
+CREATE INDEX idx_announcements_tenant_id ON core.announcements (tenant_id); -- Lookup by tenant
+CREATE INDEX idx_announcements_name ON core.announcements (name);           -- Lookup by name
+
+-- ===========================
+-- Table: core.external_numbers
+-- Description: External numbers used for routing, forwarding or external dialing
+-- ===========================
+
+CREATE TABLE core.external_numbers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID for external number
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    number TEXT NOT NULL,                                                -- E.164 formatted number or national format
+    label TEXT,                                                          -- Description label (e.g., Sales Line Chile)
+    route_to TEXT,                                                       -- Optional routing target (extension, external, etc.)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether number is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.external_numbers
+CREATE INDEX idx_external_numbers_tenant_id ON core.external_numbers (tenant_id); -- Lookup by tenant
+CREATE INDEX idx_external_numbers_number ON core.external_numbers (number);       -- Fast lookup by number
+CREATE INDEX idx_external_numbers_enabled ON core.external_numbers (enabled);     -- Filter active numbers
+
+-- ===========================
+-- Table: core.inbound_routes
+-- Description: Routing rules for incoming calls
+-- ===========================
+
+CREATE TABLE core.inbound_routes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for inbound route
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                   -- Route name
+    destination TEXT NOT NULL,                                            -- Destination (e.g., extension, IVR, queue)
+    number_pattern TEXT NOT NULL,                                         -- Dialed number pattern (regex or starts with)
+    caller_id_filter TEXT,                                                -- Optional filter by caller ID
+    priority INTEGER DEFAULT 100,                                         -- Priority of the route (lower = higher priority)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether this route is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
+);
+
+-- Indexes for core.inbound_routes
+CREATE INDEX idx_inbound_routes_tenant_id ON core.inbound_routes (tenant_id); -- Lookup by tenant
+CREATE INDEX idx_inbound_routes_pattern ON core.inbound_routes (number_pattern); -- Lookup by pattern
+CREATE INDEX idx_inbound_routes_enabled ON core.inbound_routes (enabled);     -- Filter active rules
+
+-- ===========================
+-- Table: core.outbound_routes
+-- Description: Routing rules for outgoing calls
+-- ===========================
+
+CREATE TABLE core.outbound_routes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for outbound route
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                   -- Route name
+    dial_pattern TEXT NOT NULL,                                           -- Dial pattern (e.g., ^9\d{8}$)
+    prepend TEXT,                                                         -- Digits to prepend before sending to gateway
+    strip_digits INTEGER DEFAULT 0,                                       -- Number of digits to strip from beginning
+    gateway TEXT NOT NULL,                                                -- Gateway to send the call to
+    priority INTEGER DEFAULT 100,                                         -- Route priority
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether this route is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
+);
+
+-- Indexes for core.outbound_routes
+CREATE INDEX idx_outbound_routes_tenant_id ON core.outbound_routes (tenant_id); -- Lookup by tenant
+CREATE INDEX idx_outbound_routes_pattern ON core.outbound_routes (dial_pattern); -- Lookup by pattern
+CREATE INDEX idx_outbound_routes_gateway ON core.outbound_routes (gateway);      -- Lookup by gateway
+CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);      -- Filter active routes
 
 -- ============================================================================================================
 -- Function: core.set_update_timestamp()
@@ -1079,3 +1338,54 @@ CREATE TRIGGER trg_set_update_call_flow_settings
 BEFORE UPDATE ON core.call_flow_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_forwarding
+BEFORE UPDATE ON core.forwarding
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_dnd
+BEFORE UPDATE ON core.dnd
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_call_block
+BEFORE UPDATE ON core.call_block
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_presence
+BEFORE UPDATE ON core.presence
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_hot_desk
+BEFORE UPDATE ON core.hot_desk
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_fax
+BEFORE UPDATE ON core.fax
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_announcements
+BEFORE UPDATE ON core.announcements
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_external_numbers
+BEFORE UPDATE ON core.external_numbers
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_inbound_routes
+BEFORE UPDATE ON core.inbound_routes
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_outbound_routes
+BEFORE UPDATE ON core.outbound_routes
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
