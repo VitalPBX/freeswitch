@@ -837,6 +837,86 @@ CREATE INDEX idx_time_conditions_tenant_id ON core.time_conditions (tenant_id); 
 CREATE INDEX idx_time_condition_rules_condition_id ON core.time_condition_rules (condition_id); -- For fast rule lookup per condition
 CREATE INDEX idx_time_condition_rules_day_time ON core.time_condition_rules (day_of_week, start_time, end_time); -- Useful for rule matching
 
+-- ===========================
+-- Table: core.blacklist
+-- Description: Stores blacklisted numbers or patterns per tenant
+-- ===========================
+
+CREATE TABLE core.blacklist (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the blacklist entry
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    type TEXT NOT NULL DEFAULT 'number',                                  -- Type of match (e.g., number, pattern, regex)
+    value TEXT NOT NULL,                                                  -- Number or pattern to match
+    description TEXT,                                                     -- Optional description or label
+    source TEXT DEFAULT 'manual',                                         -- Source of entry (e.g., manual, system, API)
+    scope TEXT DEFAULT 'inbound',                                         -- Scope of the blacklist (inbound, outbound, all)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- If the blacklist entry is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
+);
+
+-- Indexes for core.blacklist
+CREATE INDEX idx_blacklist_tenant_id ON core.blacklist (tenant_id);         -- Index for tenant filtering
+CREATE INDEX idx_blacklist_value ON core.blacklist (value);                 -- Index for fast lookup by number/pattern
+CREATE INDEX idx_blacklist_scope ON core.blacklist (scope);                 -- Index for filtering by scope
+
+-- ===========================
+-- Table: core.call_flows
+-- Description: Dynamic call routing based on toggleable states (e.g., night mode)
+-- ===========================
+
+CREATE TABLE core.call_flows (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the call flow
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Descriptive name of the call flow (e.g., "Office Night Mode")
+    feature_code TEXT UNIQUE,                                            -- Code used to toggle the call flow (e.g., *21)
+    status BOOLEAN NOT NULL DEFAULT FALSE,                               -- Current state of the call flow (TRUE = active)
+    default_destination TEXT,                                            -- Destination when call flow is off
+    alternate_destination TEXT,                                          -- Destination when call flow is on
+    toggle_enabled BOOLEAN NOT NULL DEFAULT TRUE,                        -- If the user can manually toggle this flow
+    announcement TEXT,                                                   -- Optional audio file path to announce status
+    notes TEXT,                                                          -- Internal notes or comments
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- If the call flow is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- ===========================
+-- Table: core.call_flow_settings
+-- Description: Additional settings for call flows (advanced routing, variables)
+-- ===========================
+
+CREATE TABLE core.call_flow_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the setting
+    call_flow_id UUID NOT NULL REFERENCES core.call_flows(id) ON DELETE CASCADE, -- Related call flow
+    category TEXT NOT NULL DEFAULT 'dialplan',                           -- Logical group for the setting (e.g., dialplan, context, media)
+    name TEXT NOT NULL,                                                  -- Parameter or variable name
+    value TEXT,                                                          -- Parameter value
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- If this setting is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.call_flows
+CREATE INDEX idx_call_flows_tenant_id ON core.call_flows (tenant_id);                    -- Fast tenant-based filtering
+CREATE INDEX idx_call_flows_feature_code ON core.call_flows (feature_code);              -- Lookup by toggle code
+
+-- Indexes for core.call_flow_settings
+CREATE INDEX idx_call_flow_settings_call_flow_id ON core.call_flow_settings (call_flow_id); -- Fast setting lookup per flow
+CREATE INDEX idx_call_flow_settings_category ON core.call_flow_settings (category);         -- Filter settings by category
+
+
+
+
 
 -- ============================================================================================================
 -- Function: core.set_update_timestamp()
@@ -982,5 +1062,20 @@ EXECUTE FUNCTION core.set_update_timestamp();
 
 CREATE TRIGGER trg_set_update_time_condition_rules
 BEFORE UPDATE ON core.time_condition_rules
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_blacklist
+BEFORE UPDATE ON core.blacklist
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_call_flows
+BEFORE UPDATE ON core.call_flows
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_call_flow_settings
+BEFORE UPDATE ON core.call_flow_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
