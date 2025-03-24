@@ -69,7 +69,7 @@ GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
 -- === BEGIN FULL SCHEMA DEFINITION ===
 
 -- Create the tenants table to store tenant information
-CREATE TABLE core.tenants (
+CREATE TABLE s (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                   -- Unique identifier for the tenant, auto-generated UUID
     parent_tenant_id UUID,                                            -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
@@ -80,15 +80,15 @@ CREATE TABLE core.tenants (
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
     update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
     CONSTRAINT fk_tenants_parent                                      -- Foreign key to support tenant hierarchy
-        FOREIGN KEY (parent_tenant_id) REFERENCES core.tenants (id) 
+        FOREIGN KEY (parent_tenant_id) REFERENCES s (id) 
         ON DELETE SET NULL                                            -- Sets parent_tenant_id to NULL if parent is deleted
 );
 
 -- Indexes for tenants
-CREATE INDEX idx_tenants_name ON core.tenants (name);
-CREATE INDEX idx_tenants_domain_name ON core.tenants (domain_name);
-CREATE INDEX idx_tenants_enabled ON core.tenants (enabled);
-CREATE INDEX idx_tenants_insert_date ON core.tenants (insert_date);
+CREATE INDEX idx_tenants_name ON s (name);
+CREATE INDEX idx_tenants_domain_name ON s (domain_name);
+CREATE INDEX idx_tenants_enabled ON s (enabled);
+CREATE INDEX idx_tenants_insert_date ON s (insert_date);
 
 -- Create the tenant_settings table for tenant-specific configurations
 CREATE TABLE core.tenant_settings (
@@ -497,7 +497,7 @@ CREATE INDEX idx_dialplan_settings_update_user ON core.dialplan_settings (update
 
 CREATE TABLE core.ivr (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the IVR menu
-    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant that owns this IVR
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant that owns this IVR
     name TEXT NOT NULL,                                                  -- Human-readable name for the IVR menu
     greet_long TEXT,                                                     -- Path or name of the long greeting audio file
     greet_short TEXT,                                                    -- Path or name of the short greeting audio file
