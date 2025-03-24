@@ -659,7 +659,103 @@ CREATE TABLE core.conference_room_settings (
 CREATE INDEX idx_conference_room_settings_room_id ON core.conference_room_settings (conference_room_id); -- Join by room
 CREATE INDEX idx_conference_room_settings_name ON core.conference_room_settings (name); -- Filter by setting name
 
+-- ===========================
+-- Table: core.call_center_queues
+-- Description: Definition of call center queues
+-- ===========================
 
+CREATE TABLE core.call_center_queues (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique queue ID
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Name of the queue
+    strategy TEXT NOT NULL DEFAULT 'longest-idle-agent',                 -- Strategy: ring-all, longest-idle-agent, etc.
+    music_on_hold TEXT DEFAULT 'local_stream://default',                 -- MOH class
+    max_wait_time INTEGER DEFAULT 0,                                     -- Max wait time in seconds
+    max_wait_agents INTEGER DEFAULT 0,                                   -- Max agents before overflowing
+    max_no_answer INTEGER DEFAULT 3,                                     -- Max attempts before overflow
+    record_calls BOOLEAN DEFAULT FALSE,                                  -- Whether to record calls
+    wrap_up_time INTEGER DEFAULT 10,                                     -- Wrap up time after each call
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether the queue is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.call_center_queues
+CREATE INDEX idx_call_center_queues_tenant_id ON core.call_center_queues (tenant_id);
+CREATE UNIQUE INDEX uq_call_center_queues_name_tenant ON core.call_center_queues (tenant_id, name);
+
+-- ===========================
+-- Table: core.call_center_queue_settings
+-- Description: Custom settings for queues
+-- ===========================
+
+CREATE TABLE core.call_center_queue_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique setting ID
+    queue_id UUID NOT NULL REFERENCES core.call_center_queues(id) ON DELETE CASCADE, -- Related queue
+    category TEXT,                                                        -- Optional category
+    name TEXT NOT NULL,                                                  -- Setting name
+    value TEXT NOT NULL,                                                 -- Setting value
+    setting_type TEXT DEFAULT 'behavior',                                -- Setting type: behavior, routing, etc.
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.call_center_queue_settings
+CREATE INDEX idx_call_center_queue_settings_queue_id ON core.call_center_queue_settings (queue_id);
+CREATE INDEX idx_call_center_queue_settings_name ON core.call_center_queue_settings (name);
+
+-- ===========================
+-- Table: core.call_center_agents
+-- Description: Agents that can participate in queues
+-- ===========================
+
+CREATE TABLE core.call_center_agents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique agent ID
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- SIP user associated
+    contact TEXT,                                                        -- Agent contact URI (e.g., sofia/internal/1001@domain)
+    status TEXT DEFAULT 'Logged Out',                                    -- Status: Available, On Break, etc.
+    ready BOOLEAN DEFAULT TRUE,                                          -- Ready to receive calls
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether the agent is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.call_center_agents
+CREATE INDEX idx_call_center_agents_tenant_id ON core.call_center_agents (tenant_id);
+CREATE INDEX idx_call_center_agents_user_id ON core.call_center_agents (user_id);
+
+-- ===========================
+-- Table: core.call_center_tiers
+-- Description: Tier linking agents to queues
+-- ===========================
+
+CREATE TABLE core.call_center_tiers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique tier ID
+    queue_id UUID NOT NULL REFERENCES core.call_center_queues(id) ON DELETE CASCADE, -- Queue associated
+    agent_id UUID NOT NULL REFERENCES core.call_center_agents(id) ON DELETE CASCADE, -- Agent associated
+    level INTEGER DEFAULT 1,                                             -- Tier level
+    position INTEGER DEFAULT 1,                                          -- Agent position within level
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.call_center_tiers
+CREATE INDEX idx_call_center_tiers_queue_id ON core.call_center_tiers (queue_id);
+CREATE INDEX idx_call_center_tiers_agent_id ON core.call_center_tiers (agent_id);
+CREATE UNIQUE INDEX uq_call_center_tiers_combination ON core.call_center_tiers (queue_id, agent_id);
 
 
 
@@ -778,3 +874,22 @@ BEFORE UPDATE ON core.conference_room_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
+CREATE TRIGGER trg_set_update_call_center_queues
+BEFORE UPDATE ON core.call_center_queues
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_call_center_queue_settings
+BEFORE UPDATE ON core.call_center_queue_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_call_center_agents
+BEFORE UPDATE ON core.call_center_agents
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_call_center_tiers
+BEFORE UPDATE ON core.call_center_tiers
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
