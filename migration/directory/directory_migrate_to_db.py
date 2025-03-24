@@ -26,7 +26,7 @@ def process_user_file(xml_file):
         username = user_elem.get("id")
         password = user_elem.findtext('params/param[@name="password"]')
         if not password:
-            print(f"Usuario {user_id} sin password definido, asignando 'r2a1234'.")
+            print(f"Usuario {id} sin password definido, asignando 'r2a1234'.")
             password = "r2a1234"
         
         if not username:
