@@ -420,6 +420,51 @@ CREATE INDEX idx_dialplan_insert_user ON core.dialplan (insert_user);         --
 CREATE INDEX idx_dialplan_update_user ON core.dialplan (update_user);         -- For querying updater
 
 -- ===========================
+-- Table: core.voicemail_profiles
+-- Description: Defines global voicemail profiles with default settings
+-- ===========================
+
+CREATE TABLE core.voicemail_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the voicemail profile
+    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                 -- Name of the voicemail profile (e.g., default)
+    description TEXT,                                                   -- Optional description of the profile
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                              -- Whether the profile is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                     -- Creation timestamp
+    insert_user UUID,                                                   -- Created by
+    update_date TIMESTAMPTZ,                                            -- Last update timestamp
+    update_user UUID                                                    -- Updated by
+);
+
+-- Indexes
+CREATE INDEX idx_voicemail_profiles_tenant_id ON core.voicemail_profiles (tenant_id);
+CREATE INDEX idx_voicemail_profiles_name ON core.voicemail_profiles (name);
+
+-- ===========================
+-- Table: core.voicemail_profile_settings
+-- Description: Key-value settings for voicemail profiles
+-- ===========================
+
+CREATE TABLE core.voicemail_profile_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the voicemail profile setting
+    voicemail_profile_id UUID NOT NULL REFERENCES core.voicemail_profiles(id) ON DELETE CASCADE, -- Associated profile
+    name TEXT NOT NULL,                                                   -- Name of the setting (e.g., storage-dir, tone-spec)
+    value TEXT NOT NULL,                                                  -- Value of the setting
+    type TEXT DEFAULT 'param',                                            -- Type: param, variable, etc.
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether the setting is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
+);
+
+-- Indexes
+CREATE INDEX idx_voicemail_profile_settings_profile_id ON core.voicemail_profile_settings (voicemail_profile_id);
+CREATE INDEX idx_voicemail_profile_settings_name ON core.voicemail_profile_settings (name);
+
+-- ===========================
 -- Table: core.dialplan_settings
 -- Description: Key-value settings for dialplans
 -- ===========================
@@ -1299,6 +1344,16 @@ EXECUTE FUNCTION core.set_update_timestamp();
 
 CREATE TRIGGER trg_set_update_voicemail
 BEFORE UPDATE ON core.voicemail
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_voicemail_profiles
+BEFORE UPDATE ON core.voicemail_profiles
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_voicemail_profile_settings
+BEFORE UPDATE ON core.voicemail_profile_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
