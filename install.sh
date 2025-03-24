@@ -105,7 +105,7 @@ echo -e "$fs_password" >> config.txt
 echo -e "$r2a_cdr_database" >> config.txt
 echo -e "$r2a_cdr_user" >> config.txt
 echo -e "$r2a_cdr_password" >> config.txt
-echo -e "$r2a_database" > config.txt
+echo -e "$r2a_database" >> config.txt
 echo -e "$r2a_user" >> config.txt
 echo -e "$r2a_password" >> config.txt
 echo -e "$fs_default_password" >> config.txt
