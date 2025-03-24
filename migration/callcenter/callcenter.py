@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Configuración ODBC
 ODBC_DSN = "ring2all"
-XML_PATH = "/etc/freeswitch/callcenter.conf.xml"
+XML_PATH = "/etc/freeswitch/autoload_configs/callcenter.conf.xml"
 
 # Conexión a la base de datos
 conn = pyodbc.connect(f"DSN={ODBC_DSN}")
