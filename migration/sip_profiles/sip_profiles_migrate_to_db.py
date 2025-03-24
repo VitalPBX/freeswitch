@@ -1,88 +1,96 @@
+#!/usr/bin/env python3
+
 import os
+import uuid
 import xml.etree.ElementTree as ET
 import pyodbc
-import uuid
+from datetime import datetime
 
-# ODBC Data Source Name (DSN) definido en /etc/odbc.ini
+# Configuración de conexión ODBC
 ODBC_DSN = "ring2all"
-SIP_PROFILES_DIR = "/etc/freeswitch/sip_profiles"
 
-def connect_db():
-    conn = pyodbc.connect(f"DSN={ODBC_DSN}")
-    return conn
+# Carpeta de perfiles SIP XML
+SIP_PROFILE_DIR = "/etc/freeswitch/sip_profiles"
 
-def parse_sip_profile(file_path):
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        profile_name = root.get("name")
-        settings = []
-        gateways = []
-        
-        # Extraer configuraciones
-        settings_section = root.find("settings")
-        if settings_section:
-            for param in settings_section.findall("param"):
-                name = param.get("name")
-                value = param.get("value")
-                settings.append((name, value))
-        
-        # Extraer gateways
-        gateways_section = root.find("gateways")
-        if gateways_section:
-            for gateway in gateways_section.findall("gateway"):
-                gateway_name = gateway.get("name")
-                gateways.append(gateway_name)
-        
-        return profile_name, settings, gateways
-    except Exception as e:
-        print(f"⚠️ Error procesando {file_path}: {e}")
-        return None, None, None
+# Obtener archivos XML del directorio de perfiles
+xml_files = [f for f in os.listdir(SIP_PROFILE_DIR) if f.endswith(".xml")]
 
-def migrate_profiles():
-    conn = connect_db()
-    cursor = conn.cursor()
-    
-    # Leer los perfiles XML
-    for file_name in os.listdir(SIP_PROFILES_DIR):
-        file_path = os.path.join(SIP_PROFILES_DIR, file_name)
-        if not os.path.isfile(file_path) or not file_path.endswith(".xml"):
-            continue
-        
-        profile_name, settings, gateways = parse_sip_profile(file_path)
-        if not profile_name:
-            print(f"⚠️ No se pudo procesar {file_name}")
-            continue
-        
-        print(f"🔹 Migrando perfil SIP: {profile_name}")
-        profile_uuid = str(uuid.uuid4())
-        
-        # Insertar perfil en la base de datos
-        cursor.execute(
-            "INSERT INTO sip_profiles (profile_uuid, profile_name) VALUES (?, ?)",
-            (profile_uuid, profile_name)
-        )
-        
-        # Insertar configuraciones
-        for name, value in settings:
-            setting_uuid = str(uuid.uuid4())
-            cursor.execute(
-                "INSERT INTO sip_profile_settings (setting_uuid, profile_uuid, name, value) VALUES (?, ?, ?, ?)",
-                (setting_uuid, profile_uuid, name, value)
-            )
-        
-        # Insertar gateways
-        for gateway_name in gateways:
-            gateway_uuid = str(uuid.uuid4())
-            cursor.execute(
-                "INSERT INTO sip_profile_gateways (gateway_uuid, profile_uuid, gateway_name) VALUES (?, ?, ?)",
-                (gateway_uuid, profile_uuid, gateway_name)
-            )
-    
+# Función para extraer el puerto del bind-address
+def extract_port(bind_address):
+    if ":" in bind_address:
+        return int(bind_address.split(":")[-1])
+    return None
+
+# Conexión a la base de datos
+conn = pyodbc.connect(f"DSN={ODBC_DSN}")
+cursor = conn.cursor()
+
+# Obtener tenant_uuid del tenant Default
+cursor.execute("SELECT tenant_uuid FROM tenants WHERE name = 'Default'")
+tenant_row = cursor.fetchone()
+if not tenant_row:
+    raise Exception("El tenant 'Default' no existe en la base de datos")
+tenant_uuid = tenant_row[0]
+
+for file_name in xml_files:
+    path = os.path.join(SIP_PROFILE_DIR, file_name)
+    tree = ET.parse(path)
+    root = tree.getroot()
+
+    for profile in root.findall(".//profile"):
+        profile_id = str(uuid.uuid4())
+        profile_name = profile.get("name")
+        settings = profile.find("settings")
+
+        # Valores iniciales para la tabla core.sip_profiles
+        bind_address = None
+        sip_port = None
+        transport = None
+        tls_enabled = False
+
+        for param in settings.findall("param"):
+            name = param.get("name")
+            value = param.get("value")
+
+            if name == "bind-address":
+                bind_address = value
+                sip_port = extract_port(value)
+            elif name == "transport":
+                transport = value
+            elif name == "tls":
+                tls_enabled = value.lower() == "true"
+
+        # Insertar en core.sip_profiles
+        cursor.execute("""
+            INSERT INTO core.sip_profiles (
+                id, name, tenant_id, description, enabled,
+                bind_address, sip_port, transport, tls_enabled,
+                insert_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            profile_id, profile_name, tenant_uuid, None, True,
+            bind_address, sip_port, transport, tls_enabled,
+            datetime.utcnow()
+        ))
+
+        # Insertar cada parámetro como setting
+        for param in settings.findall("param"):
+            setting_id = str(uuid.uuid4())
+            name = param.get("name")
+            value = param.get("value")
+
+            cursor.execute("""
+                INSERT INTO core.sip_profile_settings (
+                    id, sip_profile_id, name, type, value, enabled, insert_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                setting_id, profile_id, name, None, value, True, datetime.utcnow()
+            ))
+
     conn.commit()
-    cursor.close()
-    conn.close()
-    print("✅ Migración completada.")
 
-if __name__ == "__main__":
-    migrate_profiles()
+print("Migración completada exitosamente desde /etc/freeswitch/sip_profiles")
+
+# Cerrar conexión
+cursor.close()
+conn.close()
