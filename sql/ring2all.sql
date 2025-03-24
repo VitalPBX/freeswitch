@@ -69,7 +69,7 @@ GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
 -- === BEGIN FULL SCHEMA DEFINITION ===
 
 -- Create the tenants table to store tenant information
-CREATE TABLE s (
+CREATE TABLE tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                   -- Unique identifier for the tenant, auto-generated UUID
     parent_tenant_id UUID,                                            -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
