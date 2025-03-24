@@ -757,9 +757,85 @@ CREATE INDEX idx_call_center_tiers_queue_id ON core.call_center_tiers (queue_id)
 CREATE INDEX idx_call_center_tiers_agent_id ON core.call_center_tiers (agent_id);
 CREATE UNIQUE INDEX uq_call_center_tiers_combination ON core.call_center_tiers (queue_id, agent_id);
 
+-- ===========================
+-- Table: core.recordings
+-- Description: Stores metadata about call recordings
+-- ===========================
 
+CREATE TABLE core.recordings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the recording
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    user_id UUID REFERENCES core.sip_users(id) ON DELETE SET NULL,       -- Optional owner (SIP user)
+    file_path TEXT NOT NULL,                                             -- Absolute or relative path to recording file
+    file_name TEXT,                                                      -- Optional file name override
+    file_format TEXT DEFAULT 'wav',                                      -- Format of the recording (e.g., wav, mp3)
+    call_uuid UUID,                                                      -- UUID of the call associated with recording
+    direction TEXT DEFAULT 'inbound',                                    -- Direction: inbound, outbound, internal
+    duration INTEGER,                                                    -- Duration of the recording in seconds
+    size_bytes BIGINT,                                                   -- Size of the file in bytes
+    transcription TEXT,                                                  -- Optional transcription text
+    tags TEXT[],                                                         -- Optional array of tags or labels
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if recording is accessible or archived
 
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
 
+-- Indexes for core.recordings
+CREATE INDEX idx_recordings_tenant_id ON core.recordings (tenant_id);            -- Index for tenant-based filtering
+CREATE INDEX idx_recordings_user_id ON core.recordings (user_id);                -- Index for filtering by user
+CREATE INDEX idx_recordings_call_uuid ON core.recordings (call_uuid);            -- Index for lookup by call UUID
+CREATE INDEX idx_recordings_tags ON core.recordings USING GIN (tags);            -- GIN index for fast tag search
+
+-- ===========================
+-- Table: core.time_conditions
+-- Description: Defines named time-based conditions (e.g., business hours)
+-- ===========================
+
+CREATE TABLE core.time_conditions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the time condition
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Name of the time condition group
+    description TEXT,                                                    -- Optional description
+    timezone TEXT DEFAULT 'UTC',                                         -- Time zone of the condition (e.g., America/New_York)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether the condition is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- ===========================
+-- Table: core.time_condition_rules
+-- Description: Individual rules within a time condition (day/time matching)
+-- ===========================
+
+CREATE TABLE core.time_condition_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique rule ID
+    condition_id UUID NOT NULL REFERENCES core.time_conditions(id) ON DELETE CASCADE, -- Related time condition group
+    day_of_week TEXT[],                                                  -- Days of the week (e.g., ['mon','tue'])
+    start_time TIME,                                                     -- Start time (e.g., 08:00)
+    end_time TIME,                                                       -- End time (e.g., 17:00)
+    start_date DATE,                                                     -- Optional start date (YYYY-MM-DD)
+    end_date DATE,                                                       -- Optional end date (YYYY-MM-DD)
+    priority INTEGER DEFAULT 0,                                          -- Rule priority order
+    action TEXT NOT NULL,                                                -- Action to take if matched (e.g., allow, deny, route)
+    destination TEXT,                                                    -- Optional destination (e.g., extension, IVR)
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- If the rule is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.time_conditions
+CREATE INDEX idx_time_conditions_tenant_id ON core.time_conditions (tenant_id);      -- For filtering by tenant
+CREATE INDEX idx_time_condition_rules_condition_id ON core.time_condition_rules (condition_id); -- For fast rule lookup per condition
+CREATE INDEX idx_time_condition_rules_day_time ON core.time_condition_rules (day_of_week, start_time, end_time); -- Useful for rule matching
 
 
 -- ============================================================================================================
@@ -891,5 +967,20 @@ EXECUTE FUNCTION core.set_update_timestamp();
 
 CREATE TRIGGER trg_set_update_call_center_tiers
 BEFORE UPDATE ON core.call_center_tiers
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_recordings
+BEFORE UPDATE ON core.recordings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_time_conditions
+BEFORE UPDATE ON core.time_conditions
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_time_condition_rules
+BEFORE UPDATE ON core.time_condition_rules
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
