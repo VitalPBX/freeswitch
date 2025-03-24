@@ -69,7 +69,7 @@ GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
 -- === BEGIN FULL SCHEMA DEFINITION ===
 
 -- Create the tenants table to store tenant information
-CREATE TABLE tenants (
+CREATE TABLE core.tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                   -- Unique identifier for the tenant, auto-generated UUID
     parent_tenant_id UUID,                                            -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
@@ -85,10 +85,10 @@ CREATE TABLE tenants (
 );
 
 -- Indexes for tenants
-CREATE INDEX idx_tenants_name ON s (name);
-CREATE INDEX idx_tenants_domain_name ON s (domain_name);
-CREATE INDEX idx_tenants_enabled ON s (enabled);
-CREATE INDEX idx_tenants_insert_date ON s (insert_date);
+CREATE INDEX idx_tenants_name ON core.tenants (name);
+CREATE INDEX idx_tenants_domain_name ON core.tenants (domain_name);
+CREATE INDEX idx_tenants_enabled ON core.tenants (enabled);
+CREATE INDEX idx_tenants_insert_date ON core.tenants (insert_date);
 
 -- Create the tenant_settings table for tenant-specific configurations
 CREATE TABLE core.tenant_settings (
