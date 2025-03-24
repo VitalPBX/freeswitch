@@ -119,7 +119,7 @@ CREATE INDEX idx_tenant_settings_insert_date ON tenant_settings (insert_date);
 CREATE TABLE core.sip_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the SIP profile
     name TEXT NOT NULL UNIQUE,                                           -- Unique name for the SIP profile (e.g., internal, external)
-    tenant_id UUID NOT NULL REFERENCES core.tenant(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
     description TEXT,                                                    -- Optional profile description
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the profile is enabled or not
     bind_address TEXT,                                                   -- Bind address (e.g., 0.0.0.0:5060)
