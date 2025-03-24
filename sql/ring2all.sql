@@ -534,7 +534,7 @@ CREATE TABLE core.ivr_settings (
     destination TEXT,                                                     -- Destination value (e.g., extension, dialplan, IVR ID for submenu, variable name)
     condition TEXT,                                                       -- Optional condition (e.g., ${caller_id_number} =~ ^123)
     break_on_match BOOLEAN DEFAULT FALSE,                                 -- Whether to stop evaluation after this match
-    order INTEGER DEFAULT 100,                                            -- Execution order of this setting
+    priority INTEGER DEFAULT 100,                                         -- Execution order of this setting
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether this DTMF option is active
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp
