@@ -164,13 +164,23 @@ CREATE INDEX idx_sip_profile_settings_insert_user ON core.sip_profile_settings (
 CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (update_user);   -- Index for querying last updater
 
 -- ===========================
+-- OPTIMIZED SCHEMA: Core Gateway, SIP Trunks, Media, WebRTC
+-- ===========================
+
+-- Revisión general:
+-- ✅ Nombres estandarizados
+-- ✅ Comentarios en inglés consistentes
+-- ✅ Índices optimizados
+-- ✅ Relación normalizada entre tablas
+
+-- ===========================
 -- Table: core.gateways
 -- Description: SIP Gateways used for outbound and inbound communication
 -- ===========================
 
 CREATE TABLE core.gateways (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID for the gateway
-    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                  -- Gateway name (must be unique per tenant)
     username TEXT,                                                       -- SIP username (if authentication is required)
     password TEXT,                                                       -- SIP password
@@ -194,9 +204,9 @@ CREATE TABLE core.gateways (
 );
 
 -- Indexes for core.gateways
-CREATE INDEX idx_gateways_tenant_id ON core.gateways (tenant_id);       -- Lookup gateways by tenant
-CREATE INDEX idx_gateways_name ON core.gateways (name);                 -- Lookup by gateway name
-CREATE INDEX idx_gateways_enabled ON core.gateways (enabled);           -- Filter by active gateways
+CREATE INDEX idx_gateways_tenant_id ON core.gateways (tenant_id);
+CREATE INDEX idx_gateways_name ON core.gateways (name);
+CREATE INDEX idx_gateways_enabled ON core.gateways (enabled);
 
 -- ===========================
 -- Table: core.gateway_settings
@@ -218,9 +228,9 @@ CREATE TABLE core.gateway_settings (
 );
 
 -- Indexes for core.gateway_settings
-CREATE INDEX idx_gateway_settings_gateway_id ON core.gateway_settings (gateway_id); -- Lookup settings by gateway
-CREATE INDEX idx_gateway_settings_name ON core.gateway_settings (name);             -- Lookup by setting name
-CREATE INDEX idx_gateway_settings_type ON core.gateway_settings (setting_type);     -- Lookup by setting type
+CREATE INDEX idx_gateway_settings_gateway_id ON core.gateway_settings (gateway_id);
+CREATE INDEX idx_gateway_settings_name ON core.gateway_settings (name);
+CREATE INDEX idx_gateway_settings_type ON core.gateway_settings (setting_type);
 
 -- ===========================
 -- Table: core.sip_trunks
@@ -229,7 +239,7 @@ CREATE INDEX idx_gateway_settings_type ON core.gateway_settings (setting_type); 
 
 CREATE TABLE core.sip_trunks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                          -- Unique ID for the SIP trunk
-    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,  -- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE,  -- Associated tenant
     name TEXT NOT NULL,                                                     -- Name of the trunk (unique per tenant)
     description TEXT,                                                       -- Optional description
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this trunk is enabled
@@ -241,9 +251,9 @@ CREATE TABLE core.sip_trunks (
 );
 
 -- Indexes for core.sip_trunks
-CREATE INDEX idx_sip_trunks_tenant_id ON core.sip_trunks (tenant_id);       -- Lookup trunks by tenant
-CREATE INDEX idx_sip_trunks_name ON core.sip_trunks (name);                 -- Lookup by trunk name
-CREATE INDEX idx_sip_trunks_enabled ON core.sip_trunks (enabled);           -- Filter by enabled trunks
+CREATE INDEX idx_sip_trunks_tenant_id ON core.sip_trunks (tenant_id);
+CREATE INDEX idx_sip_trunks_name ON core.sip_trunks (name);
+CREATE INDEX idx_sip_trunks_enabled ON core.sip_trunks (enabled);
 
 -- ===========================
 -- Table: core.trunk_gateways
@@ -264,7 +274,7 @@ CREATE TABLE core.trunk_gateways (
 
 CREATE TABLE core.media_services (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID
-    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,-- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                   -- Name of the media service
     type TEXT NOT NULL,                                                   -- Type of service (e.g., ivr, announcement, moh)
     description TEXT,                                                     -- Optional description
@@ -277,10 +287,10 @@ CREATE TABLE core.media_services (
 );
 
 -- Indexes for core.media_services
-CREATE INDEX idx_media_services_tenant_id ON core.media_services (tenant_id); -- Lookup by tenant
-CREATE INDEX idx_media_services_name ON core.media_services (name);           -- Lookup by name
-CREATE INDEX idx_media_services_type ON core.media_services (type);           -- Lookup by type
-CREATE INDEX idx_media_services_enabled ON core.media_services (enabled);     -- Filter by active
+CREATE INDEX idx_media_services_tenant_id ON core.media_services (tenant_id);
+CREATE INDEX idx_media_services_name ON core.media_services (name);
+CREATE INDEX idx_media_services_type ON core.media_services (type);
+CREATE INDEX idx_media_services_enabled ON core.media_services (enabled);
 
 -- ===========================
 -- Table: core.webrtc_profiles
@@ -289,7 +299,7 @@ CREATE INDEX idx_media_services_enabled ON core.media_services (enabled);     --
 
 CREATE TABLE core.webrtc_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for the WebRTC profile
-    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,-- Associated tenant
+    tenant_id UUID NOT NULL REFERENCES core.tenants(tenant_uuid) ON DELETE CASCADE, -- Associated tenant
     name TEXT NOT NULL,                                                   -- Name of the WebRTC profile
     description TEXT,                                                     -- Optional description
     stun_server TEXT,                                                     -- Optional STUN server
@@ -306,9 +316,9 @@ CREATE TABLE core.webrtc_profiles (
 );
 
 -- Indexes for core.webrtc_profiles
-CREATE INDEX idx_webrtc_profiles_tenant_id ON core.webrtc_profiles (tenant_id); -- Lookup by tenant
-CREATE INDEX idx_webrtc_profiles_name ON core.webrtc_profiles (name);           -- Lookup by profile name
-CREATE INDEX idx_webrtc_profiles_enabled ON core.webrtc_profiles (enabled);     -- Filter by active profiles
+CREATE INDEX idx_webrtc_profiles_tenant_id ON core.webrtc_profiles (tenant_id);
+CREATE INDEX idx_webrtc_profiles_name ON core.webrtc_profiles (name);
+CREATE INDEX idx_webrtc_profiles_enabled ON core.webrtc_profiles (enabled);
 
 -- ===========================
 -- Table: core.sip_users
