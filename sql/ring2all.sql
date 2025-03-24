@@ -80,7 +80,7 @@ CREATE TABLE core.tenants (
     update_date TIMESTAMP WITH TIME ZONE,                             -- Last update timestamp with timezone (updated by trigger)
     update_user UUID,                                                 -- UUID of the user who last updated the record (nullable),
     CONSTRAINT fk_tenants_parent                                      -- Foreign key to support tenant hierarchy
-        FOREIGN KEY (parent_tenant_id) REFERENCES s (id) 
+        FOREIGN KEY (parent_tenant_id) REFERENCES core.tenants (id) 
         ON DELETE SET NULL                                            -- Sets parent_tenant_id to NULL if parent is deleted
 );
 
