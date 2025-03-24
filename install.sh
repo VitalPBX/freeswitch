@@ -313,6 +313,10 @@ echo -e "************************************************************"
 wget -O directory_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/directory/directory_migrate_to_db.py
 wget -O dialplan_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/dialplan/dialplan_migrate_to_db.py
 wget -O sip_profiles_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/sip_profiles/sip_profiles_migrate_to_db.py
+wget -O conference.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/conference/conference.py
+wget -O callcenter.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/callcenter/callcenter.py
+wget -O voicemail_profile.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/voicemail/voicemail_profile.py
+
 # Lua Files
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
 wget -O index.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/index.lua
@@ -351,6 +355,27 @@ echo -e "*      Migrate from XML to Database Sip Profiles.          *"
 echo -e "************************************************************"
 chmod +x sip_profiles_migrate_to_db.py
 python3 sip_profiles_migrate_to_db.py
+
+# Migrate from XML to Database Conference.
+echo -e "************************************************************"
+echo -e "*      Migrate from XML to Database Conference.            *"
+echo -e "************************************************************"
+chmod +x conference.py
+python3 conference.py
+
+# Migrate from XML to Database Callcenter.
+echo -e "************************************************************"
+echo -e "*      Migrate from XML to Database Callcenter.            *"
+echo -e "************************************************************"
+chmod +x callcenter.py
+python3 callcenter.py
+
+# Migrate from XML to Database Voicemail Profile.
+echo -e "************************************************************"
+echo -e "*     Migrate from XML to Database Voicemail Profile.      *"
+echo -e "************************************************************"
+chmod +x voicemail_profile.py
+python3 voicemail_profile.py
 
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
