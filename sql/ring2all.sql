@@ -407,6 +407,208 @@ CREATE INDEX idx_ivr_settings_digits ON core.ivr_settings (digits);       -- For
 CREATE INDEX idx_ivr_settings_insert_user ON core.ivr_settings (insert_user); -- Creator index
 CREATE INDEX idx_ivr_settings_update_user ON core.ivr_settings (update_user); -- Updater index
 
+-- ===========================
+-- Table: core.ring_groups
+-- Description: Base definition for ring groups
+-- ===========================
+
+CREATE TABLE core.ring_groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the ring group
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant ID
+    name TEXT NOT NULL,                                                  -- Name of the ring group
+    description TEXT,                                                    -- Optional description
+    strategy TEXT NOT NULL DEFAULT 'simultaneous',                       -- Ring strategy: simultaneous, sequence, enterprise
+    ring_timeout INTEGER DEFAULT 20,                                     -- Timeout per user before fallback
+    skip_busy BOOLEAN DEFAULT FALSE,                                     -- Skip user if busy
+    fallback_destination TEXT,                                           -- Optional fallback destination
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether the ring group is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.ring_groups
+CREATE INDEX idx_ring_groups_tenant_id ON core.ring_groups (tenant_id);  -- Index for tenant-based filtering
+
+-- ===========================
+-- Table: core.ring_group_settings
+-- Description: Custom settings for ring groups
+-- ===========================
+
+CREATE TABLE core.ring_group_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the setting
+    ring_group_id UUID NOT NULL REFERENCES core.ring_groups(id) ON DELETE CASCADE, -- Associated ring group
+    category TEXT,                                                        -- Optional setting category
+    name TEXT NOT NULL,                                                  -- Setting name
+    value TEXT NOT NULL,                                                 -- Setting value
+    setting_type TEXT DEFAULT 'profile',                                 -- Setting type: profile, media, timeout, etc.
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.ring_group_settings
+CREATE INDEX idx_ring_group_settings_group_id ON core.ring_group_settings (ring_group_id); -- Fast lookup by ring group
+CREATE INDEX idx_ring_group_settings_name ON core.ring_group_settings (name);              -- Useful for filtering by setting
+
+-- ===========================
+-- Table: core.ring_group_members
+-- Description: Members assigned to a ring group
+-- ===========================
+
+CREATE TABLE core.ring_group_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the member entry
+    ring_group_id UUID NOT NULL REFERENCES core.ring_groups(id) ON DELETE CASCADE, -- Associated ring group
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- User assigned to the ring group
+    order_index INTEGER DEFAULT 1,                                        -- Order for sequential strategies
+    delay INTEGER DEFAULT 0,                                             -- Optional delay before ringing
+    timeout INTEGER DEFAULT 20,                                          -- Ring timeout for the user
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.ring_group_members
+CREATE INDEX idx_ring_group_members_group_id ON core.ring_group_members (ring_group_id);  -- Index for joining group
+CREATE INDEX idx_ring_group_members_user_id ON core.ring_group_members (user_id);          -- Index for user participation
+
+-- ===========================
+-- Table: core.pickup_groups
+-- Description: Call pickup group definition
+-- ===========================
+
+CREATE TABLE core.pickup_groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the pickup group
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Name of the pickup group
+    description TEXT,                                                    -- Optional description
+    priority INTEGER DEFAULT 100,                                        -- Priority when multiple pickups match
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether the group is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.pickup_groups
+CREATE INDEX idx_pickup_groups_tenant_id ON core.pickup_groups (tenant_id);  -- For tenant isolation
+
+-- ===========================
+-- Table: core.pickup_group_settings
+-- Description: Settings for pickup groups
+-- ===========================
+
+CREATE TABLE core.pickup_group_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the setting
+    pickup_group_id UUID NOT NULL REFERENCES core.pickup_groups(id) ON DELETE CASCADE, -- Associated group
+    category TEXT,                                                        -- Optional category
+    name TEXT NOT NULL,                                                  -- Setting name
+    value TEXT NOT NULL,                                                 -- Setting value
+    setting_type TEXT DEFAULT 'behavior',                                -- Type of setting: behavior, security, etc.
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.pickup_group_settings
+CREATE INDEX idx_pickup_group_settings_group_id ON core.pickup_group_settings (pickup_group_id); -- Join by group
+CREATE INDEX idx_pickup_group_settings_name ON core.pickup_group_settings (name);                -- Filter by name
+
+-- ===========================
+-- Table: core.pickup_group_members
+-- Description: Members assigned to pickup groups
+-- ===========================
+
+CREATE TABLE core.pickup_group_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier
+    pickup_group_id UUID NOT NULL REFERENCES core.pickup_groups(id) ON DELETE CASCADE, -- Associated pickup group
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- SIP user assigned to the group
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.pickup_group_members
+CREATE INDEX idx_pickup_group_members_group_id ON core.pickup_group_members (pickup_group_id);  -- Lookup by group
+CREATE INDEX idx_pickup_group_members_user_id ON core.pickup_group_members (user_id);            -- Lookup by user
+
+-- ===========================
+-- Table: core.paging_groups
+-- Description: Paging group definition
+-- ===========================
+
+CREATE TABLE core.paging_groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique identifier for the paging group
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant
+    name TEXT NOT NULL,                                                  -- Name of the paging group
+    description TEXT,                                                    -- Optional description
+    codec TEXT DEFAULT 'PCMU',                                           -- Paging codec
+    volume INTEGER DEFAULT 5,                                            -- Paging volume
+    multicast_address TEXT,                                              -- Optional multicast IP
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Whether group is enabled
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.paging_groups
+CREATE INDEX idx_paging_groups_tenant_id ON core.paging_groups (tenant_id);  -- Lookup by tenant
+
+-- ===========================
+-- Table: core.paging_group_settings
+-- Description: Settings for paging groups
+-- ===========================
+
+CREATE TABLE core.paging_group_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique setting ID
+    paging_group_id UUID NOT NULL REFERENCES core.paging_groups(id) ON DELETE CASCADE, -- Related group
+    category TEXT,                                                        -- Optional category
+    name TEXT NOT NULL,                                                  -- Setting name
+    value TEXT NOT NULL,                                                 -- Setting value
+    setting_type TEXT DEFAULT 'media',                                   -- Setting type (media, behavior, etc.)
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.paging_group_settings
+CREATE INDEX idx_paging_group_settings_group_id ON core.paging_group_settings (paging_group_id); -- Group relation
+CREATE INDEX idx_paging_group_settings_name ON core.paging_group_settings (name);                -- Setting lookup
+
+-- ===========================
+-- Table: core.paging_group_members
+-- Description: Members included in paging groups
+-- ===========================
+
+CREATE TABLE core.paging_group_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                       -- Unique ID
+    paging_group_id UUID NOT NULL REFERENCES core.paging_groups(id) ON DELETE CASCADE, -- Associated paging group
+    user_id UUID NOT NULL REFERENCES core.sip_users(id) ON DELETE CASCADE, -- SIP user assigned to the group
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Created timestamp
+    insert_user UUID,                                                    -- Created by
+    update_date TIMESTAMPTZ,                                             -- Last update timestamp
+    update_user UUID                                                     -- Updated by
+);
+
+-- Indexes for core.paging_group_members
+CREATE INDEX idx_paging_group_members_group_id ON core.paging_group_members (paging_group_id);  -- Group join
+CREATE INDEX idx_paging_group_members_user_id ON core.paging_group_members (user_id);            -- User join
 
 -- Function: core.set_update_timestamp()
 -- Description: Automatically sets update_date to current timestamp on UPDATE
@@ -463,3 +665,49 @@ CREATE TRIGGER trg_set_update_ivr_settings
 BEFORE UPDATE ON core.ivr_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_ring_groups
+BEFORE UPDATE ON core.ring_groups
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_ring_group_settings
+BEFORE UPDATE ON core.ring_group_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_ring_group_members
+BEFORE UPDATE ON core.ring_group_members
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_pickup_groups
+BEFORE UPDATE ON core.pickup_groups
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_pickup_group_settings
+BEFORE UPDATE ON core.pickup_group_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_pickup_group_members
+BEFORE UPDATE ON core.pickup_group_members
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_paging_groups
+BEFORE UPDATE ON core.paging_groups
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_paging_group_settings
+BEFORE UPDATE ON core.paging_group_settings
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_paging_group_members
+BEFORE UPDATE ON core.paging_group_members
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
