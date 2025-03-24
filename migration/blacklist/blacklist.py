@@ -1,94 +1,67 @@
-#!/usr/bin/env python3
-
 import os
+import uuid
 import xml.etree.ElementTree as ET
 import pyodbc
-import uuid
-import logging
+from datetime import datetime
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('migration_blacklist.log'),
-        logging.StreamHandler()
-    ]
-)
-
-# Configuraciones
+# Configuración
 ODBC_DSN = "ring2all"
-BLACKLIST_DIR = "/etc/freeswitch/blacklist"
-DEFAULT_TENANT_NAME = "Default"
+BLACKLIST_PATH = "/etc/freeswitch/blacklists/example.list"  # Ajusta si se encuentra en otra ruta
 
-# Conexión DB
-def connect_db():
-    try:
-        conn = pyodbc.connect(f"DSN={ODBC_DSN}")
-        logging.info("✅ Conexión a la base de datos establecida.")
-        return conn
-    except Exception as e:
-        logging.error(f"❌ Error conectando a la base de datos: {e}")
-        raise
+# Conexión a la base de datos
+conn = pyodbc.connect(f"DSN={ODBC_DSN}")
+cursor = conn.cursor()
 
-# Obtener UUID del tenant
-def get_tenant_uuid(conn):
-    cur = conn.cursor()
-    cur.execute("SELECT tenant_uuid FROM tenants WHERE name = ?", (DEFAULT_TENANT_NAME,))
-    result = cur.fetchone()
-    cur.close()
-    if result:
-        return result[0]
-    else:
-        raise Exception("Tenant 'Default' no encontrado.")
+# Obtener tenant_uuid del tenant Default
+cursor.execute("SELECT tenant_uuid FROM tenants WHERE name = 'Default'")
+tenant_row = cursor.fetchone()
+if not tenant_row:
+    raise Exception("El tenant 'Default' no existe en la base de datos")
+tenant_uuid = tenant_row[0]
 
-# Procesar archivo de blacklist (asumiendo .txt o .csv simple)
-def process_blacklist_file(file_path):
-    entries = []
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            number = line.strip()
-            if number:
-                entries.append(number)
-    return entries
+def migrate_blacklist(xml_path):
+    if not os.path.isfile(xml_path):
+        print(f"Archivo no encontrado: {xml_path}")
+        return
 
-# Insertar entrada en DB
-def insert_blacklist(conn, tenant_uuid, phone_number):
-    try:
-        cur = conn.cursor()
-        cur.execute("""
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    for entry in root.findall(".//blacklist"):
+        value = entry.get("number") or entry.get("pattern")
+        if not value:
+            continue
+
+        scope = entry.get("scope", "inbound")
+        source = entry.get("source", "manual")
+        type_ = "pattern" if entry.get("pattern") else "number"
+        description = entry.get("description", "")
+
+        cursor.execute("""
+            SELECT 1 FROM core.blacklist 
+            WHERE tenant_id = ? AND value = ? AND scope = ?
+        """, (tenant_uuid, value, scope))
+        if cursor.fetchone():
+            print(f"Entrada ya existe: {value}")
+            continue
+
+        blacklist_id = str(uuid.uuid4())
+        cursor.execute("""
             INSERT INTO core.blacklist (
-                blacklist_uuid, tenant_uuid, phone_number
-            ) VALUES (?, ?, ?)
-            ON CONFLICT (tenant_uuid, phone_number)
-            DO NOTHING
+                id, tenant_id, type, value, description, source, scope,
+                enabled, insert_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            str(uuid.uuid4()), tenant_uuid, phone_number
+            blacklist_id, tenant_uuid, type_, value, description, source, scope,
+            True, datetime.utcnow()
         ))
-        conn.commit()
-        cur.close()
-        logging.info(f"✅ Insertado: {phone_number}")
-    except Exception as e:
-        conn.rollback()
-        logging.error(f"❌ Error insertando {phone_number}: {e}")
+        print(f"Migrada entrada: {value}")
 
-# Migración principal
-def migrate_blacklist():
-    logging.info("🚀 Iniciando migración de blacklist...")
-    conn = connect_db()
-    tenant_uuid = get_tenant_uuid(conn)
+    conn.commit()
 
-    for root_dir, _, files in os.walk(BLACKLIST_DIR):
-        for file in files:
-            if file.endswith(".txt") or file.endswith(".csv"):
-                file_path = os.path.join(root_dir, file)
-                logging.info(f"📄 Procesando archivo: {file_path}")
-                entries = process_blacklist_file(file_path)
-                for number in entries:
-                    insert_blacklist(conn, tenant_uuid, number)
+# Ejecutar migración
+migrate_blacklist(BLACKLIST_PATH)
 
-    conn.close()
-    logging.info("🏁 Migración de blacklist completada.")
-
-if __name__ == "__main__":
-    migrate_blacklist()
+cursor.close()
+conn.close()
+print("Migración de blacklist completada.")
