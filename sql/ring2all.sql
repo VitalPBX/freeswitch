@@ -1566,6 +1566,6 @@ VALUES (
 -- Insert default tenant settings
 INSERT INTO core.tenant_settings (tenant_id, name, value)
 VALUES
-((SELECT id FROM tenants WHERE name = 'Default'), 'max_extensions', '100'),
-((SELECT id FROM tenants WHERE name = 'Default'), 'max_trunks', '10'),
-((SELECT id FROM tenants WHERE name = 'Default'), 'call_recording', 'true');
+((SELECT id FROM core.tenants WHERE name = 'Default'), 'max_extensions', '100'),
+((SELECT id FROM core.tenants WHERE name = 'Default'), 'max_trunks', '10'),
+((SELECT id FROM core.tenants WHERE name = 'Default'), 'call_recording', 'true');
