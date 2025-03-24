@@ -164,16 +164,6 @@ CREATE INDEX idx_sip_profile_settings_insert_user ON core.sip_profile_settings (
 CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (update_user);   -- Index for querying last updater
 
 -- ===========================
--- OPTIMIZED SCHEMA: Core Gateway, SIP Trunks, Media, WebRTC
--- ===========================
-
--- Revisión general:
--- ✅ Nombres estandarizados
--- ✅ Comentarios en inglés consistentes
--- ✅ Índices optimizados
--- ✅ Relación normalizada entre tablas
-
--- ===========================
 -- Table: core.gateways
 -- Description: SIP Gateways used for outbound and inbound communication
 -- ===========================
