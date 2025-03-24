@@ -11,7 +11,7 @@ DIRECTORY_PATH = "/etc/freeswitch/directory"
 # Conexión a la base de datos
 conn = pyodbc.connect(f"DSN={ODBC_DSN}")
 cursor = conn.cursor()
-
+0
 # Obtener tenant_uuid del tenant Default
 cursor.execute("SELECT id FROM core.tenants WHERE name = 'Default'")
 tenant_row = cursor.fetchone()
@@ -24,6 +24,11 @@ def process_user_file(xml_file):
     root = tree.getroot()
     for user_elem in root.findall(".//user"):
         username = user_elem.get("id")
+        password = user_elem.findtext('params/param[@name="password"]')
+        if not password:
+            print(f"Usuario {user_id} sin password definido, asignando 'r2a1234'.")
+            password = "r2a1234"
+        
         if not username:
             continue
 
