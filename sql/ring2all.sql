@@ -19,52 +19,6 @@ CREATE SCHEMA IF NOT EXISTS auth;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pg_trgm" WITH SCHEMA public;
 
--- Create the role if it doesn't exist
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
-        EXECUTE 'CREATE ROLE ' || quote_ident('$r2a_user') || ' WITH LOGIN PASSWORD ' || quote_literal('$r2a_password');
-    END IF;
-END $$;
-
--- Grant privileges on the database
-GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
-
--- Grant full access on schemas
-GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
-GRANT ALL PRIVILEGES ON SCHEMA core TO $r2a_user;
-GRANT ALL PRIVILEGES ON SCHEMA auth TO $r2a_user;
-
--- Grant full privileges on all current tables and sequences
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA core TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth TO $r2a_user;
-
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA core TO $r2a_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA auth TO $r2a_user;
-
--- Grant privileges on all existing functions
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO $r2a_user;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA core TO $r2a_user;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO $r2a_user;
-
--- Ensure full access to future tables and sequences
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA core
-GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA core
-GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA auth
-GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA auth
-GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
-
 -- === TABLES, INDEXES, TRIGGERS, AND DEMO DATA CONTINUE ===
 -- === BEGIN FULL SCHEMA DEFINITION ===
 
@@ -1836,6 +1790,52 @@ CREATE TRIGGER trg_set_update_global_vars
 BEFORE UPDATE ON core.global_vars
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
+
+-- Create the role if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$r2a_user') THEN
+        EXECUTE 'CREATE ROLE ' || quote_ident('$r2a_user') || ' WITH LOGIN PASSWORD ' || quote_literal('$r2a_password');
+    END IF;
+END $$;
+
+-- Grant privileges on the database
+GRANT ALL PRIVILEGES ON DATABASE $r2a_database TO $r2a_user;
+
+-- Grant full access on schemas
+GRANT ALL PRIVILEGES ON SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON SCHEMA core TO $r2a_user;
+GRANT ALL PRIVILEGES ON SCHEMA auth TO $r2a_user;
+
+-- Grant full privileges on all current tables and sequences
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA core TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth TO $r2a_user;
+
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA core TO $r2a_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA auth TO $r2a_user;
+
+-- Grant privileges on all existing functions
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO $r2a_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA core TO $r2a_user;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO $r2a_user;
+
+-- Ensure full access to future tables and sequences
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth
+GRANT ALL PRIVILEGES ON TABLES TO $r2a_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA auth
+GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
 
 -- Insert demo tenant for testing and default use
 INSERT INTO core.tenants (id, parent_tenant_id, name, domain_name, enabled, insert_user)
