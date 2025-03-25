@@ -1305,12 +1305,12 @@ CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);     
 -- ===========================
 CREATE TABLE core.global_vars (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for outbound route
-    name TEXT NOT NULL,                                               -- Variable name
-    description TEXT NOT NULL,                                        -- Description
-    value TEXT NOT NULL,                                              -- Variable value
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Whether the variable is active
-    tenant_id UUID,                                                   -- NULL = global, UUID = per-tenant
-    is_global BOOLEAN GENERATED ALWAYS AS (tenant_id IS NULL) STORED,-- Virtual flag for global scope
+    name TEXT NOT NULL,                                                    -- Variable name
+    description TEXT NOT NULL,                                             -- Description
+    value TEXT NOT NULL,                                                   -- Variable value
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Whether the variable is active
+    tenant_id UUID DEFAULT NULL,                                           -- NULL = global, UUID = per-tenant
+    is_global BOOLEAN GENERATED ALWAYS AS (tenant_id IS NULL) STORED,      -- Virtual flag for global scope
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
     insert_user UUID,                                                     -- Created by
