@@ -1350,7 +1350,7 @@ CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);     
 -- Description: Routing rules for Global Vars
 -- ===========================
 CREATE TABLE core.global_vars (
-    id SERIAL PRIMARY KEY,                                            -- Unique ID for global variable
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique ID for outbound route
     name TEXT NOT NULL,                                               -- Variable name
     description TEXT NOT NULL,                                        -- Description
     value TEXT NOT NULL,                                              -- Variable value
