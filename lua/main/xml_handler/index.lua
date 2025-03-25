@@ -34,7 +34,40 @@ elseif section == "configuration" then
     -- Check if the configuration request is for a specific config
     local config_name = XML_REQUEST["key_value"]
     log("DEBUG", "Configuration name: " .. (config_name or "unknown"))
-    if config_name == "sofia.conf" then
+
+    if config_name == "vars.xml" then
+        log("INFO", "Handling configuration vars.xml")
+
+        -- Resolve tenant_id from domain (or hostname)
+        local domain = XML_REQUEST["domain"] or XML_REQUEST["hostname"]
+        log("DEBUG", "Domain received: " .. (domain or "unknown"))
+
+        local function get_tenant_id_by_domain(domain)
+            local dbh = env:connect("ring2all")
+            if not dbh then
+                log("ERR", "Failed to connect to DB when resolving tenant_id")
+                return nil
+            end
+
+            local tenant_id = nil
+            local sql = string.format(
+                "SELECT id FROM core.tenants WHERE domain = '%s' LIMIT 1", domain
+            )
+
+            dbh:query(sql, function(row)
+                tenant_id = row.id
+            end)
+
+            return tenant_id
+        end
+
+        local tenant_id = get_tenant_id_by_domain(domain) or "00000000-0000-0000-0000-000000000000"
+
+        -- Call the global_vars handler
+        local global_vars = require("main.xml_handlers.global_vars")
+        XML_STRING = global_vars.handle(tenant_id)
+    
+    elseif config_name == "sofia.conf" then
         local sofia_profiles = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua")
         if type(sofia_profiles) == "function" then
             sofia_profiles(settings)
