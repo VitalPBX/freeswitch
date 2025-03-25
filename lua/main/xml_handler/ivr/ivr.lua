@@ -1,64 +1,98 @@
 --[[
-    ivr/ivr.lua
-    Genera configuraciones dinámicas de IVR en FreeSWITCH desde la base de datos.
-    Utiliza ODBC para obtener menús IVR y sus opciones.
+    ivr.lua
+    Generates IVR configuration XML dynamically from PostgreSQL using view_ivr_menu_options.
+    Returns menus, greetings, and DTMF actions for FreeSWITCH ivr.conf.
 --]]
 
-return function(settings)
-    -- Función para logging
-    local function log(level, message)
-        if level == "debug" and not settings.debug then return end
-        freeswitch.consoleLog(level, "[IVR] " .. message .. "\n")
-    end
+-- Dependencies
+local pg = require("luasql.postgres")
+local env = pg.postgres()
 
-    -- Conectar a la base de datos con ODBC
-    local dbh = freeswitch.Dbh("odbc://ring2all")
-    if not dbh:connected() then
-        log("ERROR", "No se pudo conectar a la base de datos mediante ODBC")
-        return
-    end
-
-    log("DEBUG", "Generando configuración para ivr.conf")
-
-    -- Construcción del XML para ivr.conf
-    local xml = {
-        '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
-        '<document type="freeswitch/xml">',
-        '  <section name="configuration">',
-        '    <configuration name="ivr.conf" description="IVR Menus">',
-        '      <menus>'
-    }
-
-    -- Consulta SQL para ivr_menus
-    local ivr_query = "SELECT * FROM core.ivr_menus"
-    dbh:query(ivr_query, function(row)
-        table.insert(xml, '        <menu name="' .. row.ivr_name .. '"')
-        table.insert(xml, '              greet-long="' .. (row.greet_long or "") .. '"')
-        table.insert(xml, '              greet-short="' .. (row.greet_short or "") .. '"')
-        table.insert(xml, '              invalid-sound="' .. (row.invalid_sound or "ivr/ivr-that_was_an_invalid_entry.wav") .. '"')
-        table.insert(xml, '              exit-sound="' .. (row.exit_sound or "voicemail/vm-goodbye.wav") .. '"')
-        table.insert(xml, '              timeout="' .. (row.timeout or "10000") .. '"')
-        table.insert(xml, '              max-failures="' .. (row.max_failures or "3") .. '"')
-        table.insert(xml, '              max-timeouts="' .. (row.max_timeouts or "3") .. '">')
-
-        -- Consulta SQL para las opciones del menú
-        local options_query = string.format("SELECT * FROM core.ivr_menu_options WHERE ivr_uuid = '%s'", row.ivr_uuid)
-        dbh:query(options_query, function(option)
-            table.insert(xml, '          <entry action="' .. option.action .. '" digits="' .. option.digits .. '" param="' .. (option.param or "") .. '"/>')
-        end)
-
-        table.insert(xml, '        </menu>')
-    end)
-
-    table.insert(xml, '      </menus>')
-    table.insert(xml, '    </configuration>')
-    table.insert(xml, '  </section>')
-    table.insert(xml, '</document>')
-
-    -- Convertir tabla a string y asignar a XML_STRING
-    XML_STRING = table.concat(xml, "\n")
-    log("DEBUG", "IVR XML Generado:\n" .. XML_STRING)
-
-    -- Liberar conexión a la base de datos
-    dbh:release()
+-- Settings module
+local settings = require("resources.settings.settings")
+local log = function(level, message)
+    if level == "debug" and not settings.debug then return end
+    freeswitch.consoleLog(level, "[IVR] " .. message .. "\n")
 end
+
+-- Connect to database
+local dbh = env:connect("ring2all")
+if not dbh then
+    log("ERR", "Failed to connect to PostgreSQL database")
+    return
+end
+
+-- Query IVR menu options
+local sql = [[
+SELECT * FROM view_ivr_menu_options ORDER BY ivr_name, priority
+]]
+
+local result = {}
+for row in dbh:rows(sql) do
+    table.insert(result, row)
+end
+
+if #result == 0 then
+    log("WARNING", "No IVR menus found in view_ivr_menu_options")
+    XML_STRING = settings.format_xml("configuration", "")
+    return
+end
+
+-- Group by IVR name
+local ivrs = {}
+for _, row in ipairs(result) do
+    local name = row.ivr_name
+    ivrs[name] = ivrs[name] or {
+        greet_long = row.greet_long,
+        greet_short = row.greet_short,
+        invalid_sound = row.invalid_sound,
+        exit_sound = row.exit_sound,
+        timeout = row.timeout,
+        max_failures = row.max_failures,
+        max_timeouts = row.max_timeouts,
+        direct_dial = row.direct_dial,
+        options = {}
+    }
+    table.insert(ivrs[name].options, row)
+end
+
+-- Build XML
+local lines = {
+    '<configuration name="ivr.conf" description="IVR menus">',
+    '  <menus>'
+}
+
+for ivr_name, data in pairs(ivrs) do
+    table.insert(lines, string.format('    <menu name="%s" greet-long="%s" greet-short="%s"',
+        ivr_name, data.greet_long or "", data.greet_short or ""))
+    table.insert(lines, string.format('          invalid-sound="%s" exit-sound="%s" timeout="%d" max-failures="%d" max-timeouts="%d" direct-dial="%s">',
+        data.invalid_sound or "", data.exit_sound or "", data.timeout or 5,
+        data.max_failures or 3, data.max_timeouts or 3, tostring(data.direct_dial)))
+
+    for _, opt in ipairs(data.options) do
+        local line = string.format('      <entry digits="%s" action="%s"', opt.digits, opt.action)
+        if opt.destination then
+            line = line .. string.format(' param="%s"', opt.destination)
+        end
+        if opt.condition then
+            line = line .. string.format(' condition="%s"', opt.condition)
+        end
+        if opt.break_on_match then
+            line = line .. ' break="true"'
+        end
+        line = line .. ' />'
+        table.insert(lines, line)
+    end
+
+    table.insert(lines, '    </menu>')
+end
+
+table.insert(lines, '  </menus>')
+table.insert(lines, '</configuration>')
+
+-- Return XML
+XML_STRING = settings.format_xml("configuration", table.concat(lines, "\n"))
+log("INFO", "IVR menus XML configuration generated")
+
+-- Close DB
+dbh:close()
