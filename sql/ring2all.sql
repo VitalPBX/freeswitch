@@ -1352,6 +1352,7 @@ CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);     
 CREATE TABLE core.global_vars (
     id SERIAL PRIMARY KEY,                                            -- Unique ID for global variable
     name TEXT NOT NULL,                                               -- Variable name
+    description TEXT NOT NULL,                                        -- Description
     value TEXT NOT NULL,                                              -- Variable value
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Whether the variable is active
     tenant_id UUID,                                                   -- NULL = global, UUID = per-tenant
@@ -1570,6 +1571,7 @@ CREATE OR REPLACE VIEW core.v_global_vars AS
 SELECT
     COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000') AS tenant_id, -- Global fallback UUID
     name,                                                                     -- Variable name
+    description,                                                              -- Description
     value,                                                                    -- Variable value
     CASE
         WHEN tenant_id IS NULL THEN 'global'
