@@ -1,94 +1,94 @@
---[[ 
-    sip_register.lua (directory) 
-    Handles FreeSWITCH directory requests for user authentication.
-    Uses ODBC via FreeSWITCH Dbh and logs based on debug settings.
+--[[
+    sip_register.lua
+    Handles SIP user registration and directory lookups from FreeSWITCH.
+    Loads user information from PostgreSQL via view_sip_users.
 --]]
 
-return function(settings)
-    -- Logging function with respect to debug settings
-    local function log(level, message)
-        if level == "debug" and not settings.debug then
-            return  -- Skip debug messages if debug is false
-        end
-        freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
-    end
+-- Dependencies
+local pg = require("luasql.postgres")
+local env = pg.postgres()
 
-    -- Establish ODBC database connection using FreeSWITCH Dbh
-    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "Failed to connect to ODBC database")
+-- Input data
+local domain = XML_REQUEST["domain"] or ""
+local user = XML_REQUEST["user"] or ""
 
-    -- Retrieve user and domain from SIP request headers
-    local username = params:getHeader("user") or ""
-    local domain = params:getHeader("domain") or ""
-
-    -- Debugging logs (only if debug is enabled)
-    log("debug", "Received username: " .. username)
-    log("debug", "Received domain: " .. domain)
-
-    -- Validate input to avoid SQL errors
-    if username == "" or domain == "" then
-        log("warning", "Invalid request: Missing username or domain.")
-        XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
-        dbh:release()
-        return
-    end
-
-    -- SQL query to fetch authentication details
-    local query = string.format([[
-        SELECT su.username, su.password, t.domain_name 
-        FROM public.sip_users su 
-        JOIN public.tenants t ON su.tenant_uuid = t.tenant_uuid 
-        WHERE su.username = '%s' AND t.domain_name = '%s'
-    ]], username, domain)
-
-    log("debug", "Executing SQL query: " .. query)
-
-    -- Variable to store query result
-    local row = nil
-
-    -- Execute query and store the result
-    local success, err = pcall(function()
-        dbh:query(query, function(result)
-            row = {
-                username = result.username,
-                password = result.password,
-                domain_name = result.domain_name
-            }
-        end)
-    end)
-
-    -- Handle SQL execution errors
-    if not success then
-        log("error", "Database query execution failed: " .. (err or "Unknown error"))
-        XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
-        dbh:release()
-        return
-    end
-
-    -- Generate XML response for FreeSWITCH
-    if row then
-        log("info", string.format("Generating directory entry for extension %s in domain %s", row.username, row.domain_name))
-        XML_STRING = string.format([[
-            <?xml version="1.0" encoding="utf-8"?>
-            <document type="freeswitch/xml">
-              <section name="directory">
-                <domain name="%s">
-                  <user id="%s">
-                    <params>
-                      <param name="password" value="%s"/>
-                    </params>
-                  </user>
-                </domain>
-              </section>
-            </document>
-        ]], row.domain_name, row.username, row.password)
-    else
-        log("warning", string.format("User %s not found in domain %s", username, domain))
-        XML_STRING = '<?xml version="1.0" encoding="utf-8"?><document type="freeswitch/xml"><section name="directory"><result status="not found"/></section></document>'
-    end
-
-    -- Log XML output only if debugging is enabled
-    log("debug", "Generated XML: " .. XML_STRING)
-
-    -- Release the database connection
-    dbh:release()
+-- Settings module
+local settings = require("resources.settings.settings")
+local log = function(level, message)
+    if level == "debug" and not settings.debug then return end
+    freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
 end
+
+log("INFO", "Directory lookup for user: " .. user .. " @ " .. domain)
+
+-- Connect to database
+local dbh = env:connect("ring2all")
+if not dbh then
+    log("ERR", "Failed to connect to PostgreSQL database")
+    return
+end
+
+-- Fetch SIP user and settings
+local sql = [[
+    SELECT * FROM view_sip_users
+    WHERE username = %s AND tenant_id = (
+        SELECT id FROM core.tenants WHERE name = 'Default'
+    )
+]]
+sql = string.format(sql, dbh:escape(user))
+
+local result = {}
+for row in dbh:rows(sql) do
+    table.insert(result, row)
+end
+
+if #result == 0 then
+    log("WARNING", "No SIP user found for: " .. user)
+    XML_STRING = settings.format_xml("directory", "")
+    return
+end
+
+-- Build <user> XML
+local user_id = result[1].username
+local password = result[1].password
+local variables = {}
+local params = {
+    { name = "password", value = password }
+}
+
+for _, row in ipairs(result) do
+    if row.setting_type == "param" then
+        table.insert(params, { name = row.setting_name, value = row.setting_value })
+    elseif row.setting_type == "variable" then
+        table.insert(variables, { name = row.setting_name, value = row.setting_value })
+    end
+end
+
+-- XML content construction
+local lines = {
+    string.format('<user id="%s">', user_id),
+    '  <params>'
+}
+for _, p in ipairs(params) do
+    table.insert(lines, string.format('    <param name="%s" value="%s"/>', p.name, p.value))
+end
+
+table.insert(lines, '  </params>')
+table.insert(lines, '  <variables>')
+for _, v in ipairs(variables) do
+    table.insert(lines, string.format('    <variable name="%s" value="%s"/>', v.name, v.value))
+end
+
+table.insert(lines, '  </variables>')
+table.insert(lines, '</user>')
+
+-- Return XML
+XML_STRING = settings.format_xml("directory", table.concat(lines, "\n"), {
+    domain_name = domain,
+    alias = true
+})
+
+log("INFO", "User XML returned for " .. user .. "@" .. domain)
+
+-- Close DB
+dbh:close()
