@@ -53,8 +53,8 @@ def process_dialplan_file(file_path):
 
             for cond_elem in ext_elem.findall("condition"):
                 condition_id = str(uuid.uuid4())
-                field = cond_elem.get("field")
-                expression = cond_elem.get("expression")
+                field = cond_elem.get("field") or "true"
+                expression = cond_elem.get("expression") or ".*"
                 cursor.execute("""
                     INSERT INTO core.dialplan_conditions (id, extension_id, field, expression, enabled, insert_date)
                     VALUES (?, ?, ?, ?, ?, ?)
