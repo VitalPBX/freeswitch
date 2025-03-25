@@ -1372,15 +1372,15 @@ WHERE p.enabled = TRUE
   AND s.enabled = TRUE;
 
 -- ================================================
--- View: view_sip_gateways
+-- View: view_gateways
 -- Description:
---   Combines SIP gateways with their related settings.
+--   Combines Gateways with their related settings.
 --   Used by the system (e.g., Lua) to load full gateway configurations.
 --   Only includes enabled gateways and settings.
 -- ================================================
-CREATE OR REPLACE VIEW view_sip_gateways AS
+CREATE OR REPLACE VIEW view_gateways AS
 SELECT
-    g.id AS sip_gateway_id,           -- Unique ID of the gateway
+    g.id AS gateway_id,               -- Unique ID of the gateway
     g.tenant_id,                      -- Tenant that owns this gateway
     g.name AS gateway_name,           -- Gateway name (e.g., provider1)
     g.realm,                          -- Realm (if used)
@@ -1391,8 +1391,8 @@ SELECT
     s.name AS setting_name,           -- Setting name (e.g., from-user, codec-prefs)
     s.value AS setting_value,         -- Setting value
     s.type AS setting_type            -- Optional setting type (custom usage)
-FROM core.sip_gateways g
-LEFT JOIN core.sip_gateway_settings s ON s.sip_gateway_id = g.id
+FROM core.gateways g
+LEFT JOIN core.gateway_settings s ON s.gateway_id = g.id
 WHERE g.enabled = TRUE
   AND s.enabled = TRUE;
 
