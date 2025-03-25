@@ -12,7 +12,7 @@ conn = pyodbc.connect(f"DSN={ODBC_DSN}")
 cursor = conn.cursor()
 
 # Get tenant UUID for 'Default'
-cursor.execute("SELECT tenant_uuid FROM tenants WHERE name = 'Default'")
+cursor.execute("SELECT id FROM core.tenants WHERE name = 'Default'")
 tenant_row = cursor.fetchone()
 if not tenant_row:
     raise Exception("Tenant 'Default' not found")
