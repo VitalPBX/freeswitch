@@ -382,7 +382,7 @@ echo -e "************************************************************"
 echo -e "*        Update the Domain for Tenant=default.             *"
 echo -e "************************************************************"
 LOCAL_IP=$(hostname -I | awk '{print $1}')
-sudo -u postgres psql ring2all -c "UPDATE tenants SET domain_name='$LOCAL_IP' WHERE name='Default';"
+sudo -u postgres psql ring2all -c "UPDATE core.tenants SET domain_name='$LOCAL_IP' WHERE name='Default';"
 
 # Create main.lua file
 echo -e "************************************************************"
@@ -487,12 +487,6 @@ mv /etc/freeswitch/dialplan /etc/freeswitch/dialplan.old
 mkdir /etc/freeswitch/dialplan
 chown freeswitch:freeswitch /etc/freeswitch/dialplan
 touch /etc/freeswitch/dialplan/empty.xml
-
-# Removes the Default extension that is created by mistake in the dialplan during migration
-echo -e "************************************************************"
-echo -e "*              Removes the Default extension               *"
-echo -e "************************************************************"
-sudo -u postgres psql -d $r2a_database -c "DELETE FROM public.dialplan_extensions WHERE extension_name = 'Default';"
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
