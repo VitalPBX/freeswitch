@@ -316,6 +316,7 @@ wget -O sip_profiles_migrate_to_db.py https://raw.githubusercontent.com/VitalPBX
 wget -O conference.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/conference/conference.py
 wget -O callcenter.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/callcenter/callcenter.py
 wget -O voicemail_profile.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/voicemail/voicemail_profile.py
+wget -O global_vars.py https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/migration/global_vars/global_vars.py
 
 # Lua Files
 wget -O main.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main.lua
@@ -325,6 +326,7 @@ wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/r
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
 wget -O ivr.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/ivr/ivr.lua
+wget -O global_vars.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/global_vars.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
 # Modules Load
 wget -O modules.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/modules.conf.xml
@@ -377,6 +379,13 @@ echo -e "************************************************************"
 chmod +x voicemail_profile.py
 python3 voicemail_profile.py
 
+# Migrate from XML to Database Global Vars.
+echo -e "************************************************************"
+echo -e "*        Migrate from XML to Database Global Vars.         *"
+echo -e "************************************************************"
+chmod +x global_vars.py
+python3 global_vars.py
+
 #Update the Domain for Tenant=Default
 echo -e "************************************************************"
 echo -e "*        Update the Domain for Tenant=default.             *"
@@ -392,6 +401,7 @@ mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers
 mkdir -p /usr/share/freeswitch/scripts/resources/settings
 mv main.lua /usr/share/freeswitch/scripts/main.lua
 mv index.lua /usr/share/freeswitch/scripts/main/xml_handlers/index.lua
+mv global_vars.lua /usr/share/freeswitch/scripts/main/xml_handlers/global_vars.lua
 mv settings.lua /usr/share/freeswitch/scripts/resources/settings/settings.lua
 
 # Create Lua Script for management user registration (directory)
