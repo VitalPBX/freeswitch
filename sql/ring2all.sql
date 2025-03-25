@@ -1358,10 +1358,10 @@ CREATE TABLE core.global_vars (
     tenant_id UUID,                                                   -- NULL = global, UUID = per-tenant
     is_global BOOLEAN GENERATED ALWAYS AS (tenant_id IS NULL) STORED,-- Virtual flag for global scope
 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),                    -- Created timestamp
-    created_by UUID,                                                  -- Created by user
-    updated_at TIMESTAMPTZ,                                           -- Last update timestamp
-    updated_by UUID                                                   -- Updated by user
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Created timestamp
+    insert_user UUID,                                                     -- Created by
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- Updated by
 );
 
 -- Indexes
