@@ -498,6 +498,12 @@ mkdir /etc/freeswitch/dialplan
 chown freeswitch:freeswitch /etc/freeswitch/dialplan
 touch /etc/freeswitch/dialplan/empty.xml
 
+# Rename vars.xml to prevent Freeswitch from loading it
+echo -e "************************************************************"
+echo -e "*  Rename vars.xml to prevent Freeswitch from loading it   *"
+echo -e "************************************************************"
+mv /etc/freeswitch/vars.xml /etc/freeswitch/vars.xml.bak
+
 # Restart Freeswitch Service
 echo -e "************************************************************"
 echo -e "*                 Restart Freeswitch Service               *"
