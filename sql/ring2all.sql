@@ -394,30 +394,91 @@ CREATE INDEX idx_voicemail_tenant_id ON core.voicemail (tenant_id);         -- I
 CREATE INDEX idx_voicemail_insert_user ON core.voicemail (insert_user);     -- Index for querying creator
 CREATE INDEX idx_voicemail_update_user ON core.voicemail (update_user);     -- Index for querying updater
 
--- ===========================
--- Table: core.dialplan
--- Description: Defines dialplan contexts and execution order
--- ===========================
+-- =============================================
+-- Table: core.dialplan_contexts
+-- Description: Dialplan Contexts Table
+-- =============================================
+CREATE TABLE core.dialplan_contexts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the context
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant that owns this context
+    name TEXT NOT NULL,                                                    -- Context name (e.g., 'default', 'public')
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Whether the context is active
 
-CREATE TABLE core.dialplan (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the dialplan
-    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE,   -- Tenant that owns this dialplan
-    name TEXT NOT NULL,                                                     -- Dialplan name (e.g., default, public)
-    context TEXT NOT NULL,                                                  -- Context name used in FreeSWITCH
-    priority INTEGER DEFAULT 100,                                           -- Execution order of this dialplan
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this dialplan is enabled
-
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                         -- Creation timestamp
-    insert_user UUID,                                                       -- UUID of user who created the record
-    update_date TIMESTAMPTZ,                                                -- Last update timestamp
-    update_user UUID                                                        -- UUID of user who last updated the record
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                        -- Creation timestamp
+    insert_user UUID,                                                      -- UUID of user who created the record
+    update_date TIMESTAMPTZ,                                               -- Last update timestamp
+    update_user UUID                                                       -- UUID of user who last updated the record
 );
 
--- Indexes for core.dialplan
-CREATE INDEX idx_dialplan_tenant_id ON core.dialplan (tenant_id);             -- For filtering by tenant
-CREATE INDEX idx_dialplan_name ON core.dialplan (name);                       -- For lookups by dialplan name
-CREATE INDEX idx_dialplan_insert_user ON core.dialplan (insert_user);         -- For querying creator
-CREATE INDEX idx_dialplan_update_user ON core.dialplan (update_user);         -- For querying updater
+-- Indexes for contexts
+CREATE INDEX idx_dialplan_contexts_tenant_id ON core.dialplan_contexts (tenant_id);
+CREATE INDEX idx_dialplan_contexts_name ON core.dialplan_contexts (name);
+
+-- =============================================
+-- Table: core.dialplan_extensions
+-- Description: Dialplan Extensions Table
+-- =============================================
+CREATE TABLE core.dialplan_extensions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the extension
+    context_id UUID NOT NULL REFERENCES core.dialplan_contexts(id) ON DELETE CASCADE, -- Associated context
+    name TEXT NOT NULL,                                                    -- Extension name (e.g., '1000', 'catch_all')
+    priority INTEGER DEFAULT 100,                                          -- Execution priority within the context
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Whether the extension is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                        -- Creation timestamp
+    insert_user UUID,                                                      -- UUID of user who created the record
+    update_date TIMESTAMPTZ,                                               -- Last update timestamp
+    update_user UUID                                                       -- UUID of user who last updated the record
+);
+
+-- Indexes for extensions
+CREATE INDEX idx_dialplan_extensions_context_id ON core.dialplan_extensions (context_id);
+CREATE INDEX idx_dialplan_extensions_name ON core.dialplan_extensions (name);
+CREATE INDEX idx_dialplan_extensions_priority ON core.dialplan_extensions (priority);
+
+-- =============================================
+-- Table: core.dialplan_conditions
+-- Description: Dialplan Conditions Table
+-- =============================================
+CREATE TABLE core.dialplan_conditions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the condition
+    extension_id UUID NOT NULL REFERENCES core.dialplan_extensions(id) ON DELETE CASCADE, -- Parent extension
+    field TEXT NOT NULL,                                                  -- Field to evaluate (e.g., destination_number)
+    expression TEXT NOT NULL,                                             -- Regex or expression to match
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether the condition is active
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp
+    insert_user UUID,                                                     -- UUID of user who created the record
+    update_date TIMESTAMPTZ,                                              -- Last update timestamp
+    update_user UUID                                                      -- UUID of user who last updated the record
+);
+
+-- Indexes for conditions
+CREATE INDEX idx_dialplan_conditions_extension_id ON core.dialplan_conditions (extension_id);
+CREATE INDEX idx_dialplan_conditions_field ON core.dialplan_conditions (field);
+
+-- =============================================
+-- Table: core.dialplan_actions
+-- Description: Dialplan Actions Table
+-- =============================================
+CREATE TABLE core.dialplan_actions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the action
+    condition_id UUID NOT NULL REFERENCES core.dialplan_conditions(id) ON DELETE CASCADE, -- Parent condition
+    application TEXT NOT NULL,                                             -- FreeSWITCH application (e.g., 'answer', 'bridge')
+    data TEXT,                                                             -- Application arguments
+    type TEXT NOT NULL DEFAULT 'action',                                   -- Type: 'action' or 'anti-action'
+    sequence INTEGER DEFAULT 0,                                            -- Order of execution within the condition
+
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                        -- Creation timestamp
+    insert_user UUID,                                                      -- UUID of user who created the record
+    update_date TIMESTAMPTZ,                                               -- Last update timestamp
+    update_user UUID                                                       -- UUID of user who last updated the record
+);
+
+-- Indexes for actions
+CREATE INDEX idx_dialplan_actions_condition_id ON core.dialplan_actions (condition_id);
+CREATE INDEX idx_dialplan_actions_application ON core.dialplan_actions (application);
+CREATE INDEX idx_dialplan_actions_sequence ON core.dialplan_actions (sequence);
 
 -- ===========================
 -- Table: core.voicemail_profiles
@@ -463,32 +524,6 @@ CREATE TABLE core.voicemail_profile_settings (
 -- Indexes
 CREATE INDEX idx_voicemail_profile_settings_profile_id ON core.voicemail_profile_settings (voicemail_profile_id);
 CREATE INDEX idx_voicemail_profile_settings_name ON core.voicemail_profile_settings (name);
-
--- ===========================
--- Table: core.dialplan_settings
--- Description: Key-value settings for dialplans
--- ===========================
-
-CREATE TABLE core.dialplan_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                          -- Unique identifier for the dialplan setting
-    dialplan_id UUID NOT NULL REFERENCES core.dialplan(id) ON DELETE CASCADE, -- Foreign key to the dialplan
-    name TEXT NOT NULL,                                                     -- Setting name (e.g., condition, action, regex)
-    value TEXT NOT NULL,                                                    -- Setting value (e.g., destination_number ^\d+$)
-    type TEXT,                                                              -- Optional category (e.g., condition, action, anti-action)
-    setting_scope TEXT,                                                     -- Optional grouping or priority (e.g., main, fallback)
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                  -- Whether this setting is enabled
-
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                         -- Creation timestamp
-    insert_user UUID,                                                       -- UUID of user who created the setting
-    update_date TIMESTAMPTZ,                                                -- Last update timestamp
-    update_user UUID                                                        -- UUID of user who last updated the setting
-);
-
--- Indexes for core.dialplan_settings
-CREATE INDEX idx_dialplan_settings_dialplan_id ON core.dialplan_settings (dialplan_id); -- For joining with dialplans
-CREATE INDEX idx_dialplan_settings_name ON core.dialplan_settings (name);               -- For querying by setting name
-CREATE INDEX idx_dialplan_settings_insert_user ON core.dialplan_settings (insert_user); -- For querying creator
-CREATE INDEX idx_dialplan_settings_update_user ON core.dialplan_settings (update_user); -- For querying updater
 
 -- ===========================
 -- Table: core.ivr
@@ -1357,13 +1392,23 @@ BEFORE UPDATE ON core.voicemail_profile_settings
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER trg_set_update_dialplan
-BEFORE UPDATE ON core.dialplan
+CREATE TRIGGER trg_set_update_dialplan_contexts
+BEFORE UPDATE ON core.dialplan_contexts
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
-CREATE TRIGGER trg_set_update_dialplan_settings
-BEFORE UPDATE ON core.dialplan_settings
+CREATE TRIGGER trg_set_update_dialplan_extensions
+BEFORE UPDATE ON core.dialplan_extensions
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_dialplan_conditions
+BEFORE UPDATE ON core.dialplan_conditions
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_dialplan_actions
+BEFORE UPDATE ON core.dialplan_actions
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
