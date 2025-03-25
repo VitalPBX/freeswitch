@@ -6,47 +6,77 @@
 --   Returns XML string in the format expected by mod_xml_curl.
 -- ===================================================
 
+-- main/xml_handlers/global_vars.lua
 local M = {}
 
+-- Logging helper
 local function log(level, msg)
     freeswitch.consoleLog(level, "[global_vars] " .. msg .. "\n")
 end
 
-function M.handle(tenant_id)
-    -- Connect via ODBC DSN
-    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "❌ Failed to connect to database")
+-- Get tenant_id from domain
+local function resolve_tenant_id(domain)
+    local dbh = freeswitch.Dbh("odbc://ring2all")
+    local tenant_id = nil
+
+    if dbh then
+        local sql = string.format(
+            "SELECT id FROM core.tenants WHERE domain = '%s' LIMIT 1", domain
+        )
+
+        dbh:query(sql, function(row)
+            tenant_id = row.id
+        end)
+        dbh:release()
+    else
+        log("ERR", "❌ Cannot connect to database to resolve tenant_id")
+    end
+
+    return tenant_id
+end
+
+-- Main function
+function M.handle_from_request()
+    local dbh = freeswitch.Dbh("odbc://ring2all")
+    if not dbh then
+        log("ERR", "❌ Failed to connect to database")
+        return ""
+    end
 
     local vars = {}
 
-    -- Prepare and execute tenant-specific query
-    local sql_tenant = string.format([[
-        SELECT name, value FROM core.global_vars
-        WHERE enabled = TRUE AND tenant_id = '%s'
-    ]], tenant_id)
+    -- 1. Get domain from XML_REQUEST
+    local domain = XML_REQUEST["domain"] or XML_REQUEST["hostname"]
+    log("INFO", "Resolving tenant for domain: " .. tostring(domain))
+    local tenant_id = resolve_tenant_id(domain)
 
-    local has_data = dbh:query(sql_tenant, function(row)
+    -- 2. Load global variables (tenant_id IS NULL)
+    dbh:query([[
+        SELECT name, value FROM core.global_vars
+        WHERE enabled = TRUE AND tenant_id IS NULL
+    ]], function(row)
         vars[row.name] = row.value
     end)
 
-    -- Fallback to global variables (tenant_id IS NULL)
-    local sql_global = [[
-        SELECT name, value FROM core.global_vars
-        WHERE enabled = TRUE AND tenant_id IS NULL
-    ]]
-    dbh:query(sql_global, function(row)
-        if not vars[row.name] then
-            vars[row.name] = row.value
-        end
-    end)
+    -- 3. Load tenant-specific variables (if found)
+    if tenant_id then
+        local sql = string.format([[
+            SELECT name, value FROM core.global_vars
+            WHERE enabled = TRUE AND tenant_id = '%s'
+        ]], tenant_id)
 
-    -- DEBUG log
-    local count = 0
-    for name, value in pairs(vars) do
-        log("INFO", string.format("   ➕ %s = %s", name, value))
-        count = count + 1
+        dbh:query(sql, function(row)
+            vars[row.name] = row.value
+        end)
+
+        log("INFO", "✅ Loaded variables for tenant_id: " .. tenant_id)
+    else
+        log("WARNING", "⚠️ No tenant found for domain: " .. tostring(domain))
     end
 
-    -- Build XML
+    dbh:release()
+
+    -- 4. Generate XML
     local xml_parts = {
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<document type="freeswitch/xml">',
@@ -55,11 +85,13 @@ function M.handle(tenant_id)
         '      <settings>'
     }
 
+    local count = 0
     for name, value in pairs(vars) do
         table.insert(xml_parts, string.format(
             '        <variable name="%s" value="%s" global="true"/>',
             tostring(name), tostring(value)
         ))
+        count = count + 1
     end
 
     table.insert(xml_parts, '      </settings>')
