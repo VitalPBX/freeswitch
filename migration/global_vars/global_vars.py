@@ -13,13 +13,6 @@ VARS_XML = "/etc/freeswitch/vars.xml"  # Ruta a tu archivo vars.xml
 conn = pyodbc.connect(f"DSN={ODBC_DSN}")
 cursor = conn.cursor()
 
-# Retrieve tenant UUID for 'Default'
-cursor.execute("SELECT id FROM core.tenants WHERE name = 'Default'")
-tenant_row = cursor.fetchone()
-if not tenant_row:
-    raise Exception("❌ Tenant 'Default' not found")
-tenant_uuid = tenant_row[0]
-
 # Utility: current UTC timestamp
 def now():
     return datetime.utcnow()
@@ -53,10 +46,9 @@ def migrate_global_vars(xml_path):
                     INSERT INTO core.global_vars (
                         id, tenant_id, name, value, enabled, description,
                         insert_date, insert_user
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)
                 """, (
                     var_id,
-                    tenant_uuid,
                     name,
                     value,
                     True,
@@ -69,7 +61,7 @@ def migrate_global_vars(xml_path):
                 print(f"✅ Variable '{name}' inserted (description: '{description}')")
 
         conn.commit()
-        print(f"\n✅ Migration complete: {inserted} variables inserted.")
+        print(f"\n✅ Migration complete: {inserted} global variables inserted.")
 
     except Exception as e:
         print(f"❌ Error processing vars.xml: {e}")
