@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Configuration
 ODBC_DSN = "ring2all"
-VOICEMAIL_CONF = "/etc/freeswitch/voicemail.conf.xml"
+VOICEMAIL_CONF = "/etc/freeswitch/autoload_configs/voicemail.conf.xml"
 
 # Connect to the database
 conn = pyodbc.connect(f"DSN={ODBC_DSN}")
