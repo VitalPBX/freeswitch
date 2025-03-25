@@ -1,32 +1,38 @@
--- ===================================================
--- File: global_vars.lua
--- Description:
---   Generates vars.xml dynamically from the database.
---   Supports tenant-specific variables with fallback to global values.
---   Returns XML string in the format expected by mod_xml_curl.
--- ===================================================
+--[[
+    File: main/xml_handlers/global_vars.lua
+    Description: Dynamically generate `vars.xml` from a PostgreSQL database with multi-tenant support.
+    Usage: Called from `index.lua`, or manually for testing:
+           fs_cli -x "luarun /usr/share/freeswitch/scripts/main/xml_handlers/global_vars_output.lua"
 
--- main/xml_handlers/global_vars.lua
+    Requirements:
+    - ODBC DSN: ring2all
+    - Table: core.global_vars (fields: name, value, enabled, tenant_id)
+    - Table: core.tenants (fields: id, domain_name, enabled)
+--]]
+
 local M = {}
 
--- Logging helper
+-- Wrapper for logging to the FreeSWITCH console
 local function log(level, msg)
     freeswitch.consoleLog(level, "[global_vars] " .. msg .. "\n")
 end
 
--- Get tenant_id from domain
+-- Resolve tenant_id from the domain name (used for multi-tenant isolation)
 local function resolve_tenant_id(domain)
     local dbh = freeswitch.Dbh("odbc://ring2all")
     local tenant_id = nil
 
     if dbh then
-        local sql = string.format(
-            "SELECT id FROM core.tenants WHERE domain = '%s' LIMIT 1", domain
-        )
+        local sql = string.format([[
+            SELECT id FROM core.tenants
+            WHERE domain_name = '%s' AND enabled = TRUE
+            LIMIT 1
+        ]], domain)
 
         dbh:query(sql, function(row)
             tenant_id = row.id
         end)
+
         dbh:release()
     else
         log("ERR", "❌ Cannot connect to database to resolve tenant_id")
@@ -35,7 +41,7 @@ local function resolve_tenant_id(domain)
     return tenant_id
 end
 
--- Main function
+-- Main handler that generates vars.xml dynamically
 function M.handle_from_request()
     local dbh = freeswitch.Dbh("odbc://ring2all")
     if not dbh then
@@ -45,12 +51,13 @@ function M.handle_from_request()
 
     local vars = {}
 
-    -- 1. Get domain from XML_REQUEST
+    -- Extract the requested domain from FreeSWITCH's XML_REQUEST environment
     local domain = XML_REQUEST["domain"] or XML_REQUEST["hostname"]
-    log("INFO", "Resolving tenant for domain: " .. tostring(domain))
+    log("INFO", "🔍 Resolving tenant from domain: " .. tostring(domain))
+
     local tenant_id = resolve_tenant_id(domain)
 
-    -- 2. Load global variables (tenant_id IS NULL)
+    -- Step 1: Load default (global) variables where tenant_id IS NULL
     dbh:query([[
         SELECT name, value FROM core.global_vars
         WHERE enabled = TRUE AND tenant_id IS NULL
@@ -58,7 +65,7 @@ function M.handle_from_request()
         vars[row.name] = row.value
     end)
 
-    -- 3. Load tenant-specific variables (if found)
+    -- Step 2: Load tenant-specific variables if a tenant was resolved
     if tenant_id then
         local sql = string.format([[
             SELECT name, value FROM core.global_vars
@@ -69,14 +76,14 @@ function M.handle_from_request()
             vars[row.name] = row.value
         end)
 
-        log("INFO", "✅ Loaded variables for tenant_id: " .. tenant_id)
+        log("INFO", "✅ Loaded tenant-specific vars for tenant_id: " .. tenant_id)
     else
         log("WARNING", "⚠️ No tenant found for domain: " .. tostring(domain))
     end
 
     dbh:release()
 
-    -- 4. Generate XML
+    -- Step 3: Construct XML output for vars.xml
     local xml_parts = {
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<document type="freeswitch/xml">',
