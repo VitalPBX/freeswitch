@@ -52,7 +52,7 @@ def migrate_global_vars(xml_path):
                 cursor.execute("""
                     INSERT INTO core.global_vars (
                         id, tenant_id, name, value, enabled, description,
-                        created_at, created_by
+                        created_date, created_user
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     var_id,
