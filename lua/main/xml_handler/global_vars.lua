@@ -6,43 +6,45 @@
 --   Returns XML string in the format expected by mod_xml_curl.
 -- ===================================================
 
-local xml = require("xml")
 local M = {}
 
--- Logger
 local function log(level, msg)
     freeswitch.consoleLog(level, "[global_vars] " .. msg .. "\n")
 end
 
 function M.handle(tenant_id)
-    local dbh = env:connect("ring2all")
-    if not dbh then
-        log("ERR", "Failed to connect to PostgreSQL database")
-        return ""
-    end
+    -- Connect via ODBC DSN
+    local dbh = assert(freeswitch.Dbh("odbc://ring2all"), "❌ Failed to connect to database")
 
     local vars = {}
 
-    -- Load tenant-specific vars
-    local query_tenant = string.format([[
-        SELECT name, value FROM core.v_global_vars
-        WHERE tenant_id = '%s' AND scope = 'tenant'
+    -- Prepare and execute tenant-specific query
+    local sql_tenant = string.format([[
+        SELECT name, value FROM core.global_vars
+        WHERE enabled = TRUE AND tenant_id = '%s'
     ]], tenant_id)
 
-    dbh:query(query_tenant, function(row)
+    local has_data = dbh:query(sql_tenant, function(row)
         vars[row.name] = row.value
     end)
 
-    -- Load global vars (fallback)
-    local query_global = [[
-        SELECT name, value FROM core.v_global_vars
-        WHERE scope = 'global'
+    -- Fallback to global variables (tenant_id IS NULL)
+    local sql_global = [[
+        SELECT name, value FROM core.global_vars
+        WHERE enabled = TRUE AND tenant_id IS NULL
     ]]
-    dbh:query(query_global, function(row)
+    dbh:query(sql_global, function(row)
         if not vars[row.name] then
             vars[row.name] = row.value
         end
     end)
+
+    -- DEBUG log
+    local count = 0
+    for name, value in pairs(vars) do
+        log("INFO", string.format("   ➕ %s = %s", name, value))
+        count = count + 1
+    end
 
     -- Build XML
     local xml_parts = {
@@ -54,7 +56,10 @@ function M.handle(tenant_id)
     }
 
     for name, value in pairs(vars) do
-        table.insert(xml_parts, string.format('        <variable name="%s" value="%s"/>', name, value))
+        table.insert(xml_parts, string.format(
+            '        <variable name="%s" value="%s" global="true"/>',
+            tostring(name), tostring(value)
+        ))
     end
 
     table.insert(xml_parts, '      </settings>')
@@ -62,8 +67,8 @@ function M.handle(tenant_id)
     table.insert(xml_parts, '  </section>')
     table.insert(xml_parts, '</document>')
 
-    local XML_STRING = table.concat(xml_parts, "\n")
-    return XML_STRING
+    log("INFO", "✅ vars.xml generated with " .. count .. " variables")
+    return table.concat(xml_parts, "\n")
 end
 
 return M
