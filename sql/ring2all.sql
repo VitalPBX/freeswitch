@@ -1345,6 +1345,29 @@ CREATE INDEX idx_outbound_routes_pattern ON core.outbound_routes (dial_pattern);
 CREATE INDEX idx_outbound_routes_gateway ON core.outbound_routes (gateway);      -- Lookup by gateway
 CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);      -- Filter active routes
 
+-- ===========================
+-- Table: core.global_vars
+-- Description: Routing rules for Global Vars
+-- ===========================
+CREATE TABLE core.global_vars (
+    id SERIAL PRIMARY KEY,                                            -- Unique ID for global variable
+    name TEXT NOT NULL,                                               -- Variable name
+    value TEXT NOT NULL,                                              -- Variable value
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Whether the variable is active
+    tenant_id UUID,                                                   -- NULL = global, UUID = per-tenant
+    is_global BOOLEAN GENERATED ALWAYS AS (tenant_id IS NULL) STORED,-- Virtual flag for global scope
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),                    -- Created timestamp
+    created_by UUID,                                                  -- Created by user
+    updated_at TIMESTAMPTZ,                                           -- Last update timestamp
+    updated_by UUID                                                   -- Updated by user
+);
+
+-- Indexes
+CREATE UNIQUE INDEX idx_global_vars_name_tenant ON core.global_vars (name, tenant_id);
+CREATE INDEX idx_global_vars_enabled ON core.global_vars (enabled);
+CREATE INDEX idx_global_vars_tenant_enabled ON core.global_vars (tenant_id, enabled);
+
 -- ============================================================================================================
 
 -- ================================================
@@ -1354,7 +1377,6 @@ CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);     
 --   Simplifies SIP user lookups from external systems (e.g., Lua scripts).
 --   Returns only enabled users and enabled settings.
 -- ================================================
-
 CREATE OR REPLACE VIEW view_sip_users AS
 SELECT
     u.id AS sip_user_id,             -- Unique ID of the SIP user
@@ -1377,7 +1399,6 @@ WHERE u.enabled = TRUE
 --   Simplifies loading of SIP profile configurations from Lua or other services.
 --   Filters to only include enabled profiles and settings.
 -- ================================================
-
 CREATE OR REPLACE VIEW view_sip_profiles AS
 SELECT
     p.id AS sip_profile_id,            -- Unique ID of the SIP profile
@@ -1402,7 +1423,6 @@ WHERE p.enabled = TRUE
 --   Used by the system (e.g., Lua) to load full gateway configurations.
 --   Only includes enabled gateways and settings.
 -- ================================================
-
 CREATE OR REPLACE VIEW view_sip_gateways AS
 SELECT
     g.id AS sip_gateway_id,           -- Unique ID of the gateway
@@ -1428,7 +1448,6 @@ WHERE g.enabled = TRUE
 --   Includes context, extensions, conditions, and their actions.
 --   Useful for Lua-based runtime dialplan loading in FreeSWITCH.
 -- ===================================================
-
 CREATE OR REPLACE VIEW view_dialplan_expanded AS
 SELECT
     ctx.tenant_id,                        -- Tenant that owns the context
@@ -1464,7 +1483,6 @@ WHERE ctx.enabled = TRUE
 --   Includes action, destination, optional condition, priority, etc.
 --   Simplifies runtime IVR menu loading in FreeSWITCH via Lua.
 -- ===================================================
-
 CREATE OR REPLACE VIEW view_ivr_menu_options AS
 SELECT
     ivr.tenant_id,                        -- Tenant that owns this IVR
@@ -1496,7 +1514,6 @@ WHERE ivr.enabled = TRUE AND opt.enabled = TRUE;
 --   Combines queues, agents, and their SIP contact details.
 --   Used to generate live call routing logic in Lua.
 -- ===================================================
-
 CREATE OR REPLACE VIEW view_call_center_agents_by_queue AS
 SELECT
     q.tenant_id,                      -- Tenant that owns the queue
@@ -1525,7 +1542,6 @@ WHERE q.enabled = TRUE
 --   Combines core.voicemail_profiles and core.voicemail_profile_settings.
 --   Used by voicemail modules and Lua scripts to generate config dynamically.
 -- ===================================================
-
 CREATE OR REPLACE VIEW view_voicemail_profiles AS
 SELECT
     vp.tenant_id,                       -- Tenant that owns the profile
@@ -1540,6 +1556,27 @@ FROM core.voicemail_profiles vp
 LEFT JOIN core.voicemail_profile_settings s ON s.voicemail_profile_id = vp.id
 WHERE vp.enabled = TRUE
   AND s.enabled = TRUE;
+
+-- ===================================================
+-- View: core.v_global_vars
+-- Description:
+--   Lists all active global variables, both system-wide and per-tenant.
+--   Includes a 'scope' field to indicate whether each variable is global or tenant-specific.
+--   Used by Lua scripts to dynamically load environment variables
+--   based on tenant context, with fallback to global defaults.
+--   Variables with NULL tenant_id are considered global.
+-- ===================================================
+CREATE OR REPLACE VIEW core.v_global_vars AS
+SELECT
+    COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000') AS tenant_id, -- Global fallback UUID
+    name,                                                                     -- Variable name
+    value,                                                                    -- Variable value
+    CASE
+        WHEN tenant_id IS NULL THEN 'global'
+        ELSE 'tenant'
+    END AS scope                                                              -- Variable scope (global or tenant)
+FROM core.global_vars
+WHERE enabled = TRUE;
 
 -- ============================================================================================================
 -- Function: core.set_update_timestamp()
@@ -1790,6 +1827,11 @@ EXECUTE FUNCTION core.set_update_timestamp();
 
 CREATE TRIGGER trg_set_update_webrtc_profiles
 BEFORE UPDATE ON core.webrtc_profiles
+FOR EACH ROW
+EXECUTE FUNCTION core.set_update_timestamp();
+
+CREATE TRIGGER trg_set_update_global_vars
+BEFORE UPDATE ON core.global_vars
 FOR EACH ROW
 EXECUTE FUNCTION core.set_update_timestamp();
 
