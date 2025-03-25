@@ -1346,6 +1346,202 @@ CREATE INDEX idx_outbound_routes_gateway ON core.outbound_routes (gateway);     
 CREATE INDEX idx_outbound_routes_enabled ON core.outbound_routes (enabled);      -- Filter active routes
 
 -- ============================================================================================================
+
+-- ================================================
+-- View: view_sip_users
+-- Description:
+--   Combines core SIP user accounts with their associated settings.
+--   Simplifies SIP user lookups from external systems (e.g., Lua scripts).
+--   Returns only enabled users and enabled settings.
+-- ================================================
+
+CREATE OR REPLACE VIEW view_sip_users AS
+SELECT
+    u.id AS sip_user_id,             -- Unique ID of the SIP user
+    u.tenant_id,                     -- Tenant the user belongs to
+    u.username,                      -- SIP username (extension)
+    u.password,                      -- SIP authentication password
+    u.enabled,                       -- Whether the user is enabled
+    s.name AS setting_name,          -- Name of the setting (e.g., context, caller-id)
+    s.value AS setting_value,        -- Value of the setting
+    s.type AS setting_type           -- Type of setting ('param' or 'variable')
+FROM core.sip_users u
+LEFT JOIN core.sip_user_settings s ON s.sip_user_id = u.id
+WHERE u.enabled = TRUE
+  AND s.enabled = TRUE;
+
+-- ================================================
+-- View: view_sip_profiles
+-- Description:
+--   Combines SIP profiles with their associated settings.
+--   Simplifies loading of SIP profile configurations from Lua or other services.
+--   Filters to only include enabled profiles and settings.
+-- ================================================
+
+CREATE OR REPLACE VIEW view_sip_profiles AS
+SELECT
+    p.id AS sip_profile_id,            -- Unique ID of the SIP profile
+    p.tenant_id,                       -- Tenant the profile belongs to
+    p.name AS profile_name,            -- SIP profile name (e.g., internal, external)
+    p.bind_address,                    -- Bind address (e.g., 0.0.0.0:5060)
+    p.sip_port,                        -- SIP port extracted from bind_address
+    p.transport,                       -- Transport type (e.g., udp, tcp, tls)
+    p.tls_enabled,                     -- Whether TLS is enabled
+    s.name AS setting_name,            -- Setting name (e.g., rtp-ip, ext-rtp-ip)
+    s.value AS setting_value,          -- Setting value
+    s.type AS setting_type             -- Optional type/category
+FROM core.sip_profiles p
+LEFT JOIN core.sip_profile_settings s ON s.sip_profile_id = p.id
+WHERE p.enabled = TRUE
+  AND s.enabled = TRUE;
+
+-- ================================================
+-- View: view_sip_gateways
+-- Description:
+--   Combines SIP gateways with their related settings.
+--   Used by the system (e.g., Lua) to load full gateway configurations.
+--   Only includes enabled gateways and settings.
+-- ================================================
+
+CREATE OR REPLACE VIEW view_sip_gateways AS
+SELECT
+    g.id AS sip_gateway_id,           -- Unique ID of the gateway
+    g.tenant_id,                      -- Tenant that owns this gateway
+    g.name AS gateway_name,           -- Gateway name (e.g., provider1)
+    g.realm,                          -- Realm (if used)
+    g.proxy,                          -- Proxy address (e.g., sip.provider.com)
+    g.register,                       -- Whether to register with the gateway
+    g.username,                       -- Username for authentication
+    g.password,                       -- Password for authentication
+    s.name AS setting_name,           -- Setting name (e.g., from-user, codec-prefs)
+    s.value AS setting_value,         -- Setting value
+    s.type AS setting_type            -- Optional setting type (custom usage)
+FROM core.sip_gateways g
+LEFT JOIN core.sip_gateway_settings s ON s.sip_gateway_id = g.id
+WHERE g.enabled = TRUE
+  AND s.enabled = TRUE;
+
+-- ===================================================
+-- View: view_dialplan_expanded
+-- Description:
+--   Expands the entire dialplan structure into a flat view.
+--   Includes context, extensions, conditions, and their actions.
+--   Useful for Lua-based runtime dialplan loading in FreeSWITCH.
+-- ===================================================
+
+CREATE OR REPLACE VIEW view_dialplan_expanded AS
+SELECT
+    ctx.tenant_id,                        -- Tenant that owns the context
+    ctx.name AS context_name,             -- Dialplan context (e.g., 'default')
+    
+    ext.id AS extension_id,               -- Extension ID
+    ext.name AS extension_name,           -- Extension name (e.g., '1000')
+    ext.priority AS extension_priority,   -- Priority/order of the extension
+    
+    cond.id AS condition_id,              -- Condition ID
+    cond.field AS condition_field,        -- Field to evaluate (e.g., destination_number)
+    cond.expression AS condition_expr,    -- Regular expression to match
+    
+    act.id AS action_id,                  -- Action or anti-action ID
+    act.application AS app_name,          -- Application (e.g., bridge, hangup, set)
+    act.data AS app_data,                 -- Data or parameters for the application
+    act.type AS action_type,              -- 'action' or 'anti-action'
+    act.sequence AS action_sequence       -- Execution order within condition
+
+FROM core.dialplan_contexts ctx
+JOIN core.dialplan_extensions ext ON ext.context_id = ctx.id
+JOIN core.dialplan_conditions cond ON cond.extension_id = ext.id
+JOIN core.dialplan_actions act ON act.condition_id = cond.id
+
+WHERE ctx.enabled = TRUE
+  AND ext.enabled = TRUE
+  AND cond.enabled = TRUE;
+
+-- ===================================================
+-- View: view_ivr_menu_options
+-- Description:
+--   Lists all IVR menus along with their configured DTMF options.
+--   Includes action, destination, optional condition, priority, etc.
+--   Simplifies runtime IVR menu loading in FreeSWITCH via Lua.
+-- ===================================================
+
+CREATE OR REPLACE VIEW view_ivr_menu_options AS
+SELECT
+    ivr.tenant_id,                        -- Tenant that owns this IVR
+    ivr.id AS ivr_id,                     -- Unique ID of the IVR
+    ivr.name AS ivr_name,                 -- Human-readable name of the IVR
+    ivr.greet_long,                       -- Long greeting audio file
+    ivr.greet_short,                      -- Short greeting audio file
+    ivr.invalid_sound,                    -- Invalid input sound
+    ivr.exit_sound,                       -- Exit sound
+    ivr.timeout,                          -- Timeout in seconds
+    ivr.max_failures,                     -- Max allowed invalid entries
+    ivr.max_timeouts,                     -- Max allowed timeouts
+    ivr.direct_dial,                      -- Direct dial enabled (true/false)
+
+    opt.digits,                           -- DTMF digits that trigger the action
+    opt.action,                           -- What to do (transfer, submenu, playback, hangup)
+    opt.destination,                      -- Destination (extension, dialplan, IVR id, etc.)
+    opt.condition,                        -- Optional condition (expression to evaluate)
+    opt.break_on_match,                   -- Whether to break after this match
+    opt.priority                          -- Option execution order
+FROM core.ivr ivr
+JOIN core.ivr_settings opt ON opt.ivr_id = ivr.id
+WHERE ivr.enabled = TRUE AND opt.enabled = TRUE;
+
+-- ===================================================
+-- View: view_call_center_agents_by_queue
+-- Description:
+--   Displays the association of agents to queues, including tier info.
+--   Combines queues, agents, and their SIP contact details.
+--   Used to generate live call routing logic in Lua.
+-- ===================================================
+
+CREATE OR REPLACE VIEW view_call_center_agents_by_queue AS
+SELECT
+    q.tenant_id,                      -- Tenant that owns the queue
+    q.id AS queue_id,                -- Unique queue ID
+    q.name AS queue_name,            -- Queue name
+
+    a.id AS agent_id,                -- Unique agent ID
+    a.user_id,                       -- Associated SIP user (nullable)
+    a.contact AS agent_contact,      -- SIP contact (e.g., 1000)
+    a.status AS agent_status,        -- Agent status (e.g., Logged Out, Available)
+    a.ready AS agent_ready,          -- Whether agent is currently ready
+
+    t.level AS tier_level,           -- Tier level (integer)
+    t.position AS tier_position,     -- Tier position (integer)
+    t.insert_date AS tier_assigned   -- Date the tier was created
+FROM core.call_center_queues q
+JOIN core.call_center_tiers t ON t.queue_id = q.id
+JOIN core.call_center_agents a ON a.id = t.agent_id
+WHERE q.enabled = TRUE
+  AND a.enabled = TRUE;
+
+-- ===================================================
+-- View: view_voicemail_profiles
+-- Description:
+--   Lists all voicemail profiles and their associated parameters.
+--   Combines core.voicemail_profiles and core.voicemail_profile_settings.
+--   Used by voicemail modules and Lua scripts to generate config dynamically.
+-- ===================================================
+
+CREATE OR REPLACE VIEW view_voicemail_profiles AS
+SELECT
+    vp.tenant_id,                       -- Tenant that owns the profile
+    vp.id AS profile_id,               -- Unique profile ID
+    vp.name AS profile_name,           -- Profile name (e.g., default)
+
+    s.name AS setting_name,            -- Setting name (e.g., file-ext, storage-dir)
+    s.value AS setting_value,          -- Setting value
+    s.type AS setting_type             -- Type/category (e.g., param)
+
+FROM core.voicemail_profiles vp
+LEFT JOIN core.voicemail_profile_settings s ON s.voicemail_profile_id = vp.id
+WHERE vp.enabled = TRUE
+  AND s.enabled = TRUE;
+
+-- ============================================================================================================
 -- Function: core.set_update_timestamp()
 -- Description: Automatically sets update_date to current timestamp on UPDATE
 
