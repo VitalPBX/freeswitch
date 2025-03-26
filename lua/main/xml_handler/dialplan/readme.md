@@ -65,6 +65,7 @@ Filtered by:
     </context>
   </section>
 </document>
+```
 
 ## 🔧 Configuration Notes
 Ensure that the domain is available as a global variable (domain) when the dialplan is requested.
