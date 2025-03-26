@@ -1414,7 +1414,7 @@ SELECT
     cond.id AS condition_id,              -- Condition ID
     cond.field AS condition_field,        -- Field to evaluate (e.g., destination_number)
     cond.expression AS condition_expr,    -- Regular expression to match
-    
+
     act.id AS action_id,                  -- Action or anti-action ID
     act.application AS app_name,          -- Application (e.g., bridge, hangup, set)
     act.data AS app_data,                 -- Data or parameters for the application
