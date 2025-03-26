@@ -104,7 +104,13 @@ return function()
         table.insert(xml, "        </extension>")
         extension_open = false
       end
-      table.insert(xml, '      <extension name="' .. row.extension_name .. '">')
+
+      local continue_attr = ""
+      if row.continue and row.continue:lower() == "true" then
+        continue_attr = ' continue="true"'
+      end
+      table.insert(xml, '      <extension name="' .. row.extension_name .. '"' .. continue_attr .. '>')
+
       current_extension = row.extension_name
       extension_open = true
     end
