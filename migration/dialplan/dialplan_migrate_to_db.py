@@ -52,13 +52,15 @@ def process_dialplan_file(file_path):
             print(f"  ✅ Extension '{ext_name}' added")
 
             for cond_elem in ext_elem.findall("condition"):
+                ext_continue = ext_elem.get("continue")
+
                 condition_id = str(uuid.uuid4())
                 field = cond_elem.get("field") or "true"
                 expression = cond_elem.get("expression") or ".*"
                 cursor.execute("""
-                    INSERT INTO core.dialplan_conditions (id, extension_id, field, expression, enabled, insert_date)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (condition_id, extension_id, field, expression, True, now()))
+                    INSERT INTO core.dialplan_conditions (id, extension_id, field, expression, enabled, continue, insert_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (condition_id, extension_id, field, expression, True, ext_continue, now()))
 
                 for action_elem in cond_elem.findall("action"):
                     action_id = str(uuid.uuid4())
