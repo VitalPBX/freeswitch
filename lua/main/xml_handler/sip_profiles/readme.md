@@ -88,7 +88,23 @@ Use levels like "info", "debug", "warning".
 🧪 Testing
 
 You can run this manually in FreeSWITCH's CLI:
-
-```bash
+``` console
 freeswitch> luarun /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua
+```
+Or dump to a file for inspection:
+``` console
+freeswitch> luarun /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua > /tmp/sip_profiles.xml
+```
+Then reload Sofia:
+``` console
+freeswitch> reload mod_sofia
+```
+🔄 Output
+The final XML is stored in a global variable:
+``` console
+XML_STRING = table.concat(xml, "\n")
+```
+This is picked up by mod_xml_curl or FreeSWITCH's XML handler during runtime.
 
+📬 Contact
+For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.
