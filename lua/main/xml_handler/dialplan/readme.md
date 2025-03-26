@@ -69,8 +69,12 @@ Filtered by:
 
 ## 🔧 Configuration Notes
 Ensure that the domain is available as a global variable (domain) when the dialplan is requested.
-
 This module must be triggered from main.lua → xml_handlers/index.lua when section == "dialplan".
+
+## 📁 Location
+``` console
+/usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua
+```
 
 ## ✅ Status
 - ✅ Multi-tenant support
@@ -78,3 +82,7 @@ This module must be triggered from main.lua → xml_handlers/index.lua when sect
 - ✅ Anti-actions supported
 - ✅ Fully dynamic
 - ✅ Compatible with FreeSWITCH 1.10+
+
+## 👀 See Also
+- sip_register.lua — Directory handler for SIP registration
+- settings.lua — Global configuration module
