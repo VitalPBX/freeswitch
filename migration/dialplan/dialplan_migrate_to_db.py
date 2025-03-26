@@ -90,46 +90,47 @@ def process_ivr_file(file_path):
         tree = ET.parse(file_path)
         root = tree.getroot()
 
-        ivr_name = root.get("name") or os.path.splitext(os.path.basename(file_path))[0]
-        ivr_id = str(uuid.uuid4())
+        for menu in root.findall(".//menu"):
+            ivr_name = menu.get("name") or os.path.splitext(os.path.basename(file_path))[0]
+            ivr_id = str(uuid.uuid4())
 
-        cursor.execute("""
-            INSERT INTO core.ivr (
-                id, tenant_id, name, greet_long, greet_short,
-                invalid_sound, exit_sound, timeout, max_failures,
-                max_timeouts, direct_dial, enabled, insert_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            ivr_id, tenant_id, ivr_name,
-            root.get("greet-long"), root.get("greet-short"),
-            root.get("invalid-sound"), root.get("exit-sound"),
-            int(root.get("timeout") or 5), int(root.get("max-failures") or 3),
-            int(root.get("max-timeouts") or 3), root.get("direct-dial") == "true",
-            True, now()
-        ))
-        print(f"✅ IVR '{ivr_name}' created")
-
-        for entry in root.findall("menu"):
-            digits = entry.get("digits")
-            action = entry.get("action")
-            dest = entry.get("param") or entry.get("destination")
-            condition = entry.get("condition")
-
-            if not digits or not action:
-                print(f"⚠️ Skipping incomplete IVR entry in {file_path}")
-                continue
-
-            setting_id = str(uuid.uuid4())
             cursor.execute("""
-                INSERT INTO core.ivr_settings (
-                    id, ivr_id, digits, action, destination, condition,
-                    break_on_match, priority, enabled, insert_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO core.ivr (
+                    id, tenant_id, name, greet_long, greet_short,
+                    invalid_sound, exit_sound, timeout, max_failures,
+                    max_timeouts, direct_dial, enabled, insert_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                setting_id, ivr_id, digits, action, dest, condition,
-                False, 100, True, now()
+                ivr_id, tenant_id, ivr_name,
+                menu.get("greet-long"), menu.get("greet-short"),
+                menu.get("invalid-sound"), menu.get("exit-sound"),
+                int(menu.get("timeout") or 5), int(menu.get("max-failures") or 3),
+                int(menu.get("max-timeouts") or 3), menu.get("direct-dial") == "true",
+                True, now()
             ))
-            print(f"  ➕ DTMF '{digits}' → {action} ({dest})")
+            print(f"✅ IVR '{ivr_name}' created")
+
+            for entry in menu.findall("entry"):
+                digits = entry.get("digits")
+                action = entry.get("action")
+                dest = entry.get("param") or entry.get("destination")
+                condition = entry.get("condition")
+
+                if not digits or not action:
+                    print(f"⚠️ Skipping incomplete IVR entry in {file_path}")
+                    continue
+
+                setting_id = str(uuid.uuid4())
+                cursor.execute("""
+                    INSERT INTO core.ivr_settings (
+                        id, ivr_id, digits, action, destination, condition,
+                        break_on_match, priority, enabled, insert_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    setting_id, ivr_id, digits, action, dest, condition,
+                    False, 100, True, now()
+                ))
+                print(f"  ➕ DTMF '{digits}' → {action} ({dest})")
 
         conn.commit()
     except Exception as e:
