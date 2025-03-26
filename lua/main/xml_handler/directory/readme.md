@@ -59,7 +59,13 @@ dbh = freeswitch.Dbh("odbc://ring2all")
 │           └── settings.lua
  ```
 
-## 🧩 Components
+## ✅ How It Works
+FreeSWITCH receives a SIP REGISTER.
+1. Lua main.lua dispatches to sip_register.lua.
+2. Database is queried to find the tenant and SIP user.
+3. XML is dynamically generated and returned to FreeSWITCH.
+
+### 📂 Related Files
 
 ### 1. `main.lua`
 Entry point used by FreeSWITCH to dispatch XML requests.
@@ -97,3 +103,7 @@ To test SIP registration:
     - XML request being handled
     - Database connection success
     - XML output generated
+
+## 👤 Author
+Rodrigo Cuadra
+Project: Ring2All
