@@ -1391,11 +1391,10 @@ SELECT
     g.password,                       -- Password for authentication
     s.name AS setting_name,           -- Setting name (e.g., from-user, codec-prefs)
     s.value AS setting_value,         -- Setting value
-    s.type AS setting_type            -- Optional setting type (custom usage)
+    s.setting_type AS setting_type    -- Optional setting type (custom usage)
 FROM core.gateways g
 LEFT JOIN core.gateway_settings s ON s.gateway_id = g.id
-WHERE g.enabled = TRUE
-  AND s.enabled = TRUE;
+WHERE g.enabled = TRUE;
 
 -- ===================================================
 -- View: view_dialplan_expanded
