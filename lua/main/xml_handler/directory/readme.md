@@ -25,7 +25,7 @@ Dynamically generates the directory XML used in SIP registrations.
   ```xml
   <user id="1000">
     <params>
-      <param name="password" value="r2a1234"/>
+      <param name="password" value="1234"/>
     </params>
     <variables>
       <variable name="user_context" value="default"/>
