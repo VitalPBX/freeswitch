@@ -1,94 +1,151 @@
---[[
-    sip_register.lua
-    Handles SIP user registration and directory lookups from FreeSWITCH.
-    Loads user information from PostgreSQL via view_sip_users.
---]]
+-- sip_profiles.lua
+-- Generate SIP Profiles and Gateways XML for FreeSWITCH in correct format
+-- Supports variable substitution of $${var} and ${var} from global variables.
 
--- Dependencies
-local pg = require("luasql.postgres")
-local env = pg.postgres()
-
--- Input data
-local domain = XML_REQUEST["domain"] or ""
-local user = XML_REQUEST["user"] or ""
-
--- Settings module
+-- Load global settings and logging function
 local settings = require("resources.settings.settings")
 local log = function(level, message)
     if level == "debug" and not settings.debug then return end
-    freeswitch.consoleLog(level, "[Directory] " .. message .. "\n")
+    freeswitch.consoleLog(level, "[SIPProfiles] " .. message .. "\n")
 end
 
-log("INFO", "Directory lookup for user: " .. user .. " @ " .. domain)
+-- Create a FreeSWITCH API instance
+local api = freeswitch.API()
 
--- Connect to database
-local dbh = env:connect("ring2all")
-if not dbh then
-    log("ERR", "Failed to connect to PostgreSQL database")
-    return
-end
-
--- Fetch SIP user and settings
-local sql = [[
-    SELECT * FROM view_sip_users
-    WHERE username = %s AND tenant_id = (
-        SELECT id FROM core.tenants WHERE name = 'Default'
-    )
-]]
-sql = string.format(sql, dbh:escape(user))
-
-local result = {}
-for row in dbh:rows(sql) do
-    table.insert(result, row)
-end
-
-if #result == 0 then
-    log("WARNING", "No SIP user found for: " .. user)
-    XML_STRING = settings.format_xml("directory", "")
-    return
-end
-
--- Build <user> XML
-local user_id = result[1].username
-local password = result[1].password
-local variables = {}
-local params = {
-    { name = "password", value = password }
-}
-
-for _, row in ipairs(result) do
-    if row.setting_type == "param" then
-        table.insert(params, { name = row.setting_name, value = row.setting_value })
-    elseif row.setting_type == "variable" then
-        table.insert(variables, { name = row.setting_name, value = row.setting_value })
+-- Retrieve all global variables from FreeSWITCH and store in a key-value table
+global_vars = {}
+do
+    local vars = api:execute("global_getvar", "") or ""
+    for line in vars:gmatch("[^\n]+") do
+        local name, value = line:match("^([^=]+)=(.+)$")
+        if name and value then
+            global_vars[name] = value
+            log("debug", "Parsed global variable: " .. name .. " = " .. value)
+        end
     end
 end
 
--- XML content construction
-local lines = {
-    string.format('<user id="%s">', user_id),
-    '  <params>'
-}
-for _, p in ipairs(params) do
-    table.insert(lines, string.format('    <param name="%s" value="%s"/>', p.name, p.value))
+-- Replace $${var} and ${var} with their corresponding values from global_vars
+local function replace_vars(str)
+    -- Replace $${var_name}
+    str = str:gsub("%$%${([^}]+)}", function(var_name)
+        local value = global_vars[var_name] or ""
+        if value == "" then
+            log("warning", "Variable $$" .. var_name .. " not found, replacing with empty string")
+        else
+            log("debug", "Resolved $$" .. var_name .. " to: " .. value)
+        end
+        return value
+    end)
+
+    -- Replace ${var_name}
+    str = str:gsub("%${([^}]+)}", function(var_name)
+        local value = global_vars[var_name] or ""
+        if value == "" then
+            log("warning", "Variable ${" .. var_name .. "} not found, replacing with empty string")
+        else
+            log("debug", "Resolved ${" .. var_name .. "} to: " .. value)
+        end
+        return value
+    end)
+
+    return str
 end
 
-table.insert(lines, '  </params>')
-table.insert(lines, '  <variables>')
-for _, v in ipairs(variables) do
-    table.insert(lines, string.format('    <variable name="%s" value="%s"/>', v.name, v.value))
+-- Connect to PostgreSQL using ODBC
+dbh = freeswitch.Dbh("odbc://ring2all")
+if not dbh:connected() then
+    freeswitch.consoleLog("ERR", "Failed to connect to database\n")
+    return
+end
+log("info", "ODBC connection established")
+
+-- Load all gateways grouped by tenant and gateway name
+gateways_by_tenant = {}
+dbh:query([[SELECT * FROM view_gateways ORDER BY gateway_id, setting_name]], function(row)
+    local tenant_id = row.tenant_id
+    gateways_by_tenant[tenant_id] = gateways_by_tenant[tenant_id] or {}
+    local gw_name = row.gateway_name
+    gateways_by_tenant[tenant_id][gw_name] = gateways_by_tenant[tenant_id][gw_name] or { row = row, settings = {} }
+    table.insert(gateways_by_tenant[tenant_id][gw_name].settings, { name = row.setting_name, value = row.setting_value })
+end)
+
+-- Begin XML generation
+local xml = {}
+table.insert(xml, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>')
+table.insert(xml, '<document type="freeswitch/xml">')
+table.insert(xml, '  <section name="configuration">')
+table.insert(xml, '    <configuration name="sofia.conf" description="sofia Endpoint">')
+table.insert(xml, '      <profiles>')
+
+-- Generate SIP Profiles
+local last_profile_id = nil
+local current_profile = {}
+
+dbh:query([[SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_name]], function(row)
+    if last_profile_id ~= row.sip_profile_id then
+        -- Close previous profile
+        if #current_profile > 0 then
+            table.insert(current_profile, '        </settings>')
+            table.insert(current_profile, '      </profile>')
+            for _, line in ipairs(current_profile) do table.insert(xml, line) end
+        end
+
+        -- Start new profile
+        current_profile = {}
+        last_profile_id = row.sip_profile_id
+
+        table.insert(current_profile, string.format('      <profile name="%s">', replace_vars(row.profile_name)))
+        table.insert(current_profile, '        <aliases></aliases>')
+
+        -- Gateways section
+        table.insert(current_profile, '        <gateways>')
+        local gateways = gateways_by_tenant[row.tenant_id] or {}
+        for gw_name, gw_data in pairs(gateways) do
+            table.insert(current_profile, string.format('          <gateway name="%s">', replace_vars(gw_name)))
+            local attrs = { "username", "password", "from-user", "from-domain", "proxy", "expire-seconds", "register", "register-transport", "contact-params", "retry-seconds", "context" }
+            for _, attr in ipairs(attrs) do
+                local val = gw_data.row[attr]
+                if val and val ~= "" then
+                    table.insert(current_profile, string.format('            <param name="%s" value="%s"/>', attr, replace_vars(val)))
+                end
+            end
+            for _, setting in ipairs(gw_data.settings) do
+                table.insert(current_profile, string.format('            <param name="%s" value="%s"/>', replace_vars(setting.name), replace_vars(setting.value)))
+            end
+            table.insert(current_profile, '            <variables></variables>')
+            table.insert(current_profile, '          </gateway>')
+        end
+        table.insert(current_profile, '        </gateways>')
+
+        -- Domains section (default stub)
+        table.insert(current_profile, '        <domains>')
+        table.insert(current_profile, '          <domain name="all" alias="false" parse="false"/>')
+        table.insert(current_profile, '        </domains>')
+
+        -- Settings section
+        table.insert(current_profile, '        <settings>')
+    end
+
+    -- Add profile setting
+    if row.setting_name and row.setting_value then
+        table.insert(current_profile, string.format('          <param name="%s" value="%s"/>', replace_vars(row.setting_name), replace_vars(row.setting_value)))
+    end
+end)
+
+-- Finalize last profile
+if #current_profile > 0 then
+    table.insert(current_profile, '        </settings>')
+    table.insert(current_profile, '      </profile>')
+    for _, line in ipairs(current_profile) do table.insert(xml, line) end
 end
 
-table.insert(lines, '  </variables>')
-table.insert(lines, '</user>')
+-- Close XML structure
+table.insert(xml, '      </profiles>')
+table.insert(xml, '    </configuration>')
+table.insert(xml, '  </section>')
+table.insert(xml, '</document>')
 
--- Return XML
-XML_STRING = settings.format_xml("directory", table.concat(lines, "\n"), {
-    domain_name = domain,
-    alias = true
-})
-
-log("INFO", "User XML returned for " .. user .. "@" .. domain)
-
--- Close DB
-dbh:close()
+-- Output final XML
+XML_STRING = table.concat(xml, "\n")
+log("info", "SIP Profiles and Gateways XML generated successfully.")
