@@ -87,6 +87,6 @@ To test SIP registration:
 1. Point a SIP client to your FreeSWITCH instance.
 2. Register with username@domain.
 3. Confirm logs show:
-  -XML request being handled
-  - Database connection success
-  - XML output generated
+    - XML request being handled
+    - Database connection success
+    - XML output generated
