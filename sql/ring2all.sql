@@ -396,16 +396,16 @@ CREATE INDEX idx_dialplan_extensions_priority ON core.dialplan_extensions (prior
 -- Description: Dialplan Conditions Table
 -- =============================================
 CREATE TABLE core.dialplan_conditions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                         -- Unique identifier for the condition
-    extension_id UUID NOT NULL REFERENCES core.dialplan_extensions(id) ON DELETE CASCADE, -- Parent extension
-    field TEXT NOT NULL,                                                  -- Field to evaluate (e.g., destination_number)
-    expression TEXT NOT NULL,                                             -- Regex or expression to match
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Whether the condition is active
-
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp
-    insert_user UUID,                                                     -- UUID of user who created the record
-    update_date TIMESTAMPTZ,                                              -- Last update timestamp
-    update_user UUID                                                      -- UUID of user who last updated the record
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                                        -- Unique identifier for the condition
+    extension_id UUID NOT NULL REFERENCES core.dialplan_extensions(id) ON DELETE CASCADE,  -- Parent extension to which this condition belongs
+    field TEXT NOT NULL,                                                                   -- Field to evaluate (e.g., destination_number)
+    expression TEXT NOT NULL,                                                              -- Regex or expression to match against the field
+    continue TEXT,                                                                         -- If set to 'true', processing continues to the next extension even if this one matches
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                                 -- Whether the condition is active and should be processed
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                                        -- Creation timestamp
+    insert_user UUID,                                                                      -- UUID of user who created the record (optional)
+    update_date TIMESTAMPTZ,                                                               -- Last update timestamp (optional)
+    update_user UUID                                                                       -- UUID of user who last updated the record (optional)
 );
 
 -- Indexes for conditions
