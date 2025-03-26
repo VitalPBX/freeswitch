@@ -1,25 +1,33 @@
-# SIP Profiles and Gateways XML Generator
+# 📄 SIP Profiles and Gateways XML Generator
 
 This Lua script dynamically generates FreeSWITCH-compatible XML configuration for `sofia.conf`. It loads SIP Profiles and Gateways from a PostgreSQL database, replaces FreeSWITCH global variables, and outputs fully structured XML.
 
 ---
 
-## Features
+## 🧩 Features
 
-- Connects to PostgreSQL via ODBC DSN `ring2all`
-- Dynamic generation of `<profile>`, `<gateways>`, `<domains>`, and `<settings>`
-- Replaces both `$${var}` and `${var}` syntax using FreeSWITCH's global variables
-- Groups gateways per tenant and profile
-- Fully compliant with FreeSWITCH XML configuration format
-
----
-
-## Directory Structure
-
+- ✅ Connects to PostgreSQL via ODBC DSN `ring2all`
+- ✅ Dynamic generation of `<profile>`, `<gateways>`, `<domains>`, and `<settings>`
+- ✅ Replaces both `$${var}` and `${var}` syntax using FreeSWITCH's global variables
+- ✅ Groups gateways per tenant and profile
+- ✅ Fully compliant with FreeSWITCH XML configuration format
 
 ---
 
-## Requirements
+## 📁 Directory Structure
+``` console
+resources/
+└── settings/
+    └── settings.lua
+scripts/
+└── main/
+    └── xml_handlers/
+        └── sip_profiles/
+            └── sip_profiles.lua
+```
+---
+
+## 🔌 Required FreeSWITCH Configuration
 
 - PostgreSQL database with views:
   - `view_sip_profiles`
@@ -30,28 +38,56 @@ This Lua script dynamically generates FreeSWITCH-compatible XML configuration fo
 
 ---
 
-## How It Works
+## 🧠 How It Works
 
 1. **Load Global Variables**
    - Executes `global_getvar` to retrieve all FreeSWITCH global vars.
    - Parses them into a Lua table `global_vars`.
+The script uses:
+``` console
+api:execute("global_getvar", "")
+```
 
 2. **Replace Variables**
    - Replaces `$${var}` and `${var}` inside profile and gateway data.
    - Logs a warning if the variable is not found.
+If a variable is not found, it's replaced with an empty string and logged as a warning.
 
 3. **Fetch Gateways and Profiles**
    - Queries both views and groups gateways by `tenant_id` and `gateway_name`.
+SQL Queries:
+``` console
+SELECT * FROM view_gateways ORDER BY gateway_id, setting_name;
+SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_name;
+```
+It then groups gateways per tenant and appends them to the corresponding SIP profile.
 
 4. **Generate XML**
    - Constructs valid XML using `table.insert()` and finally uses `table.concat()` to join lines.
    - Stores result in global `XML_STRING`.
-
+The XML structure follows FreeSWITCH standards, e.g.:
+``` console
+<profile name="external">
+  <aliases></aliases>
+  <gateways>...</gateways>
+  <domains>
+    <domain name="all" alias="false" parse="false"/>
+  </domains>
+  <settings>...</settings>
+</profile>
+```
 ---
 
-## Usage in FreeSWITCH
+🔍 Logging
+Logging is controlled by:
+``` console
+settings.debug -- boolean from `settings.lua`
+```
+Use levels like "info", "debug", "warning".
 
-Execute manually:
+🧪 Testing
+
+You can run this manually in FreeSWITCH's CLI:
 
 ```bash
 freeswitch> luarun /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua
