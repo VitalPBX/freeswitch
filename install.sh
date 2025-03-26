@@ -326,8 +326,13 @@ wget -O sip_register.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/r
 wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/dialplan/dialplan.lua 
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
 wget -O ivr.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/ivr/ivr.lua
+wget -O tenant_vars.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/resources/utils/tenant_vars.lua
 wget -O global_vars.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/global_vars.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
+
+# Lua test files
+wget -O tenant_vars_xml_test.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/tests/tenant_vars_xml_test.lua
+
 # Modules Load
 wget -O modules.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/modules.conf.xml
 
@@ -399,10 +404,12 @@ echo -e "*                   Create main.lua file                   *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers
 mkdir -p /usr/share/freeswitch/scripts/resources/settings
+mkdir -p /usr/share/freeswitch/scripts/resources/utils
 mv main.lua /usr/share/freeswitch/scripts/main.lua
 mv index.lua /usr/share/freeswitch/scripts/main/xml_handlers/index.lua
 mv global_vars.lua /usr/share/freeswitch/scripts/main/xml_handlers/global_vars.lua
 mv settings.lua /usr/share/freeswitch/scripts/resources/settings/settings.lua
+mv tenant_vars.lua /usr/share/freeswitch/scripts/resources/utils/tenant_vars.lua
 
 # Create Lua Script for management user registration (directory)
 echo -e "************************************************************"
@@ -431,6 +438,13 @@ echo -e "*      Create Lua Script for management sip_profiles       *"
 echo -e "************************************************************"
 mkdir -p /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles
 mv sip_profiles.lua /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua
+
+# Create Lua Script for management sip_profiles
+echo -e "************************************************************"
+echo -e "*      Create Lua Script for management sip_profiles       *"
+echo -e "************************************************************"
+mkdir -p /usr/share/freeswitch/scripts/test
+mv tenant_vars_xml_test.lua /usr/share/freeswitch/scripts/test/tenant_vars_xml_test.lua
 
 # FreeSWITCH, allowing it to freeswitch manage from Database
 echo -e "************************************************************"
