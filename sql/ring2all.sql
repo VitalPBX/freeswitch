@@ -1335,18 +1335,17 @@ CREATE INDEX idx_global_vars_tenant_enabled ON core.global_vars (tenant_id, enab
 -- ================================================
 CREATE OR REPLACE VIEW view_sip_users AS
 SELECT
-    u.id AS sip_user_id,             -- Unique ID of the SIP user
-    u.tenant_id,                     -- Tenant the user belongs to
-    u.username,                      -- SIP username (extension)
-    u.password,                      -- SIP authentication password
-    u.enabled,                       -- Whether the user is enabled
-    s.name AS setting_name,          -- Name of the setting (e.g., context, caller-id)
-    s.value AS setting_value,        -- Value of the setting
-    s.type AS setting_type           -- Type of setting ('param' or 'variable')
+    u.id AS sip_user_id,
+    u.tenant_id,
+    u.username,
+    u.password,
+    u.enabled,
+    s.name AS setting_name,
+    s.value AS setting_value,
+    s.type AS setting_type
 FROM core.sip_users u
-LEFT JOIN core.sip_user_settings s ON s.sip_user_id = u.id
-WHERE u.enabled = TRUE
-  AND s.enabled = TRUE;
+LEFT JOIN core.sip_user_settings s ON s.sip_user_id = u.id AND s.enabled = TRUE
+WHERE u.enabled = TRUE;
 
 -- ================================================
 -- View: view_sip_profiles
