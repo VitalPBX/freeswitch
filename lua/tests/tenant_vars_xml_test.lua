@@ -4,7 +4,7 @@
 
 -- Usage:
 --   luarun /usr/share/freeswitch/scripts/tests/tenant_vars_xml_test.lua [domain]
---   Example: luarun /usr/share/freeswitch/scripts/tests/tenant_vars_xml_test.lua company-a.com
+--   Example: luarun /usr/share/freeswitch/scripts/tests/tenant_vars_xml_test.lua company-a.com or ip address
 --   To test the main tenant: luarun /usr/share/freeswitch/scripts/tests/tenant_vars_xml_test.lua main
 
 local input = argv[1] or "localhost"
