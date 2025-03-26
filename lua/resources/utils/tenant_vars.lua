@@ -16,6 +16,21 @@ local function log(level, msg)
     freeswitch.consoleLog(level, "[tenant_vars] " .. msg .. "\n")
 end
 
+-- Function to replace $${var_name} with their actual values
+-- @param str string - The string to process
+-- @param global_vars table - A table of variable values
+local function replace_vars(str, global_vars)
+    return str:gsub("%$%${([^}]+)}", function(var_name)
+        local value = global_vars[var_name] or ""
+        if value == "" then
+            log("WARNING", "Variable $$" .. var_name .. " not found, replacing with empty string")
+        else
+            log("DEBUG", "Resolved $$" .. var_name .. " to: " .. value)
+        end
+        return value
+    end)
+end
+
 -- Resolve the tenant UUID based on the given domain name
 -- If domain is nil or "main", fallback to tenant with is_main = TRUE
 -- @param domain string|nil - Domain name (or nil to use main tenant)
@@ -93,7 +108,8 @@ function M.apply(session, domain)
     local count = 0
 
     for name, value in pairs(vars) do
-        session:setVariable(name, value)
+        local resolved_value = replace_vars(value, vars)
+        session:setVariable(name, resolved_value)
         count = count + 1
     end
 
