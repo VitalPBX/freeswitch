@@ -379,7 +379,7 @@ echo -e "************************************************************"
 chmod +x voicemail_profile.py
 python3 voicemail_profile.py
 
-# Migrate from XML to Database Global Vars.
+# Migrate from XML to Database Global Vars. 
 echo -e "************************************************************"
 echo -e "*        Migrate from XML to Database Global Vars.         *"
 echo -e "************************************************************"
@@ -497,12 +497,6 @@ mv /etc/freeswitch/dialplan /etc/freeswitch/dialplan.old
 mkdir /etc/freeswitch/dialplan
 chown freeswitch:freeswitch /etc/freeswitch/dialplan
 touch /etc/freeswitch/dialplan/empty.xml
-
-# Rename vars.xml to prevent Freeswitch from loading it
-echo -e "************************************************************"
-echo -e "*  Rename vars.xml to prevent Freeswitch from loading it   *"
-echo -e "************************************************************"
-mv /etc/freeswitch/vars.xml /etc/freeswitch/vars.xml.bak
 
 # Restart Freeswitch Service
 echo -e "************************************************************"
