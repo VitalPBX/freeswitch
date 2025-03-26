@@ -28,6 +28,7 @@ CREATE TABLE core.tenants (
     parent_tenant_id UUID,                                            -- Optional reference to a parent tenant for hierarchical structure
     name TEXT NOT NULL UNIQUE,                                        -- Unique name of the tenant (e.g., company name)
     domain_name TEXT NOT NULL UNIQUE,                                 -- Unique domain name used in FreeSWITCH (e.g., sip.example.com)
+    is_main BOOLEAN DEFAULT FALSE;                                    -- It is used to indicate that you are the primary Tenant
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                            -- Indicates if the tenant is active (TRUE) or disabled (FALSE)
     insert_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),      -- Creation timestamp with timezone
     insert_user UUID,                                                 -- UUID of the user who created the record (nullable for system inserts)
