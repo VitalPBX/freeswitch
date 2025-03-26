@@ -24,7 +24,7 @@ log("INFO", "Main.lua is handling XML request for section: " .. (section or "nil
 if section == "directory" then
   local handler = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/directory/sip_register.lua")
   if type(handler) == "function" then
-    handler(XML_REQUEST)
+    handler(params)  -- `params` is automatically passed by FreeSWITCH
   else
     log("ERR", "sip_register.lua did not return a function")
   end
@@ -33,7 +33,7 @@ if section == "directory" then
 elseif section == "dialplan" then
   local handler = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua")
   if type(handler) == "function" then
-    handler(XML_REQUEST)
+    handler(params)
   else
     log("ERR", "dialplan.lua did not return a function")
   end
