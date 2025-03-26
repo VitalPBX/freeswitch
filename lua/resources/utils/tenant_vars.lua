@@ -17,19 +17,33 @@ local function log(level, msg)
 end
 
 -- Resolve the tenant UUID based on the given domain name
--- @param domain string - Domain name associated with the tenant (e.g., "company-a.com")
+-- If domain is nil or "main", fallback to tenant with is_main = TRUE
+-- @param domain string|nil - Domain name (or nil to use main tenant)
 -- @return string|nil - Returns the tenant's UUID or nil if not found
 local function resolve_tenant_id(domain)
     local dbh = freeswitch.Dbh("odbc://ring2all")
-    local tenant_id
+    local tenant_id = nil
 
-    local sql = string.format([[
-        SELECT id FROM core.tenants
-        WHERE domain_name = '%s' AND enabled = TRUE
-        LIMIT 1
-    ]], domain)
+    if not dbh then
+        log("ERR", "❌ Cannot connect to database to resolve tenant_id")
+        return nil
+    end
 
-    -- Execute the query and extract the tenant ID
+    local sql
+    if not domain or domain == "main" then
+        sql = [[
+            SELECT id FROM core.tenants
+            WHERE is_main = TRUE AND enabled = TRUE
+            LIMIT 1
+        ]]
+    else
+        sql = string.format([[ 
+            SELECT id FROM core.tenants
+            WHERE domain_name = '%s' AND enabled = TRUE
+            LIMIT 1
+        ]], domain)
+    end
+
     dbh:query(sql, function(row)
         tenant_id = row.id
     end)
@@ -49,12 +63,11 @@ local function load_vars(tenant_id)
         return vars
     end
 
-    local sql = string.format([[
+    local sql = string.format([[ 
         SELECT name, value FROM core.global_vars
         WHERE enabled = TRUE AND tenant_id = '%s'
     ]], tenant_id)
 
-    -- Execute the query and store variables into the vars table
     dbh:query(sql, function(row)
         vars[row.name] = row.value
     end)
@@ -64,30 +77,27 @@ local function load_vars(tenant_id)
 end
 
 -- Public function: Apply all variables for a specific tenant to the current session
--- @param session object - The FreeSWITCH session object (e.g., from dialplan or Lua app)
+-- @param session object - The FreeSWITCH session object (or a simulated session)
 -- @param domain string - Domain name used to resolve the tenant
 function M.apply(session, domain)
-    log("INFO", "📡 Applying tenant vars for domain: " .. tostring(domain))
+    log("INFO", "?? Applying tenant vars for domain: " .. tostring(domain))
 
-    -- Get the tenant ID based on domain
     local tenant_id = resolve_tenant_id(domain)
 
     if not tenant_id then
-        log("WARNING", "⚠️ No tenant found for domain: " .. tostring(domain))
+        log("WARNING", "?? No tenant found for domain: " .. tostring(domain))
         return
     end
 
-    -- Load the tenant-specific variables
     local vars = load_vars(tenant_id)
     local count = 0
 
-    -- Apply each variable to the session
     for name, value in pairs(vars) do
         session:setVariable(name, value)
         count = count + 1
     end
 
-    log("INFO", "✅ Applied " .. count .. " tenant variables for " .. domain)
+    log("INFO", "? Applied " .. count .. " tenant variables for " .. tostring(domain))
 end
 
-return M  -- Return the module table
+return M
