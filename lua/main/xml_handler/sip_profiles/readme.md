@@ -109,6 +109,6 @@ This is picked up by mod_xml_curl or FreeSWITCH's XML handler during runtime.
 
 
 ## 📬 Contact
-For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.
-Rodrigo Cuadra
+For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.<br>
+Rodrigo Cuadra<br>
 Project: Ring2All
