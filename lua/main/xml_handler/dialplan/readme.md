@@ -86,3 +86,4 @@ This module must be triggered from main.lua → xml_handlers/index.lua when sect
 ## 👀 See Also
 - sip_register.lua — Directory handler for SIP registration
 - settings.lua — Global configuration module
+- sip_proifiles.lua - Load Sip Profiles for Main Tenant (internal, external, etc)
