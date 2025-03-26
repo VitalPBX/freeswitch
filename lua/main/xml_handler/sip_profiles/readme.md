@@ -78,14 +78,14 @@ The XML structure follows FreeSWITCH standards, e.g.:
 ```
 ---
 
-🔍 Logging
+## 🔍 Logging
 Logging is controlled by:
 ``` console
 settings.debug -- boolean from `settings.lua`
 ```
 Use levels like "info", "debug", "warning".
 
-🧪 Testing
+## 🧪 Testing
 
 You can run this manually in FreeSWITCH's CLI:
 ``` console
@@ -99,12 +99,16 @@ Then reload Sofia:
 ``` console
 freeswitch> reload mod_sofia
 ```
-🔄 Output
+
+## 🔄 Output
 The final XML is stored in a global variable:
 ``` console
 XML_STRING = table.concat(xml, "\n")
 ```
 This is picked up by mod_xml_curl or FreeSWITCH's XML handler during runtime.
 
-📬 Contact
+
+## 📬 Contact
 For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.
+Rodrigo Cuadra
+Project: Ring2All
