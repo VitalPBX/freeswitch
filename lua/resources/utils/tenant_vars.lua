@@ -116,4 +116,19 @@ function M.apply(session, domain)
     log("INFO", "? Applied " .. count .. " tenant variables for " .. tostring(domain))
 end
 
+-- Public function: Utility to expose the replace_vars for reuse in other scripts
+-- @param str string - The input string with $${var} placeholders
+-- @param vars table - The table with variable replacements
+-- @return string - The resolved string
+function M.replace_vars(str, vars)
+    return replace_vars(str, vars)
+end
+
+-- Public function: Utility to load vars directly (for other modules like sip_profiles.lua)
+function M.load_vars(domain)
+    local tenant_id = resolve_tenant_id(domain)
+    return load_vars(tenant_id or "")
+end
+
 return M
+
