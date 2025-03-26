@@ -1,98 +1,106 @@
 --[[
-    ivr.lua
-    Generates IVR configuration XML dynamically from PostgreSQL using view_ivr_menu_options.
-    Returns menus, greetings, and DTMF actions for FreeSWITCH ivr.conf.
+  ivr.lua
+  Multi-tenant IVR XML handler for FreeSWITCH using view_ivr_menu_options
+  Author: Rodrigo Cuadra
+  Project: Ring2All
 --]]
 
--- Dependencies
-local pg = require("luasql.postgres")
-local env = pg.postgres()
+return function()
+  local settings = require("resources.settings.settings")
 
--- Settings module
-local settings = require("resources.settings.settings")
-local log = function(level, message)
+  -- Logging helper
+  local function log(level, message)
     if level == "debug" and not settings.debug then return end
     freeswitch.consoleLog(level, "[IVR] " .. message .. "\n")
-end
+  end
 
--- Connect to database
-local dbh = env:connect("ring2all")
-if not dbh then
-    log("ERR", "Failed to connect to PostgreSQL database")
+  -- Connect to the database
+  local dbh = freeswitch.Dbh("odbc://ring2all")
+  if not dbh:connected() then
+    log("ERR", "Failed to connect to database")
     return
-end
+  end
 
--- Query IVR menu options
-local sql = [[
-SELECT * FROM view_ivr_menu_options ORDER BY ivr_name, priority
-]]
-
-local result = {}
-for row in dbh:rows(sql) do
-    table.insert(result, row)
-end
-
-if #result == 0 then
-    log("WARNING", "No IVR menus found in view_ivr_menu_options")
-    XML_STRING = settings.format_xml("configuration", "")
+  -- Extract domain from environment
+  local domain = freeswitch.getGlobalVariable("domain") or "default"
+  if domain == "" then
+    log("ERR", "Missing domain from request")
     return
-end
+  end
 
--- Group by IVR name
-local ivrs = {}
-for _, row in ipairs(result) do
-    local name = row.ivr_name
-    ivrs[name] = ivrs[name] or {
-        greet_long = row.greet_long,
-        greet_short = row.greet_short,
-        invalid_sound = row.invalid_sound,
-        exit_sound = row.exit_sound,
-        timeout = row.timeout,
-        max_failures = row.max_failures,
-        max_timeouts = row.max_timeouts,
-        direct_dial = row.direct_dial,
-        options = {}
-    }
-    table.insert(ivrs[name].options, row)
-end
+  -- Resolve tenant_id from domain
+  local tenant_id
+  local sql = "SELECT id FROM core.tenants WHERE domain_name = '" .. domain .. "'"
+  dbh:query(sql, function(row)
+    tenant_id = row.id
+  end)
 
--- Build XML
-local lines = {
-    '<configuration name="ivr.conf" description="IVR menus">',
-    '  <menus>'
-}
+  if not tenant_id then
+    log("ERR", "No tenant found for domain: " .. domain)
+    return
+  end
 
-for ivr_name, data in pairs(ivrs) do
-    table.insert(lines, string.format('    <menu name="%s" greet-long="%s" greet-short="%s"',
-        ivr_name, data.greet_long or "", data.greet_short or ""))
-    table.insert(lines, string.format('          invalid-sound="%s" exit-sound="%s" timeout="%d" max-failures="%d" max-timeouts="%d" direct-dial="%s">',
-        data.invalid_sound or "", data.exit_sound or "", data.timeout or 5,
-        data.max_failures or 3, data.max_timeouts or 3, tostring(data.direct_dial)))
+  -- Build the query to get IVR menu structure
+  local ivr_sql = [[
+    SELECT * FROM view_ivr_menu_options
+    WHERE tenant_id = ']] .. tenant_id .. [['
+    ORDER BY ivr_name, priority
+  ]]
+  log("debug", "IVR SQL: " .. ivr_sql)
 
-    for _, opt in ipairs(data.options) do
-        local line = string.format('      <entry digits="%s" action="%s"', opt.digits, opt.action)
-        if opt.destination then
-            line = line .. string.format(' param="%s"', opt.destination)
-        end
-        if opt.condition then
-            line = line .. string.format(' condition="%s"', opt.condition)
-        end
-        if opt.break_on_match then
-            line = line .. ' break="true"'
-        end
-        line = line .. ' />'
-        table.insert(lines, line)
+  -- Prepare XML
+  local xml = {}
+  table.insert(xml, '<?xml version="1.0" encoding="UTF-8"?>')
+  table.insert(xml, '<document type="freeswitch/xml">')
+  table.insert(xml, '  <section name="configuration">')
+  table.insert(xml, '    <menus>')
+
+  local current_menu = nil
+  local menu_open = false
+
+  dbh:query(ivr_sql, function(row)
+    if row.ivr_name ~= current_menu then
+      if menu_open then
+        table.insert(xml, "      </menu>")
+      end
+
+      table.insert(xml, '      <menu name="' .. row.ivr_name .. '"')
+      table.insert(xml, '            greet-long="' .. (row.greet_long or '') .. '"')
+      table.insert(xml, '            greet-short="' .. (row.greet_short or '') .. '"')
+      table.insert(xml, '            invalid-sound="' .. (row.invalid_sound or '') .. '"')
+      table.insert(xml, '            exit-sound="' .. (row.exit_sound or '') .. '"')
+      table.insert(xml, '            timeout="' .. (row.timeout or '5') .. '"')
+      table.insert(xml, '            max-failures="' .. (row.max_failures or '3') .. '"')
+      table.insert(xml, '            max-timeouts="' .. (row.max_timeouts or '3') .. '"')
+      table.insert(xml, '            direct-dial="' .. tostring(row.direct_dial == 't') .. '">')
+
+      current_menu = row.ivr_name
+      menu_open = true
     end
 
-    table.insert(lines, '    </menu>')
+    local entry = '        <entry action="' .. row.action .. '" digits="' .. row.digits .. '"'
+    if row.destination and row.destination ~= "" then
+      entry = entry .. ' param="' .. row.destination .. '"'
+    end
+    if row.condition and row.condition ~= "" then
+      entry = entry .. ' expression="' .. row.condition .. '"'
+    end
+    if row.break_on_match == "t" then
+      entry = entry .. ' break="true"'
+    end
+    entry = entry .. '/>'
+    table.insert(xml, entry)
+  end)
+
+  if menu_open then
+    table.insert(xml, "      </menu>")
+  end
+
+  table.insert(xml, '    </menus>')
+  table.insert(xml, '  </section>')
+  table.insert(xml, '</document>')
+
+  local XML_STRING = table.concat(xml, "\n")
+  log("info", "Generated IVR XML for domain " .. domain .. ":\n" .. XML_STRING)
+  _G.XML_STRING = XML_STRING
 end
-
-table.insert(lines, '  </menus>')
-table.insert(lines, '</configuration>')
-
--- Return XML
-XML_STRING = settings.format_xml("configuration", table.concat(lines, "\n"))
-log("INFO", "IVR menus XML configuration generated")
-
--- Close DB
-dbh:close()
