@@ -104,6 +104,7 @@ To test SIP registration:
     - Database connection success
     - XML output generated
 
-## 👤 Author
-Rodrigo Cuadra
+## 📬 Contact
+For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.<br>
+Rodrigo Cuadra<br>
 Project: Ring2All
