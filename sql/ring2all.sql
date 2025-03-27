@@ -1379,7 +1379,6 @@ LEFT JOIN
 WHERE
     su.enabled = true;
 
-
 -- ================================================
 -- View: view_sip_profiles
 -- Description:
