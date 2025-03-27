@@ -51,14 +51,8 @@ for file_name in xml_files:
                 print(f"⚠️  Profile without name in {file_name}, skipping...")
                 continue
 
-            # Get description from the profile attribute or preceding comment
-            description = profile.get("description")
-
-            # Fallback: Use previous sibling comment as description if no description attribute is set
-            if not description:
-                prev = profile.getprevious() if hasattr(profile, 'getprevious') else None
-                if prev is not None and isinstance(prev, ET.Comment):
-                    description = prev.text.strip()
+            # Get description from the profile attribute or a fallback string
+            description = profile.get("description") or f"Migrated profile from {file_name}"
 
             # Insert the SIP profile into the database
             cursor.execute("""
@@ -80,7 +74,19 @@ for file_name in xml_files:
                     setting_id = str(uuid.uuid4())
                     name = param.get("name")
                     value = param.get("value")
-                    param_description = param.get("description")  # Attempt to read description from param
+                    param_description = param.get("description") or f"Imported from XML in {file_name}"  # fallback description
+
+                    # Determine if this should be a <param> or <variable> based on known names or logic
+                    category = "param"
+                    if name in [
+                        "domain_uuid", "extension_uuid", "user_uuid", "call_timeout",
+                        "caller_id_name", "caller_id_number", "presence_id",
+                        "accountcode", "user_context", "directory-visible",
+                        "directory-exten-visible", "limit_max", "limit_destination",
+                        "default_dialect", "default_voice", "record_stereo",
+                        "transfer_fallback_extension", "export_vars"
+                    ]:
+                        category = "variable"
 
                     cursor.execute("""
                         INSERT INTO core.sip_profile_settings (
@@ -88,10 +94,10 @@ for file_name in xml_files:
                             value, setting_order, description, enabled, insert_date
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        setting_id, profile_id, name, 'default', 'default',
+                        setting_id, profile_id, name, category, 'default',
                         value, setting_order, param_description, True, datetime.utcnow()
                     ))
-                    print(f"   ➕ Setting '{name}' = '{value}' added.")
+                    print(f"   ➕ Setting '{name}' = '{value}' added as {category}.")
                     setting_order += 1
 
         # Commit all inserts after processing each file
