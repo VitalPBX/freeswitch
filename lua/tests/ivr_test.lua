@@ -1,52 +1,50 @@
--- Requiere que exista el archivo main/xml_handlers/ivr/ivr.lua
-local ivr_handler = require("main.xml_handlers.ivr.ivr")
+-- tests/ivr_test.lua
+package.path = "/usr/share/freeswitch/scripts/?.lua;" .. package.path
 
--- Recibir argumentos
-local domain_arg = argv[1] or "main"
-local ivr_name = argv[2] or "demo_ivr"
-local domain = domain_arg
-
--- Conexión ODBC
-local dbh = freeswitch.Dbh("odbc://ring2all")
-if not dbh:connected() then
-    freeswitch.consoleLog("ERR", "Failed to connect to database\n")
-    return
+-- Simular entorno freeswitch si no existe (cuando se ejecuta con luarun)
+if not freeswitch then
+  freeswitch = {
+    consoleLog = function(level, message)
+      io.write("[" .. level .. "] " .. message)
+    end,
+    getGlobalVariable = function(name)
+      return _G[name]
+    end,
+    Dbh = require("luasql.odbc").odbc().connect("ring2all")  -- Solo si querés pruebas de verdad con luarun
+  }
 end
-freeswitch.consoleLog("INFO", "ODBC connection established\n")
 
--- Si el dominio es 'main', buscar el dominio principal desde la tabla core.tenants
+-- Leer argumentos
+local domain_arg = argv[1]
+local ivr_name = argv[2]
+
+if not domain_arg or not ivr_name then
+  print("Uso: luarun tests/ivr_test.lua <dominio|main> <ivr_name>")
+  return
+end
+
+-- Simular variable global domain
 if domain_arg == "main" then
-    local sql = [[
-        SELECT domain_name FROM core.tenants
-        WHERE is_main = TRUE
-        LIMIT 1
-    ]]
-    dbh:query(sql, function(row)
-        if row and row.domain_name then
-            domain = row.domain_name
-        end
-    end)
-
-    if domain == "main" then
-        freeswitch.consoleLog("ERR", "No se encontró un tenant principal (is_main = TRUE)\n")
-        return
-    end
+  local env = freeswitch.Dbh("odbc://ring2all")
+  local main_id = nil
+  env:query("SELECT domain_name FROM core.tenants WHERE is_main = true LIMIT 1", function(row)
+    _G["domain"] = row.domain_name
+  end)
+else
+  _G["domain"] = domain_arg
 end
 
--- Construcción del request que espera el handler ivr
-local xml_request = {
-    section = "configuration",
-    tag_name = "menus",
-    key_name = "name",
-    key_value = ivr_name,
-    domain = domain
+-- Cargar settings simulados
+local settings = {
+  debug = true
 }
 
--- Ejecutar handler y obtener XML
-local result_xml = ivr_handler.process(xml_request)
+-- Ejecutar el handler
+local ivr_handler = require("main.xml_handlers.ivr.ivr")
+ivr_handler(settings)
 
--- Mostrar resultado
-freeswitch.consoleLog("INFO", "Resultado IVR para el dominio '" .. domain .. "', IVR '" .. ivr_name .. "':\n" .. (result_xml or "No se generó XML") .. "\n")
-
--- Cerrar conexión
-dbh:release()
+-- Mostrar XML generado si existe
+if _G.XML_STRING then
+  print("\n--- XML RESULTADO ---\n")
+  print(_G.XML_STRING)
+end
