@@ -1899,12 +1899,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA auth
 GRANT ALL PRIVILEGES ON SEQUENCES TO $r2a_user;
 
 -- Insert demo tenant for testing and default use
-INSERT INTO core.tenants (id, parent_tenant_id, name, domain_name, enabled, insert_user)
+INSERT INTO core.tenants (id, parent_tenant_id, name, domain_name, is_main, enabled, insert_user)
 VALUES (
     uuid_generate_v4(),                 -- Generate a unique UUID for the tenant
     NULL,                               -- No parent tenant
     'Default',                          -- Tenant name
     '192.168.10.21',                    -- Domain name for FreeSWITCH (can be replaced in install)
+    'TRUE',                             -- It is used to indicate that you are the primary Tenant
     TRUE,                               -- Tenant is enabled
     NULL                                -- Inserted by system
 );
