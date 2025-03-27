@@ -1360,33 +1360,25 @@ CREATE INDEX idx_global_vars_tenant_enabled ON core.global_vars (tenant_id, enab
 --   Simplifies SIP user lookups from external systems (e.g., Lua scripts).
 --   Returns only enabled users and enabled settings.
 -- ================================================
+
 CREATE OR REPLACE VIEW view_sip_users AS
 SELECT
-    u.id AS sip_user_id,
-    u.tenant_id,
-    u.username,
-    u.password,
-    u.enabled,
-    'password' AS setting_name,
-    u.password AS setting_value,
-    'param' AS setting_type
-FROM core.sip_users u
-WHERE u.enabled = TRUE
+    su.id AS sip_user_id,
+    su.tenant_id,
+    su.username,
+    su.password,
+    su.enabled,
+    su.sip_profile_id AS user_profile_id,  -- Incluimos esta columna
+    sus.name AS setting_name,
+    sus.value AS setting_value,
+    'param' AS setting_type  -- o usa 'variable' si sabes que lo son
+FROM
+    core.sip_users su
+LEFT JOIN
+    core.sip_user_settings sus ON su.id = sus.sip_user_id
+WHERE
+    su.enabled = true;
 
-UNION ALL
-
-SELECT
-    u.id AS sip_user_id,
-    u.tenant_id,
-    u.username,
-    u.password,
-    u.enabled,
-    s.name AS setting_name,
-    s.value AS setting_value,
-    s.type AS setting_type
-FROM core.sip_users u
-LEFT JOIN core.sip_user_settings s ON s.sip_user_id = u.id AND s.enabled = TRUE
-WHERE u.enabled = TRUE;
 
 -- ================================================
 -- View: view_sip_profiles
