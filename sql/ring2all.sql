@@ -75,8 +75,9 @@ CREATE TABLE core.sip_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for each SIP profile
     name TEXT NOT NULL UNIQUE,                                             -- Profile name (e.g., internal, external, webrtc)
     tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant (for multi-tenant scenarios)
-    category TEXT DEFAULT 'default',                                       -- Main category for grouping profiles (e.g., "SIP", "WebRTC")
+    category TEXT DEFAULT 'sofia',                                         -- Main category for grouping profiles (e.g., sofia, directory, etc)
     subcategory TEXT DEFAULT 'default',                                    -- Subcategory for additional profile grouping
+    setting_type TEXT DEFAULT 'param'                                      -- Setting Type (e.g., param or variable)
     description TEXT,                                                      -- Optional brief description of the SIP profile
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Indicates if the profile is active
     setting_order INTEGER DEFAULT 0,                                       -- Display or application order for profiles
