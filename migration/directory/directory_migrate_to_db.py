@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 import uuid
 import xml.etree.ElementTree as ET
