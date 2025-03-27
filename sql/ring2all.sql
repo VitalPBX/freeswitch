@@ -1399,25 +1399,16 @@ WHERE u.enabled = TRUE;
 CREATE OR REPLACE VIEW view_sip_profiles AS
 SELECT
     p.id AS sip_profile_id,
-    p.name AS profile_name,
     p.tenant_id,
-    p.category AS profile_category,
-    p.subcategory AS profile_subcategory,
-    p.setting_order AS profile_order,
-    p.description AS profile_description,
-    p.enabled AS profile_enabled,
-    s.id AS setting_id,
-    s.category AS setting_category,
-    s.subcategory AS setting_subcategory,
+    p.name AS profile_name,
+    p.category,
     s.name AS setting_name,
     s.value AS setting_value,
-    s.setting_order AS setting_order,
-    s.description AS setting_description,
-    s.enabled AS setting_enabled
+    s.setting_order
 FROM core.sip_profiles p
-LEFT JOIN core.sip_profile_settings s ON s.sip_profile_id = p.id
-WHERE p.enabled = TRUE AND (s.enabled IS NULL OR s.enabled = TRUE)
-ORDER BY p.setting_order, s.setting_order;
+LEFT JOIN core.sip_profile_settings s
+    ON s.sip_profile_id = p.id
+WHERE p.enabled = TRUE AND s.enabled = TRUE;
 
 -- ================================================
 -- View: view_gateways
