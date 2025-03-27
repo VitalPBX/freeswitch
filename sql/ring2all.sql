@@ -119,6 +119,27 @@ CREATE INDEX idx_sip_profile_settings_insert_user ON core.sip_profile_settings (
 CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (update_user);   -- Index for querying last updater
 
 -- ===========================
+-- Table: core.sip_profile_aliases
+-- Description:  SIP profile Aliases
+-- ===========================
+
+CREATE TABLE core.sip_profile_aliases (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE,
+    alias TEXT NOT NULL,
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    insert_user UUID,
+    update_date TIMESTAMPTZ,
+    update_user UUID
+);
+
+-- Índices recomendados
+CREATE INDEX idx_sip_profile_aliases_profile_id ON core.sip_profile_aliases (sip_profile_id);
+CREATE INDEX idx_sip_profile_aliases_alias ON core.sip_profile_aliases (alias);
+CREATE INDEX idx_sip_profile_aliases_insert_user ON core.sip_profile_aliases (insert_user);
+CREATE INDEX idx_sip_profile_aliases_update_user ON core.sip_profile_aliases (update_user);
+
+-- ===========================
 -- Table: core.gateways
 -- Description: SIP Gateways used for outbound and inbound communication
 -- ===========================
@@ -1354,22 +1375,57 @@ WHERE u.enabled = TRUE;
 --   Simplifies loading of SIP profile configurations from Lua or other services.
 --   Filters to only include enabled profiles and settings.
 -- ================================================
-CREATE OR REPLACE VIEW view_sip_profiles AS
+
+CREATE OR REPLACE VIEW core.view_sip_profiles AS
 SELECT
-    p.id AS sip_profile_id,            -- Unique ID of the SIP profile
-    p.tenant_id,                       -- Tenant the profile belongs to
-    p.name AS profile_name,            -- SIP profile name (e.g., internal, external)
-    p.bind_address,                    -- Bind address (e.g., 0.0.0.0:5060)
-    p.sip_port,                        -- SIP port extracted from bind_address
-    p.transport,                       -- Transport type (e.g., udp, tcp, tls)
-    p.tls_enabled,                     -- Whether TLS is enabled
-    s.name AS setting_name,            -- Setting name (e.g., rtp-ip, ext-rtp-ip)
-    s.value AS setting_value,          -- Setting value
-    s.type AS setting_type             -- Optional type/category
-FROM core.sip_profiles p
-LEFT JOIN core.sip_profile_settings s ON s.sip_profile_id = p.id
-WHERE p.enabled = TRUE
-  AND s.enabled = TRUE;
+    sp.id AS profile_id,
+    sp.name AS profile_name,
+    sp.tenant_id,
+    sp.enabled AS profile_enabled,
+    sp.bind_address,
+    sp.sip_port,
+    sp.transport,
+    sp.tls_enabled,
+    -- Agregar settings en formato JSON para fácil manejo desde Lua
+    (
+        SELECT json_agg(json_build_object(
+            'name', sps.name,
+            'value', sps.value,
+            'type', sps.type
+        ))
+        FROM core.sip_profile_settings sps
+        WHERE sps.sip_profile_id = sp.id AND sps.enabled
+    ) AS settings,
+    -- Agregar aliases como array de texto
+    (
+        SELECT array_agg(spa.alias)
+        FROM core.sip_profile_aliases spa
+        WHERE spa.sip_profile_id = sp.id
+    ) AS aliases,
+    -- Agregar gateways asociados en formato JSON
+    (
+        SELECT json_agg(json_build_object(
+            'gateway_id', gw.id,
+            'gateway_name', gw.name,
+            'username', gw.username,
+            'password', gw.password,
+            'realm', gw.realm,
+            'proxy', gw.proxy,
+            'register', gw.register,
+            'register_transport', gw.register_transport,
+            'expire_seconds', gw.expire_seconds,
+            'retry_seconds', gw.retry_seconds,
+            'from_user', gw.from_user,
+            'from_domain', gw.from_domain,
+            'contact_params', gw.contact_params,
+            'context', gw.context,
+            'enabled', gw.enabled,
+            'settings', (
+                SELECT json_agg(json_build_object(
+                    'name', gs.name,
+                    'value', gs.value,
+                    'category', gs.category,
+                    'setting_type',_
 
 -- ================================================
 -- View: view_gateways
