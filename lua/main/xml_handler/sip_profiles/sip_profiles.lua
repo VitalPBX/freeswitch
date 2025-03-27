@@ -1,6 +1,18 @@
--- sip_profiles.lua
--- Generate SIP Profiles and Gateways XML for FreeSWITCH in correct format
--- Supports variable substitution of $${var} and ${var} from global variables.
+--[[
+  sip_profiles.lua
+  Dynamic multi-tenant SIP Profile and Gateway handler using view_sip_profiles and view_gateways
+  Author: Rodrigo Cuadra
+  Project: Ring2All
+
+  Description:
+  This script dynamically generates the FreeSWITCH Sofia SIP Profiles configuration XML,
+  including associated Gateways, using tenant-specific data from PostgreSQL.
+
+  Features:
+  - Multi-tenant support based on tenant_id
+  - Dynamic profile and gateway generation
+  - Supports $${var} and ${var} substitution with FreeSWITCH global variables
+--]]
 
 -- Load global settings and logging function
 local settings = require("resources.settings.settings")
@@ -27,7 +39,6 @@ end
 
 -- Replace $${var} and ${var} with their corresponding values from global_vars
 local function replace_vars(str)
-    -- Replace $${var_name}
     str = str:gsub("%$%${([^}]+)}", function(var_name)
         local value = global_vars[var_name] or ""
         if value == "" then
@@ -37,8 +48,6 @@ local function replace_vars(str)
         end
         return value
     end)
-
-    -- Replace ${var_name}
     str = str:gsub("%${([^}]+)}", function(var_name)
         local value = global_vars[var_name] or ""
         if value == "" then
@@ -48,7 +57,6 @@ local function replace_vars(str)
         end
         return value
     end)
-
     return str
 end
 
@@ -63,11 +71,11 @@ log("info", "ODBC connection established")
 -- Load all gateways grouped by tenant and gateway name
 gateways_by_tenant = {}
 dbh:query([[SELECT * FROM view_gateways ORDER BY gateway_id, setting_name]], function(row)
-    local tenant_id = row.tenant_id
-    gateways_by_tenant[tenant_id] = gateways_by_tenant[tenant_id] or {}
+    local t_id = row.tenant_id
+    gateways_by_tenant[t_id] = gateways_by_tenant[t_id] or {}
     local gw_name = row.gateway_name
-    gateways_by_tenant[tenant_id][gw_name] = gateways_by_tenant[tenant_id][gw_name] or { row = row, settings = {} }
-    table.insert(gateways_by_tenant[tenant_id][gw_name].settings, { name = row.setting_name, value = row.setting_value })
+    gateways_by_tenant[t_id][gw_name] = gateways_by_tenant[t_id][gw_name] or { row = row, settings = {} }
+    table.insert(gateways_by_tenant[t_id][gw_name].settings, { name = row.setting_name, value = row.setting_value })
 end)
 
 -- Begin XML generation
@@ -81,24 +89,19 @@ table.insert(xml, '      <profiles>')
 -- Generate SIP Profiles
 local last_profile_id = nil
 local current_profile = {}
-
-dbh:query([[SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_name]], function(row)
+dbh:query([[SELECT * FROM view_sip_profiles ORDER BY tenant_id, sip_profile_id, setting_name]], function(row)
     if last_profile_id ~= row.sip_profile_id then
-        -- Close previous profile
         if #current_profile > 0 then
             table.insert(current_profile, '        </settings>')
             table.insert(current_profile, '      </profile>')
             for _, line in ipairs(current_profile) do table.insert(xml, line) end
         end
-
-        -- Start new profile
         current_profile = {}
         last_profile_id = row.sip_profile_id
 
         table.insert(current_profile, string.format('      <profile name="%s">', replace_vars(row.profile_name)))
         table.insert(current_profile, '        <aliases></aliases>')
 
-        -- Gateways section
         table.insert(current_profile, '        <gateways>')
         local gateways = gateways_by_tenant[row.tenant_id] or {}
         for gw_name, gw_data in pairs(gateways) do
@@ -117,36 +120,27 @@ dbh:query([[SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_nam
             table.insert(current_profile, '          </gateway>')
         end
         table.insert(current_profile, '        </gateways>')
-
-        -- Domains section (default stub)
         table.insert(current_profile, '        <domains>')
         table.insert(current_profile, '          <domain name="all" alias="false" parse="false"/>')
         table.insert(current_profile, '        </domains>')
-
-        -- Settings section
         table.insert(current_profile, '        <settings>')
     end
-
-    -- Add profile setting
     if row.setting_name and row.setting_value then
         table.insert(current_profile, string.format('          <param name="%s" value="%s"/>', replace_vars(row.setting_name), replace_vars(row.setting_value)))
     end
 end)
 
--- Finalize last profile
 if #current_profile > 0 then
     table.insert(current_profile, '        </settings>')
     table.insert(current_profile, '      </profile>')
     for _, line in ipairs(current_profile) do table.insert(xml, line) end
 end
 
--- Close XML structure
 table.insert(xml, '      </profiles>')
 table.insert(xml, '    </configuration>')
 table.insert(xml, '  </section>')
 table.insert(xml, '</document>')
 
--- Output final XML
 XML_STRING = table.concat(xml, "\n")
 log("info", "Generated XML:\n" .. XML_STRING)
 log("info", "SIP Profiles and Gateways XML generated successfully.")
