@@ -59,12 +59,9 @@ elseif section == "configuration" then
     end
 
   elseif config_name == "ivr.conf" then
-    local handler = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/ivr/ivr.lua")
-    if type(handler) == "function" then
-      handler(settings)
-    else
-      log("ERR", "ivr.lua did not return a function")
-    end
+    local ivr = require("main.xml_handlers.ivr.ivr")
+    local domain = XML_REQUEST["domain"] or XML_REQUEST["hostname"]
+    XML_STRING = ivr.handle(domain)
 
   else
     -- Placeholder response for unhandled config files
