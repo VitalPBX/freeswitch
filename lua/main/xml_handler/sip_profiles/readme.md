@@ -111,9 +111,9 @@ Reload XML configurations:
 ``` console
 freeswitch> reloadxml
 ```
-Reload a specific SIP profile:
+Reload a specific SIP profile (eg: internal):
 ``` console
-freeswitch> sofia profile **internal** restart
+freeswitch> sofia profile internal restart
 ```
 
 ## 🔄 Output
