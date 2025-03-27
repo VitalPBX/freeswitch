@@ -48,7 +48,7 @@ local function check_profile_setting(dbh, tenant_id, profile_name)
     SELECT value FROM core.sip_profile_settings
     WHERE sip_profile_id = (
       SELECT id FROM core.sip_profiles
-      WHERE profile_name = '%s' AND tenant_id = '%s'
+      WHERE name = '%s' AND tenant_id = '%s'
     )
     AND name = 'dtmf-type' AND enabled = true
     LIMIT 1
