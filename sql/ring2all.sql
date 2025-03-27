@@ -72,26 +72,27 @@ CREATE INDEX idx_tenant_settings_insert_date ON core.tenant_settings (insert_dat
 -- ===========================
 
 CREATE TABLE core.sip_profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                      -- Unique identifier for the SIP profile
-    name TEXT NOT NULL UNIQUE,                                           -- Unique name for the SIP profile (e.g., internal, external)
-    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
-    description TEXT,                                                    -- Optional profile description
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the profile is enabled or not
-    bind_address TEXT,                                                   -- Bind address (e.g., 0.0.0.0:5060)
-    sip_port INTEGER,                                                    -- SIP port number (e.g., 5060, 7443)
-    transport TEXT,                                                      -- Transport type (e.g., udp, tcp, tls, ws, wss)
-    tls_enabled BOOLEAN DEFAULT FALSE,                                   -- Whether TLS is enabled for the profile
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for each SIP profile
+    name TEXT NOT NULL UNIQUE,                                             -- Profile name (e.g., internal, external, webrtc)
+    tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant (for multi-tenant scenarios)
+    category TEXT DEFAULT 'default',                                       -- Main category for grouping profiles (e.g., "SIP", "WebRTC")
+    subcategory TEXT DEFAULT 'default',                                    -- Subcategory for additional profile grouping
+    description TEXT,                                                      -- Optional brief description of the SIP profile
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Indicates if the profile is active
+    setting_order INTEGER DEFAULT 0,                                       -- Display or application order for profiles
 
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                      -- Creation timestamp with timezone
-    insert_user UUID,                                                    -- UUID of the user who created the record (nullable for system inserts)
-    update_date TIMESTAMPTZ,                                             -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID                                                     -- UUID of the user who last updated the record (nullable)
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                        -- Creation timestamp (with timezone)
+    insert_user UUID,                                                      -- User UUID who created the profile (nullable)
+    update_date TIMESTAMPTZ,                                               -- Last update timestamp (auto-updated by triggers)
+    update_user UUID                                                       -- User UUID who last updated the profile (nullable)
 );
 
 -- Indexes for core.sip_profiles
-CREATE INDEX idx_sip_profiles_tenant_id ON core.sip_profiles (tenant_id);      -- Index for filtering by tenant
-CREATE INDEX idx_sip_profiles_insert_user ON core.sip_profiles (insert_user);  -- Index for querying creator
-CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -- Index for querying last updater
+CREATE INDEX idx_sip_profiles_tenant_id ON core.sip_profiles (tenant_id);      -- Efficient tenant-based queries
+CREATE INDEX idx_sip_profiles_category ON core.sip_profiles (category);        -- Optimized queries based on category
+CREATE INDEX idx_sip_profiles_subcategory ON core.sip_profiles (subcategory);  -- Optimized queries based on subcategory
+CREATE INDEX idx_sip_profiles_insert_user ON core.sip_profiles (insert_user);  -- Faster lookups by creator
+CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -- Faster lookups by updater
 
 -- ===========================
 -- Table: core.sip_profile_settings
@@ -99,24 +100,27 @@ CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -
 -- ===========================
 
 CREATE TABLE core.sip_profile_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                        -- Unique identifier for the SIP profile setting
-    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Foreign key to the SIP profile
-    name TEXT NOT NULL,                                                   -- Name of the setting (e.g., rtp-ip, sip-ip)
-    type TEXT,                                                            -- Optional setting category (e.g., media, auth, network)
-    value TEXT NOT NULL,                                                  -- Value of the setting
-    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                -- Indicates if the setting is active
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                                -- Unique identifier for each SIP profile setting
+    sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Reference to the associated SIP profile (foreign key)
+    category TEXT DEFAULT 'default',                                               -- Primary category for setting grouping (e.g., auth, network, media, security)
+    subcategory TEXT DEFAULT 'default',                                            -- Subcategory for detailed grouping of settings
+    name TEXT NOT NULL,                                                            -- Name of the setting (e.g., rtp-ip, sip-port)
+    value TEXT NOT NULL,                                                           -- Assigned value for this specific setting
+    setting_order INTEGER DEFAULT 0,                                               -- Determines the order in which settings are applied
+    description TEXT,                                                              -- Brief description providing context about the setting
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                         -- Status indicating whether the setting is active
 
-    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                       -- Creation timestamp with timezone
-    insert_user UUID,                                                     -- UUID of the user who created the record (nullable)
-    update_date TIMESTAMPTZ,                                              -- Last update timestamp with timezone (updated by trigger)
-    update_user UUID                                                      -- UUID of the user who last updated the record (nullable)
+    insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                                -- Timestamp marking when the record was created
+    insert_user UUID,                                                              -- UUID of the user who created this record (nullable for system inserts)
+    update_date TIMESTAMPTZ,                                                       -- Timestamp marking the last update of the record (auto-updated via trigger)
+    update_user UUID                                                               -- UUID of the user who last updated this record (nullable)
 );
 
--- Indexes for core.sip_profile_settings
-CREATE INDEX idx_sip_profile_settings_profile_id ON core.sip_profile_settings (sip_profile_id); -- Index for joining with SIP profiles
-CREATE INDEX idx_sip_profile_settings_name ON core.sip_profile_settings (name);                 -- Index for querying by setting name
-CREATE INDEX idx_sip_profile_settings_insert_user ON core.sip_profile_settings (insert_user);   -- Index for querying creator
-CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (update_user);   -- Index for querying last updater
+-- Indexes for efficient data retrieval on core.sip_profile_settings
+CREATE INDEX idx_sip_profile_settings_profile_id ON core.sip_profile_settings (sip_profile_id); -- Optimizes JOIN operations with sip_profiles
+CREATE INDEX idx_sip_profile_settings_name ON core.sip_profile_settings (name);                 -- Improves performance of queries filtering by setting name
+CREATE INDEX idx_sip_profile_settings_insert_user ON core.sip_profile_settings (insert_user);   -- Speeds up queries related to the record creator
+CREATE INDEX idx_sip_profile_settings_update_user ON core.sip_profile_settings (update_user);   -- Speeds up queries related to the last user who updated the record
 
 -- ===========================
 -- Table: core.sip_profile_aliases
