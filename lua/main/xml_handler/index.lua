@@ -60,12 +60,7 @@ elseif section == "configuration" then
 
   -- Handle sofia.conf (used to configure SIP profiles)
   elseif config_name == "sofia.conf" then
-    local handler = dofile("/usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua")
-    if type(handler) == "function" then
-      handler(settings)
-    else
-      log("ERR", "sofia_profiles.lua did not return a function")
-    end
+    dofile("/usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua")
 
   -- Handle ivr.conf (used to define IVR menus)
   elseif config_name == "ivr.conf" then
