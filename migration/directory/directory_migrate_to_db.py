@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import uuid
 import xml.etree.ElementTree as ET
