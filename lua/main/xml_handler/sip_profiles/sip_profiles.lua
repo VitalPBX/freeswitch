@@ -148,4 +148,5 @@ table.insert(xml, '</document>')
 
 -- Output final XML
 XML_STRING = table.concat(xml, "\n")
+log("info", "Generated XML:\n" .. XML_STRING)
 log("info", "SIP Profiles and Gateways XML generated successfully.")
