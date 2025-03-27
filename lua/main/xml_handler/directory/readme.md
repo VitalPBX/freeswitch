@@ -7,14 +7,17 @@ This module handles dynamic XML generation for SIP user registration (`directory
 - Looks up the SIP user in the database using `username` and `domain`.
 - Resolves the tenant (`core.tenants`) from the domain.
 - Pulls SIP user credentials and settings from the view `view_sip_users`.
+- Inherits settings from a `sip_user` profile (`core.sip_profiles`) if one is linked to the user.
 - Returns FreeSWITCH-compatible `<user>` XML with `<params>` and `<variables>`.
 
 ## 🗃️ Database Structure
 Requires the following structure:
-- core.tenants: List of domains/tenants.
-- core.sip_users: SIP user credentials.
-- core.sip_user_settings: Settings for users (e.g. caller ID, codecs, etc.).
-- view_sip_users: View joining users + settings with filters applied.
+- `core.tenants`: List of tenant domains.
+- `core.sip_users`: SIP user credentials.
+- `core.sip_user_settings`: User-specific SIP settings.
+- `core.sip_profiles`: Reusable configuration profiles.
+- `core.sip_profile_settings`: Settings grouped by profile.
+- `view_sip_users`: View joining users and their settings.
 
 Sample SQL for the view:
  ``` console
@@ -25,13 +28,13 @@ SELECT
     u.username,
     u.password,
     u.enabled,
+    u.sip_profile_id AS user_profile_id,
     s.name AS setting_name,
     s.value AS setting_value,
-    s.type AS setting_type
+    s.setting_type
 FROM core.sip_users u
 LEFT JOIN core.sip_user_settings s ON s.sip_user_id = u.id
-WHERE u.enabled = TRUE
-  AND s.enabled = TRUE;
+WHERE u.enabled = TRUE;
  ```
 
 ## 🛠️ Configuration
@@ -61,9 +64,11 @@ dbh = freeswitch.Dbh("odbc://ring2all")
 
 ## ✅ How It Works
 FreeSWITCH receives a SIP REGISTER.
-1. Lua main.lua dispatches to sip_register.lua.
-2. Database is queried to find the tenant and SIP user.
-3. XML is dynamically generated and returned to FreeSWITCH.
+1. FreeSWITCH receives a SIP REGISTER.
+2. `main.lua` dispatches the request to `sip_register.lua`.
+3. The database is queried to find the tenant and SIP user.
+4. If the user is linked to a `sip_user` profile, its settings are loaded.
+5. XML is generated and returned to FreeSWITCH.
 
 ### 📂 Related Files
 
