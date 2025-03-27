@@ -7,9 +7,9 @@ This Lua script dynamically generates FreeSWITCH-compatible XML configuration fo
 ## 🧩 Features
 
 - ✅ Connects to PostgreSQL via ODBC DSN `ring2all`
-- ✅ Dynamic generation of `<profile>`, `<gateways>`, `<domains>`, and `<settings>`
+- ✅ Dynamic generation of `<profile>`, `<aliases>`, `<gateways>`, `<domains>`, and `<settings>`
 - ✅ Replaces both `$${var}` and `${var}` syntax using FreeSWITCH's global variables
-- ✅ Groups gateways per tenant and profile
+- ✅ Efficiently groups gateways per tenant and profile
 - ✅ Fully compliant with FreeSWITCH XML configuration format
 
 ---
@@ -32,6 +32,7 @@ scripts/
 - PostgreSQL database with views:
   - `view_sip_profiles`
   - `view_gateways`
+  - core.sip_profile_aliases
 - ODBC DSN configured as `ring2all`
 - Lua module `resources.settings.settings` with a `debug` flag
 - FreeSWITCH with mod_lua and mod_xml_curl configured
@@ -59,6 +60,7 @@ SQL Queries:
 ``` console
 SELECT * FROM view_gateways ORDER BY gateway_id, setting_name;
 SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_name;
+SELECT sip_profile_id, alias FROM core.sip_profile_aliases;
 ```
 It then groups gateways per tenant and appends them to the corresponding SIP profile.
 
@@ -68,7 +70,9 @@ It then groups gateways per tenant and appends them to the corresponding SIP pro
 The XML structure follows FreeSWITCH standards, e.g.:
 ``` console
 <profile name="external">
-  <aliases></aliases>
+  <aliases>
+    <alias name="192.168.10.21"/>
+  </aliases>
   <gateways>...</gateways>
   <domains>
     <domain name="all" alias="false" parse="false"/>
@@ -79,11 +83,11 @@ The XML structure follows FreeSWITCH standards, e.g.:
 ---
 
 ## 🔍 Logging
-Logging is controlled by:
+- Logging is controlled by:
 ``` console
 settings.debug -- boolean from `settings.lua`
 ```
-Use levels like "info", "debug", "warning".
+- Supports log levels: info, debug, warning..
 
 ## 🧪 Testing
 
@@ -99,6 +103,18 @@ Then reload Sofia:
 ``` console
 freeswitch> reload mod_sofia
 ```
+Restart FreeSWITCH completely:
+``` console
+systemctl restart freeswitch
+```
+Reload XML configurations:
+``` console
+freeswitch> reloadxml
+```
+Reload a specific SIP profile:
+``` console
+freeswitch> sofia profile **internal** restart
+```
 
 ## 🔄 Output
 The final XML is stored in a global variable:
@@ -106,6 +122,7 @@ The final XML is stored in a global variable:
 XML_STRING = table.concat(xml, "\n")
 ```
 This is picked up by mod_xml_curl or FreeSWITCH's XML handler during runtime.
+
 
 
 ## 📬 Contact
