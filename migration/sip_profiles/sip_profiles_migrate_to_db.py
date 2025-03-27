@@ -12,12 +12,6 @@ ODBC_DSN = "ring2all"
 # Path where FreeSWITCH SIP profile XML files are located
 SIP_PROFILE_DIR = "/etc/freeswitch/sip_profiles"
 
-# Utility function to extract port number from bind-address string
-def extract_port(bind_address):
-    if ":" in bind_address:
-        return int(bind_address.split(":")[-1])
-    return None
-
 # Collect all XML files from the directory
 xml_files = [f for f in os.listdir(SIP_PROFILE_DIR) if f.endswith(".xml")]
 
@@ -39,7 +33,6 @@ for file_name in xml_files:
         tree = ET.parse(path)
         root = tree.getroot()
 
-        # Handle both root as <profile> or <include> with nested <profile>
         profiles = []
         if root.tag == "profile":
             profiles.append(root)
@@ -53,46 +46,27 @@ for file_name in xml_files:
         for profile in profiles:
             profile_id = str(uuid.uuid4())
             profile_name = profile.get("name")
-            settings = profile.find("settings")
 
             if not profile_name:
                 print(f"⚠️  Profile without name in {file_name}, skipping...")
                 continue
 
-            bind_address = None
-            sip_port = None
-            transport = None
-            tls_enabled = False
-
-            # Extract relevant fields from the <param> tags
-            if settings is not None:
-                for param in settings.findall("param"):
-                    name = param.get("name")
-                    value = param.get("value")
-                    if name == "bind-address":
-                        bind_address = value
-                        sip_port = extract_port(value)
-                    elif name == "transport":
-                        transport = value
-                    elif name == "tls":
-                        tls_enabled = value.lower() == "true"
-
             # Insert the SIP profile into the database
             cursor.execute("""
                 INSERT INTO core.sip_profiles (
                     id, name, tenant_id, description, enabled,
-                    bind_address, sip_port, transport, tls_enabled,
                     insert_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 profile_id, profile_name, tenant_uuid, None, True,
-                bind_address, sip_port, transport, tls_enabled,
                 datetime.utcnow()
             ))
             print(f"✅ SIP Profile '{profile_name}' migrated successfully.")
 
             # Insert associated settings into core.sip_profile_settings
+            settings = profile.find("settings")
             if settings is not None:
+                setting_order = 0
                 for param in settings.findall("param"):
                     setting_id = str(uuid.uuid4())
                     name = param.get("name")
@@ -100,12 +74,15 @@ for file_name in xml_files:
 
                     cursor.execute("""
                         INSERT INTO core.sip_profile_settings (
-                            id, sip_profile_id, name, type, value, enabled, insert_date
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                            id, sip_profile_id, name, category, subcategory,
+                            value, setting_order, description, enabled, insert_date
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        setting_id, profile_id, name, None, value, True, datetime.utcnow()
+                        setting_id, profile_id, name, 'default', 'default',
+                        value, setting_order, None, True, datetime.utcnow()
                     ))
                     print(f"   ➕ Setting '{name}' = '{value}' added.")
+                    setting_order += 1
 
         # Commit all inserts after processing each file
         conn.commit()
