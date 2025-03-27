@@ -1394,44 +1394,28 @@ WHERE u.enabled = TRUE;
 --   Filters to only include enabled profiles and settings.
 -- ================================================
 
-CREATE VIEW core.view_sip_profiles AS
+CREATE OR REPLACE VIEW view_sip_profiles AS
 SELECT
-    sp.id AS profile_id,
-    sp.name AS profile_name,
-    sp.tenant_id,
-    sp.enabled AS profile_enabled,
-    sp.bind_address,
-    sp.sip_port,
-    sp.transport,
-    sp.tls_enabled,
-
-    -- settings como array simple: "nombre=valor"
-    (
-        SELECT array_agg(sps.name || '=' || sps.value)
-        FROM core.sip_profile_settings sps
-        WHERE sps.sip_profile_id = sp.id AND sps.enabled
-    ) AS settings,
-
-    -- aliases como array simple de texto
-    (
-        SELECT array_agg(spa.alias)
-        FROM core.sip_profile_aliases spa
-        WHERE spa.sip_profile_id = sp.id
-    ) AS aliases,
-
-    -- gateways como texto plano delimitado por "|", valores internos por ","
-    (
-        SELECT string_agg(
-            gw.name || ',' || gw.username || ',' || gw.password || ',' || gw.realm || ',' ||
-            gw.proxy || ',' || gw.register || ',' || gw.register_transport || ',' || gw.expire_seconds || ',' ||
-            gw.retry_seconds || ',' || gw.from_user || ',' || gw.from_domain || ',' || gw.contact_params || ',' ||
-            gw.context || ',' || gw.enabled,
-        '|')
-        FROM core.gateways gw
-        WHERE gw.tenant_id = sp.tenant_id AND gw.enabled
-    ) AS gateways
-
-FROM core.sip_profiles sp;
+    p.id AS sip_profile_id,
+    p.name AS profile_name,
+    p.tenant_id,
+    p.category AS profile_category,
+    p.subcategory AS profile_subcategory,
+    p.setting_order AS profile_order,
+    p.description AS profile_description,
+    p.enabled AS profile_enabled,
+    s.id AS setting_id,
+    s.category AS setting_category,
+    s.subcategory AS setting_subcategory,
+    s.name AS setting_name,
+    s.value AS setting_value,
+    s.setting_order AS setting_order,
+    s.description AS setting_description,
+    s.enabled AS setting_enabled
+FROM core.sip_profiles p
+LEFT JOIN core.sip_profile_settings s ON s.sip_profile_id = p.id
+WHERE p.enabled = TRUE AND (s.enabled IS NULL OR s.enabled = TRUE)
+ORDER BY p.setting_order, s.setting_order;
 
 -- ================================================
 -- View: view_gateways
