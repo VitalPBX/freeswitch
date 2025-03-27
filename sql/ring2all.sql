@@ -1376,7 +1376,7 @@ WHERE u.enabled = TRUE;
 --   Filters to only include enabled profiles and settings.
 -- ================================================
 
-CREATE OR REPLACE VIEW core.view_sip_profiles AS
+CREATE VIEW core.view_sip_profiles AS
 SELECT
     sp.id AS profile_id,
     sp.name AS profile_name,
@@ -1386,46 +1386,34 @@ SELECT
     sp.sip_port,
     sp.transport,
     sp.tls_enabled,
-    -- Agregar settings en formato JSON para fácil manejo desde Lua
+
+    -- settings como array simple: "nombre=valor"
     (
-        SELECT json_agg(json_build_object(
-            'name', sps.name,
-            'value', sps.value,
-            'type', sps.type
-        ))
+        SELECT array_agg(sps.name || '=' || sps.value)
         FROM core.sip_profile_settings sps
         WHERE sps.sip_profile_id = sp.id AND sps.enabled
     ) AS settings,
-    -- Agregar aliases como array de texto
+
+    -- aliases como array simple de texto
     (
         SELECT array_agg(spa.alias)
         FROM core.sip_profile_aliases spa
         WHERE spa.sip_profile_id = sp.id
     ) AS aliases,
-    -- Agregar gateways asociados en formato JSON
+
+    -- gateways como texto plano delimitado por "|", valores internos por ","
     (
-        SELECT json_agg(json_build_object(
-            'gateway_id', gw.id,
-            'gateway_name', gw.name,
-            'username', gw.username,
-            'password', gw.password,
-            'realm', gw.realm,
-            'proxy', gw.proxy,
-            'register', gw.register,
-            'register_transport', gw.register_transport,
-            'expire_seconds', gw.expire_seconds,
-            'retry_seconds', gw.retry_seconds,
-            'from_user', gw.from_user,
-            'from_domain', gw.from_domain,
-            'contact_params', gw.contact_params,
-            'context', gw.context,
-            'enabled', gw.enabled,
-            'settings', (
-                SELECT json_agg(json_build_object(
-                    'name', gs.name,
-                    'value', gs.value,
-                    'category', gs.category,
-                    'setting_type',_
+        SELECT string_agg(
+            gw.name || ',' || gw.username || ',' || gw.password || ',' || gw.realm || ',' ||
+            gw.proxy || ',' || gw.register || ',' || gw.register_transport || ',' || gw.expire_seconds || ',' ||
+            gw.retry_seconds || ',' || gw.from_user || ',' || gw.from_domain || ',' || gw.contact_params || ',' ||
+            gw.context || ',' || gw.enabled,
+        '|')
+        FROM core.gateways gw
+        WHERE gw.tenant_id = sp.tenant_id AND gw.enabled
+    ) AS gateways
+
+FROM core.sip_profiles sp;
 
 -- ================================================
 -- View: view_gateways
