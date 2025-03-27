@@ -1361,6 +1361,20 @@ SELECT
     u.username,
     u.password,
     u.enabled,
+    'password' AS setting_name,
+    u.password AS setting_value,
+    'param' AS setting_type
+FROM core.sip_users u
+WHERE u.enabled = TRUE
+
+UNION ALL
+
+SELECT
+    u.id AS sip_user_id,
+    u.tenant_id,
+    u.username,
+    u.password,
+    u.enabled,
     s.name AS setting_name,
     s.value AS setting_value,
     s.type AS setting_type
