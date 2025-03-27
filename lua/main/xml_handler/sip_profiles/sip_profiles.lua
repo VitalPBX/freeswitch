@@ -18,14 +18,14 @@ end
 local api = freeswitch.API()
 local global_vars = {}
 
-do
-    local vars = api:execute("global_getvar", "") or ""
-    for line in vars:gmatch("[^\n]+") do
-        local name, value = line:match("^([^=]+)=(.+)$")
-        if name and value then global_vars[name] = value end
-    end
+-- Load FreeSWITCH global variables
+local vars = api:execute("global_getvar", "") or ""
+for line in vars:gmatch("[^\n]+") do
+    local name, value = line:match("^([^=]+)=(.+)$")
+    if name and value then global_vars[name] = value end
 end
 
+-- Replace $${var} and ${var} syntax with FreeSWITCH global variables
 local function replace_vars(str)
     if not str then return "" end
     str = str:gsub("%$%${([^}]+)}", function(var) return global_vars[var] or "" end)
@@ -60,9 +60,9 @@ dbh:query([[SELECT * FROM view_gateways]], function(row)
     table.insert(gateways_by_tenant[t_id][gw_name].settings, {name=row.setting_name, value=row.setting_value})
 end)
 
--- Fetch SIP profiles and settings
+-- Fetch only SIP profiles with category 'sofia'
 local profiles = {}
-dbh:query([[SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_order]], function(row)
+dbh:query([[SELECT * FROM view_sip_profiles WHERE category = 'sofia' ORDER BY sip_profile_id, setting_order]], function(row)
     local pid = row.sip_profile_id
     profiles[pid] = profiles[pid] or {
         name = row.profile_name,
