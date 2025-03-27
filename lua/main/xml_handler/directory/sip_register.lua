@@ -18,7 +18,7 @@ return function(params)
   end
 
   -- Establish ODBC connection
-  dbh = freeswitch.Dbh("odbc://ring2all")
+  local dbh = freeswitch.Dbh("odbc://ring2all")
   if not dbh:connected() then
     log("ERR", "Failed to connect to database")
     return
@@ -87,62 +87,46 @@ return function(params)
   table.insert(xml, '    <domain name="' .. domain .. '">')
   table.insert(xml, '      <users>')
 
-  -- Check if user exists
-  local user_exists_sql = "SELECT COUNT(*) AS count FROM view_sip_users WHERE tenant_id = '" .. tenant_id .. "' AND username = '" .. username .. "'"
-  local user_exists = false
-  dbh:query(user_exists_sql, function(row)
-    user_exists = tonumber(row.count or 0) > 0
+  -- Query all settings for this user
+  local user_sql = [[
+    SELECT * FROM view_sip_users
+    WHERE tenant_id = ']] .. tenant_id .. [[' AND username = ']] .. username .. [['
+    ORDER BY username
+  ]]
+
+  log("debug", "Executing user query: " .. user_sql)
+
+  local user_data = {}
+  local has_user_data = false
+
+  dbh:query(user_sql, function(row)
+    has_user_data = true
+    table.insert(user_data, row)
   end)
 
-  if not user_exists then
-    log("warning", "No SIP users found for tenant_id: " .. tenant_id .. " and username: " .. username)
-  end
+  if not has_user_data then
+    log("warning", "No SIP user data found for tenant_id: " .. tenant_id .. " and username: " .. username)
+  else
+    table.insert(xml, '        <user id="' .. username .. '">')
+    table.insert(xml, '          <params>')
 
-  -- If exists, load full data
-  if user_exists then
-    local user_sql = [[
-      SELECT * FROM view_sip_users
-      WHERE tenant_id = ']] .. tenant_id .. [[' AND username = ']] .. username .. [['
-      ORDER BY username
-    ]]
-
-    log("debug", "Executing user query: " .. user_sql)
-
-    local current_user = nil
-    local last_username = nil
-
-    dbh:query(user_sql, function(row)
-      local row_username = row.username
-
-      if row_username ~= last_username then
-        if current_user then
-          table.insert(current_user, '          </variables>')
-          table.insert(current_user, '        </user>')
-          for _, line in ipairs(current_user) do table.insert(xml, line) end
-        end
-
-        current_user = {}
-        table.insert(current_user, '        <user id="' .. row_username .. '">')
-        table.insert(current_user, '          <params>')
-        table.insert(current_user, '            <param name="password" value="' .. row.password .. '"/>')
-        table.insert(current_user, '          </params>')
-        table.insert(current_user, '          <variables>')
-        last_username = row_username
-      end
-
+    for _, row in ipairs(user_data) do
       if row.setting_type == 'param' then
-        table.insert(current_user, '            <param name="' .. row.setting_name .. '" value="' .. replace_vars(row.setting_value) .. '"/>')
-      elseif row.setting_type == 'variable' then
-        table.insert(current_user, '            <variable name="' .. row.setting_name .. '" value="' .. replace_vars(row.setting_value) .. '"/>')
+        table.insert(xml, '            <param name="' .. row.setting_name .. '" value="' .. replace_vars(row.setting_value) .. '"/>')
       end
-    end)
-
-    -- Final user close
-    if current_user then
-      table.insert(current_user, '          </variables>')
-      table.insert(current_user, '        </user>')
-      for _, line in ipairs(current_user) do table.insert(xml, line) end
     end
+
+    table.insert(xml, '          </params>')
+    table.insert(xml, '          <variables>')
+
+    for _, row in ipairs(user_data) do
+      if row.setting_type == 'variable' then
+        table.insert(xml, '            <variable name="' .. row.setting_name .. '" value="' .. replace_vars(row.setting_value) .. '"/>')
+      end
+    end
+
+    table.insert(xml, '          </variables>')
+    table.insert(xml, '        </user>')
   end
 
   -- Close XML
