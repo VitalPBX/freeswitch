@@ -51,6 +51,15 @@ for file_name in xml_files:
                 print(f"⚠️  Profile without name in {file_name}, skipping...")
                 continue
 
+            # Get description from the profile attribute or preceding comment
+            description = profile.get("description")
+
+            # Fallback: Use previous sibling comment as description if no description attribute is set
+            if not description:
+                prev = profile.getprevious() if hasattr(profile, 'getprevious') else None
+                if prev is not None and isinstance(prev, ET.Comment):
+                    description = prev.text.strip()
+
             # Insert the SIP profile into the database
             cursor.execute("""
                 INSERT INTO core.sip_profiles (
@@ -58,7 +67,7 @@ for file_name in xml_files:
                     insert_date
                 ) VALUES (?, ?, ?, ?, ?, ?)
             """, (
-                profile_id, profile_name, tenant_uuid, None, True,
+                profile_id, profile_name, tenant_uuid, description, True,
                 datetime.utcnow()
             ))
             print(f"✅ SIP Profile '{profile_name}' migrated successfully.")
@@ -71,6 +80,7 @@ for file_name in xml_files:
                     setting_id = str(uuid.uuid4())
                     name = param.get("name")
                     value = param.get("value")
+                    param_description = param.get("description")  # Attempt to read description from param
 
                     cursor.execute("""
                         INSERT INTO core.sip_profile_settings (
@@ -79,7 +89,7 @@ for file_name in xml_files:
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         setting_id, profile_id, name, 'default', 'default',
-                        value, setting_order, None, True, datetime.utcnow()
+                        value, setting_order, param_description, True, datetime.utcnow()
                     ))
                     print(f"   ➕ Setting '{name}' = '{value}' added.")
                     setting_order += 1
