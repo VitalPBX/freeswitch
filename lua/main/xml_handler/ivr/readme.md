@@ -118,3 +118,7 @@ ivr(demo_ivr) → menu name="demo_ivr"
 - index.lua — Main section router
 - settings.lua — Domain/tenant resolution logic
 
+## 📬 Contact
+For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.<br>
+Rodrigo Cuadra<br>
+Project: Ring2All
