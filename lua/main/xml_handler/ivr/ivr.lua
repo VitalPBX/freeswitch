@@ -1,34 +1,38 @@
 --[[
   ivr.lua
-  Multi-tenant IVR XML handler for FreeSWITCH using view_ivr_menu_options
+  Dynamic IVR XML Generator for FreeSWITCH (Ring2All Project)
+
+  This module builds a dynamic IVR configuration XML based on tenant-specific data
+  stored in a PostgreSQL database accessed via ODBC.
+
   Author: Rodrigo Cuadra
   Project: Ring2All
 --]]
 
-return function()
+return function(domain)
+  -- Load global settings and helpers
   local settings = require("resources.settings.settings")
 
-  -- Logging helper
+  -- Logging utility, respects the global debug flag
   local function log(level, message)
     if level == "debug" and not settings.debug then return end
     freeswitch.consoleLog(level, "[IVR] " .. message .. "\n")
   end
 
-  -- Connect to the database
+  -- Validate input
+  if not domain then
+    log("ERR", "Parameter 'domain' is nil")
+    return
+  end
+
+  -- Connect to the PostgreSQL database via ODBC
   local dbh = freeswitch.Dbh("odbc://ring2all")
   if not dbh:connected() then
     log("ERR", "Failed to connect to database")
     return
   end
 
-  -- Extract domain from environment
-  local domain = freeswitch.getGlobalVariable("domain") or "default"
-  if domain == "" then
-    log("ERR", "Missing domain from request")
-    return
-  end
-
-  -- Resolve tenant_id from domain
+  -- Look up tenant_id for the provided domain
   local tenant_id
   local sql = "SELECT id FROM core.tenants WHERE domain_name = '" .. domain .. "'"
   dbh:query(sql, function(row)
@@ -36,11 +40,11 @@ return function()
   end)
 
   if not tenant_id then
-    log("ERR", "No tenant found for domain: " .. domain)
+    log("ERR", "Tenant not found for domain " .. domain)
     return
   end
 
-  -- Build the query to get IVR menu structure
+  -- SQL query to fetch all IVR menu options for this tenant
   local ivr_sql = [[
     SELECT * FROM view_ivr_menu_options
     WHERE tenant_id = ']] .. tenant_id .. [['
@@ -48,37 +52,42 @@ return function()
   ]]
   log("debug", "IVR SQL: " .. ivr_sql)
 
-  -- Prepare XML
+  -- Start constructing the IVR XML response
   local xml = {}
   table.insert(xml, '<?xml version="1.0" encoding="UTF-8"?>')
   table.insert(xml, '<document type="freeswitch/xml">')
   table.insert(xml, '  <section name="configuration">')
-  table.insert(xml, '    <menus>')
+  table.insert(xml, '    <configuration name="ivr.conf" description="IVR menus">')
+  table.insert(xml, '      <menus>')
 
   local current_menu = nil
   local menu_open = false
 
+  -- Loop through all IVR rows and build <menu> and <entry> elements
   dbh:query(ivr_sql, function(row)
+    -- New menu block
     if row.ivr_name ~= current_menu then
       if menu_open then
-        table.insert(xml, "      </menu>")
+        table.insert(xml, "        </menu>")
       end
 
-      table.insert(xml, '      <menu name="' .. row.ivr_name .. '"')
-      table.insert(xml, '            greet-long="' .. (row.greet_long or '') .. '"')
-      table.insert(xml, '            greet-short="' .. (row.greet_short or '') .. '"')
-      table.insert(xml, '            invalid-sound="' .. (row.invalid_sound or '') .. '"')
-      table.insert(xml, '            exit-sound="' .. (row.exit_sound or '') .. '"')
-      table.insert(xml, '            timeout="' .. (row.timeout or '5') .. '"')
-      table.insert(xml, '            max-failures="' .. (row.max_failures or '3') .. '"')
-      table.insert(xml, '            max-timeouts="' .. (row.max_timeouts or '3') .. '"')
-      table.insert(xml, '            direct-dial="' .. tostring(row.direct_dial == 't') .. '">')
+      -- Open new <menu> block
+      table.insert(xml, '        <menu name="' .. row.ivr_name .. '"')
+      table.insert(xml, '              greet-long="' .. (row.greet_long or '') .. '"')
+      table.insert(xml, '              greet-short="' .. (row.greet_short or '') .. '"')
+      table.insert(xml, '              invalid-sound="' .. (row.invalid_sound or '') .. '"')
+      table.insert(xml, '              exit-sound="' .. (row.exit_sound or '') .. '"')
+      table.insert(xml, '              timeout="' .. (row.timeout or '5000') .. '"')
+      table.insert(xml, '              max-failures="' .. (row.max_failures or '3') .. '"')
+      table.insert(xml, '              max-timeouts="' .. (row.max_timeouts or '3') .. '"')
+      table.insert(xml, '              direct-dial="' .. tostring(row.direct_dial == 't') .. '">')
 
       current_menu = row.ivr_name
       menu_open = true
     end
 
-    local entry = '        <entry action="' .. row.action .. '" digits="' .. row.digits .. '"'
+    -- Build an <entry> inside the current menu
+    local entry = '          <entry action="' .. row.action .. '" digits="' .. row.digits .. '"'
     if row.destination and row.destination ~= "" then
       entry = entry .. ' param="' .. row.destination .. '"'
     end
@@ -92,15 +101,21 @@ return function()
     table.insert(xml, entry)
   end)
 
+  -- Close the last open menu
   if menu_open then
-    table.insert(xml, "      </menu>")
+    table.insert(xml, "        </menu>")
   end
 
-  table.insert(xml, '    </menus>')
+  -- Finish XML structure
+  table.insert(xml, '      </menus>')
+  table.insert(xml, '    </configuration>')
   table.insert(xml, '  </section>')
   table.insert(xml, '</document>')
 
+  -- Generate final XML string
   local XML_STRING = table.concat(xml, "\n")
   log("info", "Generated IVR XML for domain " .. domain .. ":\n" .. XML_STRING)
+
+  -- Return the XML to FreeSWITCH
   _G.XML_STRING = XML_STRING
 end
