@@ -118,7 +118,6 @@ return function(params)
         '<document type="freeswitch/xml">',
         '        <section name="directory">',
         '                <domain name="' .. domain .. '">',
-        '                        <params/>',
         '                        <groups>',
         '                                <group name="default">',
         '                                        <users>',
