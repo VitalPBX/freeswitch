@@ -406,6 +406,7 @@ CREATE TABLE core.dialplan_extensions (
     context_id UUID NOT NULL REFERENCES core.dialplan_contexts(id) ON DELETE CASCADE, -- Associated context
     name TEXT NOT NULL,                                                    -- Extension name (e.g., '1000', 'catch_all')
     priority INTEGER DEFAULT 100,                                          -- Execution priority within the context
+    continue TEXT,                                                         -- If set to 'true', processing continues to the next extension even if this one matches
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Whether the extension is active
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                        -- Creation timestamp
@@ -428,7 +429,6 @@ CREATE TABLE core.dialplan_conditions (
     extension_id UUID NOT NULL REFERENCES core.dialplan_extensions(id) ON DELETE CASCADE,  -- Parent extension to which this condition belongs
     field TEXT NOT NULL,                                                                   -- Field to evaluate (e.g., destination_number)
     expression TEXT NOT NULL,                                                              -- Regex or expression to match against the field
-    continue TEXT,                                                                         -- If set to 'true', processing continues to the next extension even if this one matches
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                                 -- Whether the condition is active and should be processed
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                                        -- Creation timestamp
     insert_user UUID,                                                                      -- UUID of user who created the record (optional)
