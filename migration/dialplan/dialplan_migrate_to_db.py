@@ -11,6 +11,7 @@ Features:
 - Automatically sets `continue=true` when not specified
 - Handles both actions and anti-actions
 - Logs output in human-readable format
+- Adjusts overly generic patterns to avoid conflicts
 """
 
 import os
@@ -77,28 +78,38 @@ def process_dialplan_file(file_path):
                 condition_id = str(uuid.uuid4())
                 field = cond_elem.get("field") or "true"
                 expression = cond_elem.get("expression") or ".*"
+
+                # Adjust overly generic expressions
+                if field == "destination_number" and expression in ["^(.*)$", ".*"]:
+                    print(f"  ⚠️ Adjusted generic pattern in extension '{ext_name}'")
+                    expression = "^(?!5000$|9196$).*"  # Example: exclude known valid extensions
+                    ext_continue = "true"
+                    cursor.execute("""
+                        UPDATE core.dialplan_extensions SET continue = ? WHERE id = ?
+                    """, (ext_continue, extension_id))
+
                 cursor.execute("""
                     INSERT INTO core.dialplan_conditions (id, extension_id, field, expression, enabled, insert_date)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (condition_id, extension_id, field, expression, True, now()))
 
-                for action_elem in cond_elem.findall("action"):
+                for action_index, action_elem in enumerate(cond_elem.findall("action")):
                     action_id = str(uuid.uuid4())
                     app = action_elem.get("application")
                     data = action_elem.get("data")
                     cursor.execute("""
                         INSERT INTO core.dialplan_actions (id, condition_id, application, data, type, sequence, enabled, insert_date)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (action_id, condition_id, app, data, 'action', 0, True, now()))
+                    """, (action_id, condition_id, app, data, 'action', action_index, True, now()))
 
-                for anti_elem in cond_elem.findall("anti-action"):
+                for anti_index, anti_elem in enumerate(cond_elem.findall("anti-action")):
                     anti_id = str(uuid.uuid4())
                     app = anti_elem.get("application")
                     data = anti_elem.get("data")
                     cursor.execute("""
                         INSERT INTO core.dialplan_actions (id, condition_id, application, data, type, sequence, enabled, insert_date)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (anti_id, condition_id, app, data, 'anti-action', 0, True, now()))
+                    """, (anti_id, condition_id, app, data, 'anti-action', anti_index, True, now()))
 
         conn.commit()
     except Exception as e:
