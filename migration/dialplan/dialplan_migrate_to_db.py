@@ -6,62 +6,59 @@ import xml.etree.ElementTree as ET
 import pyodbc
 from datetime import datetime
 
-# Configuration
+# Configuración
 ODBC_DSN = "ring2all"
 DIALPLAN_DIR = "/etc/freeswitch/dialplan"
 IVR_DIR = "/etc/freeswitch/ivr_menus"
 
-# Connect to database
+# Conexión a la base de datos
 conn = pyodbc.connect(f"DSN={ODBC_DSN}")
 cursor = conn.cursor()
 
-# Retrieve tenant UUID
+# Obtener ID del tenant
 cursor.execute("SELECT id FROM core.tenants WHERE name = 'Default'")
 tenant_row = cursor.fetchone()
 if not tenant_row:
-    raise Exception("❌ Tenant 'Default' does not exist")
+    raise Exception("❌ Tenant 'Default' no existe")
 tenant_id = tenant_row[0]
 
-# Helper to generate timestamps
+# Función para timestamp
 def now():
     return datetime.utcnow()
 
-# Process dialplan XML files
+# Procesar archivo de dialplan
 def process_dialplan_file(file_path):
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-
         context_name = os.path.splitext(os.path.basename(file_path))[0]
         context_id = str(uuid.uuid4())
 
-        # Insert context
         cursor.execute("""
             INSERT INTO core.dialplan_contexts (id, tenant_id, name, enabled, insert_date)
             VALUES (?, ?, ?, ?, ?)
         """, (context_id, tenant_id, context_name, True, now()))
-        print(f"✅ Context '{context_name}' created")
+        print(f"✅ Contexto '{context_name}' creado")
 
-        for ext_index, ext_elem in enumerate(root.findall(".//extension")):
+        for ext_elem in root.findall(".//extension"):
             extension_id = str(uuid.uuid4())
             ext_name = ext_elem.get("name") or "unnamed"
-            priority = ext_index * 10  # Prioridad incremental con salto de 10
+            ext_continue = ext_elem.get("continue") or "false"
+
             cursor.execute("""
-                INSERT INTO core.dialplan_extensions (id, context_id, name, priority, enabled, insert_date)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (extension_id, context_id, ext_name, priority, True, now()))
-            print(f"  ✅ Extension '{ext_name}' added with priority {priority}")
+                INSERT INTO core.dialplan_extensions (id, context_id, name, priority, "continue", enabled, insert_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (extension_id, context_id, ext_name, 100, ext_continue, True, now()))
+            print(f"  ✅ Extensión '{ext_name}' agregada")
 
             for cond_elem in ext_elem.findall("condition"):
-                ext_continue = ext_elem.get("continue")
-
                 condition_id = str(uuid.uuid4())
                 field = cond_elem.get("field") or "true"
                 expression = cond_elem.get("expression") or ".*"
                 cursor.execute("""
-                    INSERT INTO core.dialplan_conditions (id, extension_id, field, expression, enabled, continue, insert_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (condition_id, extension_id, field, expression, True, ext_continue, now()))
+                    INSERT INTO core.dialplan_conditions (id, extension_id, field, expression, enabled, insert_date)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (condition_id, extension_id, field, expression, True, now()))
 
                 for action_elem in cond_elem.findall("action"):
                     action_id = str(uuid.uuid4())
@@ -83,18 +80,16 @@ def process_dialplan_file(file_path):
 
         conn.commit()
     except Exception as e:
-        print(f"❌ Error processing dialplan {file_path}: {e}")
+        print(f"❌ Error procesando dialplan {file_path}: {e}")
 
-# Process IVR XML files
+# Procesar archivos IVR
 def process_ivr_file(file_path):
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-
         for menu in root.findall(".//menu"):
             ivr_name = menu.get("name") or os.path.splitext(os.path.basename(file_path))[0]
             ivr_id = str(uuid.uuid4())
-
             cursor.execute("""
                 INSERT INTO core.ivr (
                     id, tenant_id, name, greet_long, greet_short,
@@ -109,7 +104,7 @@ def process_ivr_file(file_path):
                 int(menu.get("max-timeouts") or 3), menu.get("direct-dial") == "true",
                 True, now()
             ))
-            print(f"✅ IVR '{ivr_name}' created")
+            print(f"✅ IVR '{ivr_name}' creado")
 
             for entry in menu.findall("entry"):
                 digits = entry.get("digits")
@@ -118,7 +113,7 @@ def process_ivr_file(file_path):
                 condition = entry.get("condition")
 
                 if not digits or not action:
-                    print(f"⚠️ Skipping incomplete IVR entry in {file_path}")
+                    print(f"⚠️ Entrada incompleta en IVR '{ivr_name}'")
                     continue
 
                 setting_id = str(uuid.uuid4())
@@ -135,9 +130,9 @@ def process_ivr_file(file_path):
 
         conn.commit()
     except Exception as e:
-        print(f"❌ Error processing IVR {file_path}: {e}")
+        print(f"❌ Error procesando IVR {file_path}: {e}")
 
-# Run migrations
+# Ejecutar migraciones
 for dirpath, _, filenames in os.walk(DIALPLAN_DIR):
     for filename in filenames:
         if filename.endswith(".xml"):
@@ -150,4 +145,4 @@ for dirpath, _, filenames in os.walk(IVR_DIR):
 
 cursor.close()
 conn.close()
-print("\n✅ Dialplan and IVR migration completed.")
+print("\n✅ Migración completa de Dialplan e IVR.")
