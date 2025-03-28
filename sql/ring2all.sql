@@ -301,7 +301,7 @@ CREATE TABLE core.sip_users (
     tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
     username TEXT NOT NULL,                                              -- SIP username (e.g., extension number)
     password TEXT NOT NULL,                                              -- SIP password (should be securely hashed)
-    sip_profile_id, UUID,                                                -- Unique identifier for each SIP profile
+    sip_profile_id UUID,                                                -- Unique identifier for each SIP profile
     voicemail_enabled BOOLEAN DEFAULT FALSE,                             -- Whether voicemail is enabled for this user
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the SIP user is enabled
 
