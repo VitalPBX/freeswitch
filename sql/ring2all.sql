@@ -451,6 +451,7 @@ CREATE TABLE core.dialplan_actions (
     data TEXT,                                                             -- Application arguments
     type TEXT NOT NULL DEFAULT 'action',                                   -- Type: 'action' or 'anti-action'
     sequence INTEGER DEFAULT 0,                                            -- Order of execution within the condition
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Whether the action is active and should be processed
 
     insert_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),                        -- Creation timestamp
     insert_user UUID,                                                      -- UUID of user who created the record
