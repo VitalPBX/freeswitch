@@ -42,14 +42,15 @@ def process_dialplan_file(file_path):
         """, (context_id, tenant_id, context_name, True, now()))
         print(f"✅ Context '{context_name}' created")
 
-        for ext_elem in root.findall(".//extension"):
+        for ext_index, ext_elem in enumerate(root.findall(".//extension")):
             extension_id = str(uuid.uuid4())
             ext_name = ext_elem.get("name") or "unnamed"
+            priority = ext_index * 10  # Prioridad incremental con salto de 10
             cursor.execute("""
                 INSERT INTO core.dialplan_extensions (id, context_id, name, priority, enabled, insert_date)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (extension_id, context_id, ext_name, 100, True, now()))
-            print(f"  ✅ Extension '{ext_name}' added")
+            """, (extension_id, context_id, ext_name, priority, True, now()))
+            print(f"  ✅ Extension '{ext_name}' added with priority {priority}")
 
             for cond_elem in ext_elem.findall("condition"):
                 ext_continue = ext_elem.get("continue")
