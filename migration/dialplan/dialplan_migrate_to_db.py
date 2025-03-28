@@ -65,7 +65,7 @@ def process_dialplan_file(file_path):
         for ext_index, ext_elem in enumerate(root.findall(".//extension")):
             extension_id = str(uuid.uuid4())
             ext_name = ext_elem.get("name") or f"unnamed_{ext_index}"
-            ext_continue = ext_elem.get("continue") or "true"
+            ext_continue = "true" if ext_elem.get("continue") == "true" else "false"
 
             cursor.execute("""
                 INSERT INTO core.dialplan_extensions (id, context_id, name, priority, continue, enabled, insert_date)
