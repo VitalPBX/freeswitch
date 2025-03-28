@@ -516,6 +516,12 @@ touch /etc/freeswitch/dialplan/empty.xml
 echo -e "************************************************************"
 echo -e "*     Update Priority in Dialplna for acknowledge_call.    *"
 echo -e "************************************************************"
+sudo -u postgres psql ring2all -c "DELETE FROM core.dialplan_conditions
+WHERE field = '${sip_refer_to}'
+  AND expression = '.*'
+  AND extension_id IN (
+    SELECT id FROM core.dialplan_extensions WHERE name ILIKE '%park%'
+  );"
 # sudo -u postgres psql ring2all -c "UPDATE core.dialplan_extensions SET priority = 9999 WHERE name = 'acknowledge_call';"
 # UPDATE core.dialplan_extensions SET priority = 9998 WHERE name = 'enum';
 # UPDATE core.dialplan_extensions SET priority = 9999 WHERE name = 'hold_music';
