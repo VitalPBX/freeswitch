@@ -71,8 +71,19 @@ elseif section == "configuration" then
     end
 
     local ivr = require("main.xml_handlers.ivr.ivr")
-    ivr(domain)  -- This generates XML_STRING internally
+    ivr(domain)  -- This generates XML_STRING internally for ivr
 
+  -- Handle the "ivr_menus" section (used when the IVR is actually executed)
+  elseif section == "ivr_menus" then
+    local domain = settings.get_domain()
+    if not domain or domain == "" then
+      log("ERR", "Domain not found in XML_REQUEST for IVR menu")
+      return
+    end
+
+    local ivr = require("main.xml_handlers.ivr.ivr")
+    ivr(domain) -- This generates XML_STRING internally for ivr_menus
+    
   -- Fallback for unhandled configuration files
   else
     log("WARNING", "No handler implemented for config: " .. config_name)
