@@ -77,7 +77,7 @@ CREATE TABLE core.sip_profiles (
     tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Associated tenant (for multi-tenant scenarios)
     category TEXT DEFAULT 'sofia',                                         -- Main category for grouping profiles (e.g., sofia, directory, etc)
     subcategory TEXT DEFAULT 'default',                                    -- Subcategory for additional profile grouping
-    setting_type TEXT DEFAULT 'param'                                      -- Setting Type (e.g., param or variable)
+    setting_type TEXT DEFAULT 'param',                                     -- Setting Type (e.g., param or variable)
     description TEXT,                                                      -- Optional brief description of the SIP profile
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                                 -- Indicates if the profile is active
     setting_order INTEGER DEFAULT 0,                                       -- Display or application order for profiles
@@ -301,7 +301,7 @@ CREATE TABLE core.sip_users (
     tenant_id UUID NOT NULL REFERENCES core.tenants(id) ON DELETE CASCADE, -- Tenant association for multi-tenant environments
     username TEXT NOT NULL,                                              -- SIP username (e.g., extension number)
     password TEXT NOT NULL,                                              -- SIP password (should be securely hashed)
-    sip_profile_id, UUID                                                 -- Unique identifier for each SIP profile
+    sip_profile_id, UUID,                                                -- Unique identifier for each SIP profile
     voicemail_enabled BOOLEAN DEFAULT FALSE,                             -- Whether voicemail is enabled for this user
     enabled BOOLEAN NOT NULL DEFAULT TRUE,                               -- Indicates if the SIP user is enabled
 
