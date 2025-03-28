@@ -106,7 +106,7 @@ return function()
       end
 
       local continue_attr = ""
-      if row.continue and row.continue:lower() == "true" then
+      if row.continue and row.continue:lower():match("^%s*true%s*$") then
         continue_attr = ' continue="true"'
       end
       table.insert(xml, '      <extension name="' .. row.extension_name .. '"' .. continue_attr .. '>')
