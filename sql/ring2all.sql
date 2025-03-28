@@ -1364,21 +1364,20 @@ CREATE INDEX idx_global_vars_tenant_enabled ON core.global_vars (tenant_id, enab
 
 CREATE OR REPLACE VIEW view_sip_users AS
 SELECT
-    su.id AS sip_user_id,
-    su.tenant_id,
     su.username,
-    su.password,
     su.enabled,
-    su.sip_profile_id AS user_profile_id,  -- Incluimos esta columna
+    su.sip_profile_id,
+    su.id AS sip_user_id,
     sus.name AS setting_name,
+    sus.type AS type,
     sus.value AS setting_value,
-    'param' AS setting_type  -- o usa 'variable' si sabes que lo son
+    sus.enabled AS setting_enabled,
+    su.tenant_id
 FROM
     core.sip_users su
-LEFT JOIN
-    core.sip_user_settings sus ON su.id = sus.sip_user_id
+LEFT JOIN core.sip_user_settings sus ON sus.sip_user_id = su.id
 WHERE
-    su.enabled = true;
+    sus.enabled = true;
 
 -- ================================================
 -- View: view_sip_profiles
