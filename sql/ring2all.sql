@@ -1456,9 +1456,8 @@ SELECT
 FROM core.dialplan_contexts ctx
 JOIN core.dialplan_extensions ext ON ext.context_id = ctx.id AND ext.enabled = TRUE
 JOIN core.dialplan_conditions cond ON cond.extension_id = ext.id AND cond.enabled = TRUE
-JOIN core.dialplan_actions act ON act.condition_id = cond.id AND act.enabled = TRUE
+JOIN core.dialplan_actions act ON act.condition_id = cond.id
 WHERE ctx.enabled = TRUE;
-
 
 -- ===================================================
 -- View: view_ivr_menu_options
