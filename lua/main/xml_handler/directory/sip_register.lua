@@ -38,21 +38,17 @@ return function(params)
         return
     end
 
-    -- Fetch user settings and associated profile ID
+    -- Fetch user info
     local sip_profile_id
     local user_enabled = false
     local user_params, user_vars = {}, {}
     local found_user = false
 
-    dbh:query(string.format([[SELECT * FROM view_sip_users WHERE tenant_id = '%s' AND username = '%s']], tenant_id, username), function(row)
+    local user_row
+    dbh:query(string.format([[SELECT DISTINCT ON (username) username, sip_profile_id, enabled
+        FROM view_sip_users WHERE tenant_id = '%s' AND username = '%s']], tenant_id, username), function(row)
+        user_row = row
         found_user = true
-        sip_profile_id = row.user_profile_id or row.sip_profile_id
-        user_enabled = tostring(row.enabled):lower() == "t" or tostring(row.enabled):lower() == "true" or tostring(row.enabled) == "1"
-        if row.setting_type == "param" then
-            user_params[row.setting_name] = row.setting_value
-        elseif row.setting_type == "variable" then
-            user_vars[row.setting_name] = row.setting_value
-        end
     end)
 
     if not found_user then
@@ -60,12 +56,26 @@ return function(params)
         return
     end
 
+    sip_profile_id = user_row.sip_profile_id
+    user_enabled = tostring(user_row.enabled):lower() == "t" or tostring(user_row.enabled):lower() == "true" or tostring(user_row.enabled) == "1"
+
     if not user_enabled then
         log("error", "User is not enabled: " .. username)
         return
     end
 
-    -- Verify the associated profile is of type 'sip_user' before loading settings
+    -- Load user settings
+    dbh:query(string.format([[SELECT name, type, value FROM core.sip_user_settings
+        WHERE sip_user_id = (SELECT id FROM core.sip_users WHERE username = '%s' AND tenant_id = '%s')
+        AND enabled = true]], username, tenant_id), function(row)
+        if row.type == "param" then
+            user_params[row.name] = row.value
+        elseif row.type == "variable" then
+            user_vars[row.name] = row.value
+        end
+    end)
+
+    -- Load SIP profile inheritance if valid
     if sip_profile_id then
         local valid_profile = false
         dbh:query(string.format([[SELECT id FROM core.sip_profiles WHERE id = '%s' AND category = 'sip_user']], sip_profile_id), function(_)
@@ -73,17 +83,34 @@ return function(params)
         end)
 
         if valid_profile then
-            dbh:query(string.format([[SELECT setting_type, name, value FROM core.sip_profile_settings 
+            log("info", "Herencia activada desde perfil: " .. tostring(sip_profile_id))
+            dbh:query(string.format([[SELECT type, name, value FROM core.sip_profile_settings
                 WHERE sip_profile_id = '%s' AND category = 'sip_user' AND enabled = TRUE ORDER BY setting_order]], sip_profile_id), function(row)
-                if row.setting_type == "param" and not user_params[row.name] then
+                log("debug", string.format("?? Heredando %s: %s = %s", row.type, row.name, row.value))
+                if row.type == "param" and not user_params[row.name] then
                     user_params[row.name] = row.value
-                elseif row.setting_type == "variable" and not user_vars[row.name] then
+                elseif row.type == "variable" and not user_vars[row.name] then
                     user_vars[row.name] = row.value
                 end
             end)
         else
             log("debug", "Associated profile is not of category 'sip_user', skipping inheritance")
         end
+    end
+
+    -- Load global variables
+    local global_vars = {}
+    local vars = api:execute("global_getvar", "") or ""
+    for line in vars:gmatch("[^\n]+") do
+        local name, value = line:match("^([^=]+)=(.+)$")
+        if name and value then global_vars[name] = value end
+    end
+
+    local function replace_vars(str)
+        if not str then return "" end
+        str = str:gsub("%$%${([^}]+)}", function(var) return global_vars[var] or "" end)
+        str = str:gsub("%${([^}]+)}", function(var) return global_vars[var] or "" end)
+        return str
     end
 
     -- Start generating XML
@@ -99,14 +126,14 @@ return function(params)
         '                                                        <params>'}
 
     for k, v in pairs(user_params) do
-        table.insert(xml, '                                                                <param name="' .. k .. '" value="' .. v .. '"/>')
+        table.insert(xml, '                                                                <param name="' .. k .. '" value="' .. replace_vars(v) .. '"/>')
     end
 
     table.insert(xml, '                                                        </params>')
     table.insert(xml, '                                                        <variables>')
 
     for k, v in pairs(user_vars) do
-        table.insert(xml, '                                                                <variable name="' .. k .. '" value="' .. v .. '"/>')
+        table.insert(xml, '                                                                <variable name="' .. k .. '" value="' .. replace_vars(v) .. '"/>')
     end
 
     table.insert(xml, '                                                        </variables>')
