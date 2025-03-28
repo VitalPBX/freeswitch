@@ -42,20 +42,15 @@ wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/insta
 chmod +x install.sh
 ./install.sh
 ```
-2. **Execute installxml.sh**
-```console
-wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/installxml.sh
-chmod +x installxml.sh
-./installxml.sh
-```
-3. **Execute fs_install.sh**
+
+2. **Execute fs_install.sh**
 ```console
 wget https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/fs_install.sh
 chmod +x fs_install.sh
 ./fs_install.sh
 ```
 
-4.- **Fill in the information or you can leave the default values.**
+3.- **Fill in the information or you can leave the default values.**
 ```console
 Confirmed Configuration:
 FreeSWITCH Database Name.............> $fs_database
