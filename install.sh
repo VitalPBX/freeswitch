@@ -512,9 +512,9 @@ mkdir /etc/freeswitch/dialplan
 chown freeswitch:freeswitch /etc/freeswitch/dialplan
 touch /etc/freeswitch/dialplan/empty.xml
 
-#Update Priority in Dialplna for acknowledge_call
+# During the migration, a park extension with .* is created, which causes the dial plan to always go to it. It must be deleted.
 echo -e "************************************************************"
-echo -e "*     Update Priority in Dialplna for acknowledge_call.    *"
+echo -e "*         Delete extension park with expression .*         *"
 echo -e "************************************************************"
 sudo -u postgres psql ring2all -c "DELETE FROM core.dialplan_conditions
 WHERE field = '${sip_refer_to}'
