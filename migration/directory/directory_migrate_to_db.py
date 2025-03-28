@@ -62,16 +62,19 @@ def process_user_file(xml_file):
             "SELECT id FROM core.sip_users WHERE username = ? AND tenant_id = ?",
             (username, tenant_uuid)
         )
-        if cursor.fetchone():
-            print(f"➖ User {username} already exists. Skipping...")
-            return
+        existing_user = cursor.fetchone()
 
-        user_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO core.sip_users (
-                id, tenant_id, username, password, enabled, insert_date
-            ) VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_id, tenant_uuid, username, password, True, datetime.utcnow()))
+        if existing_user:
+            print(f"➖ User {username} already exists. Updating settings...")
+            user_id = existing_user[0]
+            cursor.execute("DELETE FROM core.sip_user_settings WHERE sip_user_id = ?", (user_id,))
+        else:
+            user_id = str(uuid.uuid4())
+            cursor.execute("""
+                INSERT INTO core.sip_users (
+                    id, tenant_id, username, password, enabled, insert_date
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (user_id, tenant_uuid, username, password, True, datetime.utcnow()))
 
         for name, setting_type, value in settings:
             setting_id = str(uuid.uuid4())
@@ -82,6 +85,7 @@ def process_user_file(xml_file):
             """, (setting_id, user_id, name, setting_type, value, True, datetime.utcnow()))
 
         if voicemail:
+            cursor.execute("DELETE FROM core.voicemail WHERE sip_user_id = ?", (user_id,))
             voicemail_id = str(uuid.uuid4())
             cursor.execute("""
                 INSERT INTO core.voicemail (
