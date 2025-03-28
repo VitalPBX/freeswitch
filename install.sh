@@ -327,7 +327,7 @@ wget -O dialplan.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/
 wget -O sip_profiles.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/sip_profiles/sip_profiles.lua
 wget -O ivr.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/ivr/ivr.lua
 wget -O tenant_vars.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/resources/utils/tenant_vars.lua
-wget -O global_vars.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/global_vars.lua
+wget -O global_vars.lua https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/lua/main/xml_handler/global_vars/global_vars.lua
 wget -O lua.conf.xml https://raw.githubusercontent.com/VitalPBX/freeswitch/refs/heads/main/etc/freeswitch/autoload_configs/lua.conf.xml
 
 # Lua test files
