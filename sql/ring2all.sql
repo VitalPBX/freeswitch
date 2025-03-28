@@ -1432,6 +1432,7 @@ WHERE g.enabled = TRUE;
 --   Includes context, extensions, conditions, and their actions.
 --   Useful for Lua-based runtime dialplan loading in FreeSWITCH.
 -- ===================================================
+
 CREATE OR REPLACE VIEW view_dialplan_expanded AS
 SELECT
     ctx.tenant_id,                        -- Tenant that owns the context
@@ -1440,7 +1441,8 @@ SELECT
     ext.id AS extension_id,               -- Extension ID
     ext.name AS extension_name,           -- Extension name (e.g., '1000')
     ext.priority AS extension_priority,   -- Priority/order of the extension
-    
+    ext."continue" AS continue,           -- Whether to continue to next extension
+
     cond.id AS condition_id,              -- Condition ID
     cond.field AS condition_field,        -- Field to evaluate (e.g., destination_number)
     cond.expression AS condition_expr,    -- Regular expression to match
@@ -1452,13 +1454,11 @@ SELECT
     act.sequence AS action_sequence       -- Execution order within condition
 
 FROM core.dialplan_contexts ctx
-JOIN core.dialplan_extensions ext ON ext.context_id = ctx.id
-JOIN core.dialplan_conditions cond ON cond.extension_id = ext.id
-JOIN core.dialplan_actions act ON act.condition_id = cond.id
+JOIN core.dialplan_extensions ext ON ext.context_id = ctx.id AND ext.enabled = TRUE
+JOIN core.dialplan_conditions cond ON cond.extension_id = ext.id AND cond.enabled = TRUE
+JOIN core.dialplan_actions act ON act.condition_id = cond.id AND act.enabled = TRUE
+WHERE ctx.enabled = TRUE;
 
-WHERE ctx.enabled = TRUE
-  AND ext.enabled = TRUE
-  AND cond.enabled = TRUE;
 
 -- ===================================================
 -- View: view_ivr_menu_options
