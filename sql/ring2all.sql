@@ -103,8 +103,9 @@ CREATE INDEX idx_sip_profiles_update_user ON core.sip_profiles (update_user);  -
 CREATE TABLE core.sip_profile_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),                                -- Unique identifier for each SIP profile setting
     sip_profile_id UUID NOT NULL REFERENCES core.sip_profiles(id) ON DELETE CASCADE, -- Reference to the associated SIP profile (foreign key)
-    category TEXT DEFAULT 'default',                                               -- Primary category for setting grouping (e.g., auth, network, media, security)
+    category TEXT DEFAULT 'sofia',                                               -- Primary category for setting grouping (e.g., auth, network, media, security)
     subcategory TEXT DEFAULT 'default',                                            -- Subcategory for detailed grouping of settings
+    setting_type TEXT  NOT NULL,
     name TEXT NOT NULL,                                                            -- Name of the setting (e.g., rtp-ip, sip-port)
     value TEXT NOT NULL,                                                           -- Assigned value for this specific setting
     setting_order INTEGER DEFAULT 0,                                               -- Determines the order in which settings are applied
