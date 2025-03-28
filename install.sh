@@ -443,8 +443,8 @@ mv sip_profiles.lua /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles
 echo -e "************************************************************"
 echo -e "*      Create Lua Script for management sip_profiles       *"
 echo -e "************************************************************"
-mkdir -p /usr/share/freeswitch/scripts/resources/utils
-mv tenant_vars.lua /usr/share/freeswitch/scripts/resources/utils/tenant_vars.lua
+mkdir -p /usr/share/freeswitch/scripts/tests
+mv tenant_vars_xml_test.lua /usr/share/freeswitch/scripts/tests/tenant_vars_xml_test.lua
 
 # FreeSWITCH, allowing it to freeswitch manage from Database
 echo -e "************************************************************"
