@@ -138,7 +138,7 @@ WHERE
 
 ---
 
-## 🧾 XML Structure & Tag Reference
+## 🧩 XML Structure & Tag Reference
 
 Each SIP user is represented in the XML structure expected by FreeSWITCH during REGISTER requests.
 The generated XML follows the standard FreeSWITCH directory schema:
