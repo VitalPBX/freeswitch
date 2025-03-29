@@ -52,7 +52,11 @@ def process_dialplan_file(file_path):
         tree = ET.parse(file_path)
         root = tree.getroot()
 
+        filename = os.path.basename(file_path)
         context_name = "default"
+        if "public" in filename:
+            context_name = "public"
+
         context_id = str(uuid.uuid4())
 
         cursor.execute("""
