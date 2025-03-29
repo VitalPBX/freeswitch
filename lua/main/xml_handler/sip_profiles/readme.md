@@ -1,131 +1,226 @@
 # 📄 SIP Profiles and Gateways XML Generator
 
-This Lua script dynamically generates FreeSWITCH-compatible XML configuration for `sofia.conf`. It loads SIP Profiles and Gateways from a PostgreSQL database, replaces FreeSWITCH global variables, and outputs fully structured XML.
+**Project**: Ring2All  
+**Author**: Rodrigo Cuadra  
+**Component**: Dynamic Sofia SIP Profile XML Generator  
+**Database**: PostgreSQL (via ODBC)  
+**Target**: FreeSWITCH `<configuration name="sofia.conf">`
 
 ---
 
-## 🧩 Features
+## 📌 Purpose
 
-- ✅ Connects to PostgreSQL via ODBC DSN `ring2all`
-- ✅ Dynamic generation of `<profile>`, `<aliases>`, `<gateways>`, `<domains>`, and `<settings>`
-- ✅ Replaces both `$${var}` and `${var}` syntax using FreeSWITCH's global variables
-- ✅ Efficiently groups gateways per tenant and profile
-- ✅ Fully compliant with FreeSWITCH XML configuration format
-
----
-
-## 📁 Directory Structure
-``` console
-resources/
-└── settings/
-    └── settings.lua
-scripts/
-└── main/
-    └── xml_handlers/
-        └── sip_profiles/
-            └── sip_profiles.lua
-```
----
-
-## 🔌 Required FreeSWITCH Configuration
-
-- PostgreSQL database with views:
-  - `view_sip_profiles`
-  - `view_gateways`
-  - core.sip_profile_aliases
-- ODBC DSN configured as `ring2all`
-- Lua module `resources.settings.settings` with a `debug` flag
-- FreeSWITCH with mod_lua and mod_xml_curl configured
+This module dynamically generates FreeSWITCH SIP profiles and gateways in XML format using PostgreSQL.  
+It is multi-tenant aware and supports inheritance of aliases and gateway configurations.
 
 ---
 
 ## 🧠 How It Works
 
-1. **Load Global Variables**
-   - Executes `global_getvar` to retrieve all FreeSWITCH global vars.
-   - Parses them into a Lua table `global_vars`.
-The script uses:
-``` console
+### 1. Load FreeSWITCH Global Variables
+
+Executes:
+
+```lua
 api:execute("global_getvar", "")
 ```
 
-2. **Replace Variables**
-   - Replaces `$${var}` and `${var}` inside profile and gateway data.
-   - Logs a warning if the variable is not found.
-If a variable is not found, it's replaced with an empty string and logged as a warning.
+All variables are stored in `global_vars`, and the script replaces `${var}` and `$${var}` syntax in profile, alias, and gateway settings.
 
-3. **Fetch Gateways and Profiles**
-   - Queries both views and groups gateways by `tenant_id` and `gateway_name`.
-SQL Queries:
-``` console
-SELECT * FROM view_gateways ORDER BY gateway_id, setting_name;
-SELECT * FROM view_sip_profiles ORDER BY sip_profile_id, setting_name;
-SELECT sip_profile_id, alias FROM core.sip_profile_aliases;
-```
-It then groups gateways per tenant and appends them to the corresponding SIP profile.
-
-4. **Generate XML**
-   - Constructs valid XML using `table.insert()` and finally uses `table.concat()` to join lines.
-   - Stores result in global `XML_STRING`.
-The XML structure follows FreeSWITCH standards, e.g.:
-``` console
-<profile name="external">
-  <aliases>
-    <alias name="192.168.10.21"/>
-  </aliases>
-  <gateways>...</gateways>
-  <domains>
-    <domain name="all" alias="false" parse="false"/>
-  </domains>
-  <settings>...</settings>
-</profile>
-```
 ---
 
-## 🔍 Logging
-- Logging is controlled by:
-``` console
-settings.debug -- boolean from `settings.lua`
+### 2. Fetch Data from PostgreSQL
+
+- **Aliases** from `core.sip_profile_aliases`
+- **Gateways** from `view_gateways`
+- **Profiles** from `view_sip_profiles` (filtered by `category = 'sofia'`)
+
+---
+
+### 3. Generate XML Structure
+
+The script builds a valid `<configuration name="sofia.conf">` XML block using `table.insert()` and `table.concat()`.  
+The result is stored in the global variable `XML_STRING`.
+
+---
+
+## 🧾 XML Tag Reference
+
+### `<profile name="...">`
+
+- **Purpose**: Defines a SIP profile (e.g., internal, external)
+- **Source**: `core.sip_profiles.name`
+- **Settings Source**: `core.sip_profile_settings`
+- **Example**:
+```xml
+<profile name="internal">
+  ...
+</profile>
 ```
-- Supports log levels: info, debug, warning..
+
+---
+
+### `<aliases>`
+
+- **Purpose**: Lists alternate IPs or hostnames for the profile.
+- **Source**: `core.sip_profile_aliases.alias`
+- **Example**:
+```xml
+<aliases>
+  <alias name="192.168.10.21"/>
+</aliases>
+```
+
+---
+
+### `<gateways>`
+
+- **Purpose**: Defines outbound gateways within the profile.
+- **Source**: `view_gateways`
+- **Grouped By**: `tenant_id` and `gateway_name`
+- **Example**:
+```xml
+<gateways>
+  <gateway name="my_gateway">
+    <param name="username" value="test"/>
+    <param name="password" value="1234"/>
+  </gateway>
+</gateways>
+```
+
+---
+
+### `<domains>`
+
+- **Purpose**: Static domain handling for SIP profiles.
+- **Usage**: Defaults to:
+```xml
+<domains>
+  <domain name="all" alias="false" parse="false"/>
+</domains>
+```
+
+---
+
+### `<settings>`
+
+- **Purpose**: Defines parameters like `sip-ip`, `rtp-ip`, `sip-port`.
+- **Source**: `core.sip_profile_settings`
+- **Fields**:
+  - `name`
+  - `value`
+- **Example**:
+```xml
+<settings>
+  <param name="sip-port" value="5060"/>
+  <param name="rtp-ip" value="$${local_ip_v4}"/>
+</settings>
+```
+
+---
+
+## 🗃️ Database Tables
+
+### `core.sip_profiles`
+
+Defines each SIP profile and associates it with a tenant.
+
+- `name`, `tenant_id`, `category`, `enabled`
+- Linked to: `core.sip_profile_settings`, `core.sip_profile_aliases`
+
+---
+
+### `core.sip_profile_settings`
+
+Stores profile-specific parameters.
+
+- `sip_profile_id`, `name`, `value`, `setting_type`
+- `enabled` must be true to apply
+
+---
+
+### `core.sip_profile_aliases`
+
+Defines alternative names/IPs for each profile.
+
+- `sip_profile_id`, `alias`
+
+---
+
+### `view_sip_profiles`
+
+Used by the script to fetch profiles and their settings in order.
+
+```sql
+SELECT
+    p.id AS sip_profile_id,
+    p.tenant_id,
+    p.name AS profile_name,
+    p.category,
+    s.name AS setting_name,
+    s.value AS setting_value,
+    s.setting_order
+FROM core.sip_profiles p
+LEFT JOIN core.sip_profile_settings s
+    ON s.sip_profile_id = p.id
+WHERE p.enabled = TRUE AND s.enabled = TRUE;
+```
+
+---
 
 ## 🧪 Testing
 
-You can run this manually in FreeSWITCH's CLI:
-``` console
+Manual test:
+
+```bash
 freeswitch> luarun /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua
 ```
-Or dump to a file for inspection:
-``` console
-freeswitch> luarun /usr/share/freeswitch/scripts/main/xml_handlers/sip_profiles/sip_profiles.lua > /tmp/sip_profiles.xml
+
+Export to file:
+
+```bash
+freeswitch> luarun .../sip_profiles.lua > /tmp/sip_profiles.xml
 ```
-Then reload Sofia:
-``` console
-freeswitch> reload mod_sofia
+
+Reloading in FreeSWITCH:
+
+```bash
+reloadxml
+reload mod_sofia
+sofia profile internal restart
 ```
-Restart FreeSWITCH completely:
-``` console
-systemctl restart freeswitch
-```
-Reload XML configurations:
-``` console
-freeswitch> reloadxml
-```
-Reload a specific SIP profile (eg: internal):
-``` console
-freeswitch> sofia profile internal restart
-```
+
+---
 
 ## 🔄 Output
-The final XML is stored in a global variable:
-``` console
+
+The final XML is stored in:
+
+```lua
 XML_STRING = table.concat(xml, "\n")
 ```
-This is picked up by mod_xml_curl or FreeSWITCH's XML handler during runtime.
 
+Used by FreeSWITCH's `mod_xml_curl` or static XML directory.
 
+---
+
+## 📁 Directory Structure
+
+```
+/usr/share/freeswitch/scripts/
+├── main/
+│   ├── xml_handlers/
+│   │   └── sip_profiles/
+│   │       └── sip_profiles.lua
+│   └── resources/
+│       └── settings/
+│           └── settings.lua
+```
+
+---
 
 ## 📬 Contact
-For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.<br>
-Rodrigo Cuadra<br>
-Project: Ring2All
+
+For improvements or bug reports, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra)
+
+---
