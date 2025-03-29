@@ -55,14 +55,12 @@ def process_dialplan_file(file_path):
         context_name = os.path.splitext(os.path.basename(file_path))[0]
         context_id = str(uuid.uuid4())
 
-        # Insert context
         cursor.execute("""
             INSERT INTO core.dialplan_contexts (id, tenant_id, name, enabled, insert_date)
             VALUES (?, ?, ?, ?, ?)
         """, (context_id, tenant_id, context_name, True, now()))
         print(f"✅ Context '{context_name}' created")
 
-        # Insert extensions
         for ext_index, ext_elem in enumerate(root.findall(".//extension")):
             extension_id = str(uuid.uuid4())
             ext_name = ext_elem.get("name") or f"unnamed_{ext_index}"
@@ -79,10 +77,9 @@ def process_dialplan_file(file_path):
                 field = cond_elem.get("field") or "true"
                 expression = cond_elem.get("expression") or ".*"
 
-                # Adjust overly generic expressions
                 if field == "destination_number" and expression in ["^(.*)$", ".*"]:
                     print(f"  ⚠️ Adjusted generic pattern in extension '{ext_name}'")
-                    expression = "^(?!5000$|9196$).*"  # Example: exclude known valid extensions
+                    expression = "^(?!5000$|9196$).*"
                     ext_continue = "true"
                     cursor.execute("""
                         UPDATE core.dialplan_extensions SET continue = ? WHERE id = ?
@@ -145,20 +142,20 @@ def process_ivr_file(file_path):
                 digits = entry.get("digits")
                 action = entry.get("action")
                 dest = entry.get("param") or entry.get("destination")
-                condition = entry.get("condition")
+                condition = entry.get("expression") or entry.get("condition")
 
                 if not digits or not action:
                     print(f"⚠️ Skipping incomplete IVR entry in {file_path}")
                     continue
 
-                setting_id = str(uuid.uuid4())
+                option_id = str(uuid.uuid4())
                 cursor.execute("""
-                    INSERT INTO core.ivr_settings (
+                    INSERT INTO core.ivr_options (
                         id, ivr_id, digits, action, destination, condition,
                         break_on_match, priority, enabled, insert_date
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    setting_id, ivr_id, digits, action, dest, condition,
+                    option_id, ivr_id, digits, action, dest, condition,
                     False, 100, True, now()
                 ))
                 print(f"  ➕ DTMF '{digits}' → {action} ({dest})")
