@@ -12,6 +12,7 @@ Features:
 - Handles both actions and anti-actions
 - Logs output in human-readable format
 - Adjusts overly generic patterns to avoid conflicts
+- Assigns high priority to catch-all/default extensions to avoid early match
 """
 
 import os
@@ -46,6 +47,9 @@ print("""
 ************************************************************
 """)
 
+# List of generic catch-all extensions to move to higher priority
+GENERIC_EXTENSIONS = ["Default_Drop", "enum", "acknowledge_call"]
+
 # Process dialplan XML files
 def process_dialplan_file(file_path):
     try:
@@ -70,11 +74,17 @@ def process_dialplan_file(file_path):
             ext_name = ext_elem.get("name") or f"unnamed_{ext_index}"
             ext_continue = "true" if ext_elem.get("continue") == "true" else "false"
 
+            # Assign priority: generic extensions start at 100+
+            if ext_name in GENERIC_EXTENSIONS:
+                priority = 100 + ext_index
+            else:
+                priority = ext_index
+
             cursor.execute("""
                 INSERT INTO core.dialplan_extensions (id, context_id, name, priority, continue, enabled, insert_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (extension_id, context_id, ext_name, ext_index, ext_continue, True, now()))
-            print(f"  ➕ Extension '{ext_name}' with priority {ext_index}")
+            """, (extension_id, context_id, ext_name, priority, ext_continue, True, now()))
+            print(f"  ➕ Extension '{ext_name}' with priority {priority}")
 
             for cond_elem in ext_elem.findall("condition"):
                 condition_id = str(uuid.uuid4())
