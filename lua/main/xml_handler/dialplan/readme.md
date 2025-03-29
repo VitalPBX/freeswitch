@@ -54,6 +54,22 @@ Filtered by:
 
 Each level of the generated XML maps directly to database entities:
 
+### Example XML Output
+
+```xml
+<document type="freeswitch/xml">
+  <section name="dialplan">
+    <context name="default">
+      <extension name="9000">
+        <condition field="destination_number" expression="^9000$">
+          <action application="answer"/>
+          <action application="playback" data="ivr/ivr-welcome.wav"/>
+        </condition>
+      </extension>
+    </context>
+  </section>
+</document>
+```
 ---
 
 ### `<context name="...">`
@@ -112,7 +128,7 @@ Each level of the generated XML maps directly to database entities:
 
 ---
 
-## 🧱 Database View: `view_dialplan_expanded`
+## 🗃️ Database View: `view_dialplan_expanded`
 
 This view flattens the normalized schema into a single structure, simplifying retrieval:
 
@@ -130,25 +146,6 @@ Filtered by:
 - `ext.enabled = TRUE`  
 - `cond.enabled = TRUE`  
 - `act.enabled = TRUE`
-
----
-
-## 🧩 Example XML Output
-
-```xml
-<document type="freeswitch/xml">
-  <section name="dialplan">
-    <context name="default">
-      <extension name="9000">
-        <condition field="destination_number" expression="^9000$">
-          <action application="answer"/>
-          <action application="playback" data="ivr/ivr-welcome.wav"/>
-        </condition>
-      </extension>
-    </context>
-  </section>
-</document>
-```
 
 ---
 
