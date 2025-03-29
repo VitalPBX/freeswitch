@@ -138,7 +138,10 @@ WHERE
 
 ---
 
-## 🧩 Example XML Output
+## 🧾 XML Structure & Tag Reference
+
+Each SIP user is represented in the XML structure expected by FreeSWITCH during REGISTER requests.
+The generated XML follows the standard FreeSWITCH directory schema:
 
 ```xml
 <user id="1000">
@@ -150,6 +153,81 @@ WHERE
   </variables>
 </user>
 ```
+---
+
+---
+
+### `<user id="...">`
+
+- **Purpose**: Identifies the SIP user (typically an extension).
+- **Value Source**: `core.sip_users.username`
+- **Example**: `<user id="1000">`
+- **Note**: This is the unique SIP user ID under the domain.
+
+---
+
+### `<params>`
+
+- **Purpose**: Contains SIP-specific parameters needed for authentication and registration.
+- **Value Source**: `core.sip_user_settings` where `type = 'param'`
+- **Example Fields**:
+  - `password` — Required for SIP REGISTER (from `core.sip_users.password` or settings)
+  - `vm-password` — Optional voicemail PIN
+  - `auth-acl` — Restrict registration by IP ACL
+- **Example**:
+  ```xml
+  <params>
+    <param name="password" value="1234"/>
+    <param name="vm-password" value="1000"/>
+  </params>
+  ```
+
+---
+
+### `<variables>`
+
+- **Purpose**: Defines runtime variables used in call routing and internal logic.
+- **Value Source**: `core.sip_user_settings` where `type = 'variable'`
+- **Common Fields**:
+  - `user_context` — Defines dialplan context (e.g., "default")
+  - `effective_caller_id_name` — Caller ID Name used internally
+  - `effective_caller_id_number` — Caller ID Number used internally
+  - `outbound_caller_id_name/number` — Used for external calls
+  - `callgroup` — Groups users for ring strategies
+  - `toll_allow` — Defines dial permission groups
+- **Example**:
+  ```xml
+  <variables>
+    <variable name="user_context" value="default"/>
+    <variable name="callgroup" value="techsupport"/>
+  </variables>
+  ```
+
+---
+
+### `<domain name="...">`
+
+- **Purpose**: Groups users under a SIP domain (usually the host part of username@domain).
+- **Value Source**: SIP `domain` from REGISTER request (mapped via `core.tenants.domain_name`)
+- **Note**: Required to scope users per tenant.
+- **Example**:
+  ```xml
+  <domain name="pbx.example.com"> ... </domain>
+  ```
+
+---
+
+### `<group name="default">`
+
+- **Purpose**: Groups users logically under a domain.
+- **Usage**: Required by FreeSWITCH to structure directory entries. Always named `"default"` in this implementation.
+
+---
+
+### `<users>`
+
+- **Purpose**: Contains one or more `<user>` entries.
+- **Note**: Even if only one user is returned, this wrapper is required.
 
 ---
 
