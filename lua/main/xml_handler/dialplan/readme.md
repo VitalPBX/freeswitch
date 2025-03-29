@@ -18,81 +18,122 @@ Each dialplan is generated **per tenant**, based on the SIP domain of the incomi
 
 ## 🧠 How It Works
 
-1. **Domain Resolution:**  
+### Domain Resolution
    Extracts the SIP domain (`domain`) using FreeSWITCH global variable (`getGlobalVariable("domain")`).
 
-2. **Tenant Lookup:**  
-Maps the domain to a tenant_id via:
-- Table: core.tenants
-- Field: domain_name
+### Tenant Lookup
 
-4. **SQL Query:**
+Maps the domain to a `tenant_id` via:
+
+- **Table**: `core.tenants`  
+- **Field**: `domain_name`
+
+---
+
+### SQL Query
+
 Fetches full dialplan logic from:
-- View: view_dialplan_expanded
-- Internally joins:
-   - core.dialplan_contexts
-   - core.dialplan_extensions
-   - core.dialplan_conditions
-   - core.dialplan_actions
-- Filtered by:
- - tenant_id
- - enabled = true at all levels
 
+- **View**: `view_dialplan_expanded`
 
-## 🧾XML Structure & Mapped Tables  
-Each level of the XML corresponds to a specific database table:
-<context name="...">
-- Description: Represents a call routing context (like a namespace).
-- Table: core.dialplan_contexts
-- Fields:
-   - name → context.name
-   - continue → optional, processed in Lua
-- Tenant Scope: Each context is associated with a tenant_id.
+Internally joins:
 
-<extension name="...">
-- Description: Matches a logical rule set within a context.
-- Table: core.dialplan_extensions
-- Fields:
-   - name → extension.name
-   - continue → extension.continue (determines if execution should continue to next extension)
-   - position → used for sorting (priority in XML)
-- Notes: Each extension belongs to one context (context_id foreign key).
+- `core.dialplan_contexts`  
+- `core.dialplan_extensions`  
+- `core.dialplan_conditions`  
+- `core.dialplan_actions`
 
-<condition field="..." expression="...">
-- Description: Defines a match condition for a call attribute (like destination_number).
-- Table: core.dialplan_conditions
-- Fields:
-   - field
-   - expression
-   - break → optional (on-true, never, always, etc.)
-- Notes: A single extension can have multiple conditions.
+Filtered by:
 
-<action application="..." data="..."/>
-- Description: Action to execute if the condition matches.
-- Table: core.dialplan_actions
-- Fields:
-   - application
-   - data
-   - inline → optional
-   - is_anti_action = false
-- Notes: Executed in order. Belongs to a condition (condition_id).
+- `tenant_id`  
+- `enabled = true` at all levels
 
-<anti-action application="..." data="..."/>
-- Description: Executed when a condition fails.
-- Table: core.dialplan_actions
-- Fields:
-   - Same as above
-   - is_anti_action = true
+---
 
+## 🧾 XML Structure & Database Mapping
 
+Each level of the generated XML maps directly to database entities:
+
+---
+
+### `<context name="...">`
+
+- **Description**: Represents a call routing context (like a namespace).  
+- **Table**: `core.dialplan_contexts`  
+- **Fields**:
+  - `name` → `<context name="...">`
+  - `continue` → (optional, logic handled in Lua)
+- **Note**: Each context is scoped to a tenant via `tenant_id`.
+
+---
+
+### `<extension name="...">`
+
+- **Description**: Defines a logical rule set within a context.  
+- **Table**: `core.dialplan_extensions`  
+- **Fields**:
+  - `name` → `<extension name="...">`
+  - `continue` → Determines whether to continue to the next extension
+  - `position` → Used for sorting/prioritization
+- **Relation**: Linked to a context via `context_id`
+
+---
+
+### `<condition field="..." expression="...">`
+
+- **Description**: Specifies matching criteria for a dialplan element.  
+- **Table**: `core.dialplan_conditions`  
+- **Fields**:
+  - `field` → `<condition field="...">`
+  - `expression` → Regex or string to match
+  - `break` → Optional (`on-true`, `never`, etc.)
+
+---
+
+### `<action application="..." data="..."/>`
+
+- **Description**: Executed if the condition matches.  
+- **Table**: `core.dialplan_actions`  
+- **Fields**:
+  - `application` → Dialplan application to run (e.g., `playback`)
+  - `data` → Optional arguments or parameters
+  - `inline` → (optional)
+  - `is_anti_action` → `false`
+- **Relation**: Belongs to a condition (`condition_id`)
+
+---
+
+### `<anti-action application="..." data="..."/>`
+
+- **Description**: Executed if the condition **fails**.  
+- **Table**: `core.dialplan_actions`  
+- **Fields**:
+  - Same as action
+  - `is_anti_action` → `true`
+
+---
 
 ## 🧱 Database View: `view_dialplan_expanded`
 
-This view flattens the normalized tables into a single queryable structure, exposing:
-- context_name, extension_name, condition_field, condition_expression, action_application, etc.
-- Includes sorting by priority (context/extension/condition order)
-- Automatically joins tenant_id across all levels
+This unified view flattens the normalized schema into a single structure, simplifying retrieval:
 
+Includes:
+
+- `context_name`
+- `extension_name`
+- `condition_field`
+- `condition_expression`
+- `action_application`
+- `action_data`
+- `is_anti_action`
+- `position`, `priority`, and other sorting fields
+
+Filtered by:
+
+- `tenant_id`
+- `enabled` flags at each level
+
+---
 
 ## 🧩 Example XML Output
 
@@ -110,31 +151,54 @@ This view flattens the normalized tables into a single queryable structure, expo
   </section>
 </document>
 ```
+---
 
 ## 🔧 Configuration Notes
-- Ensure global variable domain is available when the dialplan is requested.
-- Trigger this module from:
-   - main.lua → xml_handlers/index.lua
-   - when section == "dialplan"
 
-## 📁 Location
-``` console
-/usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua
+- Ensure the global variable `domain` is set when the dialplan is requested.
+- This module must be triggered from:
+
+```lua
+main.lua → xml_handlers/index.lua
 ```
 
+When:
+
+```lua
+section == "dialplan"
+```
+---
+
+## 📁 File Location
+
+```
+/usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua
+```
+---
+
 ## ✅ Status
-- ✅ Multi-tenant support
-- ✅ Context, extension, condition, action hierarchy
-- ✅ Anti-actions supported
-- ✅ Fully dynamic
+
+- ✅ Multi-tenant support  
+- ✅ Full context → extension → condition → action hierarchy  
+- ✅ `continue` and `break` logic supported  
+- ✅ Anti-actions supported  
+- ✅ Fully dynamic  
 - ✅ Compatible with FreeSWITCH 1.10+
 
+---
+
 ## 👀 See Also
-- sip_register.lua — Directory handler for SIP registration
-- settings.lua — Global configuration module
-- sip_proifiles.lua - Load Sip Profiles for Main Tenant (internal, external, etc)
+
+- [`sip_register.lua`](../directory/sip_register.lua) — Directory handler for SIP registration  
+- [`settings.lua`](../resources/settings/settings.lua) — Global configuration module  
+- [`sip_profiles.lua`](../sip_profiles/sip_profiles.lua) — Load SIP Profiles for internal/external routing
+
+---
 
 ## 📚 Suggested Improvements
-- Add support for dialplan tags like <pre-process> and <post-process> (if needed).
-- Validate XML output using fs_cli or XSD if available.
-- Add caching layer for performance on high-traffic environments.
+
+- [ ] Add support for `<pre-process>` and `<post-process>` tags  
+- [ ] Add XML validation using `fs_cli xml_locate`  
+- [ ] Add caching or memoization for performance optimization
+
+---
