@@ -174,6 +174,72 @@ section == "dialplan"
 
 ---
 
+## 📒 Default FreeSWITCH Dialplan Extensions
+
+This is a list of default dialplan extensions that come bundled with **FreeSWITCH** out of the box. These extensions provide demos, system functions, test tools, voicemail access, conference rooms, call parking, and more.
+
+| Extension       | Description                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| 1000            | Transfer to local extension 1000                                            |
+| 101             | LADSPA audio processing demo (autotalent, chorus, phaser effects)          |
+| 9170            | Talking clock: announce current time                                       |
+| 9171            | Talking clock: announce current date                                       |
+| 9172            | Talking clock: announce current date and time                              |
+| 2000            | Group call to "sales" group                                                 |
+| 2001            | Group call to "support" group                                               |
+| 2002            | Group call to "billing" group                                               |
+| 3000            | SNOM demo conference room                                                   |
+| 4000 / *98      | Voicemail main menu                                                         |
+| vmain           | Voicemail access                                                            |
+| 5000            | IVR demo (interactive voice menu)                                           |
+| 5001            | Dynamic conference with outbound call                                       |
+| 5900            | Call parking: park a call in FIFO                                           |
+| 5901            | Unpark call from FIFO                                                       |
+| 6000            | Valet Parking (interactive)                                                 |
+| 60XX (≠6000)    | Direct valet parking slot access                                            |
+| 6070-moderator  | Join conference as moderator                                                |
+| 7243 / pagegroup| Multicast paging (group broadcast)                                          |
+| 779            | Eavesdrop all calls (admin mode)                                            |
+| 8XXX           | Intercom or call group                                                      |
+| 886            | Intercept last global call                                                  |
+| 869 / *69      | Call return (redial last received call)                                     |
+| 870 / redial   | Redial last dialed number                                                   |
+| 9000           | SNOM demo: activate DND button                                              |
+| 9001           | SNOM demo: deactivate DND button                                            |
+| 9178           | Receive FAX                                                                 |
+| 9179           | Send FAX                                                                    |
+| 9180           | Ringback 180 tone                                                           |
+| 9181           | Ringback 183 with UK ring tone                                              |
+| 9182           | Ringback 183 with music                                                     |
+| 9183           | Post-answer ringback with UK tone                                           |
+| 9184           | Post-answer ringback with music                                             |
+| 9191           | ClueCon IVR (bridge to conference)                                          |
+| 9192           | Call debug: print channel info                                              |
+| 9193           | Record video (FSV format)                                                   |
+| 9194           | Playback recorded video                                                     |
+| 9195           | Delay echo test                                                             |
+| 9196           | Standard echo test                                                          |
+| 9197           | Milliwatt test tone                                                         |
+| 9198           | Tone stream playback (e.g., Tetris)                                         |
+| 9386           | Laugh break playback                                                        |
+| 9664           | Auto outcall from conference (loopback test)                                |
+| 0911 / 0912    | “Mad Boss” intercom with auto-answer calls to group                         |
+| 0913           | “Mad Boss” intercom (no mute, basic mode)                                   |
+
+> 🔁 **Pattern-based extensions:**
+>
+> - `^10[01][0-9]$`: Internal extensions range (1000–1019)
+> - `^11[01][0-9]$`: Likely SKINNY SIP devices
+> - `^3[5-8][01][0-9]$`: High-quality conference rooms (NB, WB, UWB, CD, etc.)
+> - `^82\d{2}$`, `^83\d{2}$`: Group calls (simultaneous or ordered)
+> - `^\*\*XXXX$`, `^\*8$`, `^886$`: Intercept call functions
+> - `^(operator|0)$`: Operator access
+
+---
+
+You can use these built-in extensions for testing, training, and learning how FreeSWITCH routes calls via the default dialplan.
+
+
 ## ✅ Status
 
 - ✅ Multi-tenant support  
