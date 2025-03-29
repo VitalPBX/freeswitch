@@ -62,8 +62,7 @@ Each level of the generated XML maps directly to database entities:
 - **Table**: `core.dialplan_contexts`  
 - **Fields**:
   - `name` → `<context name="...">`
-  - `continue` → (optional, logic handled in Lua)
-- **Note**: Each context is scoped to a tenant via `tenant_id`.
+- **Note**: Contexts are filtered by `enabled = TRUE` and scoped to a `tenant_id`.
 
 ---
 
@@ -73,9 +72,9 @@ Each level of the generated XML maps directly to database entities:
 - **Table**: `core.dialplan_extensions`  
 - **Fields**:
   - `name` → `<extension name="...">`
-  - `continue` → Determines whether to continue to the next extension
-  - `position` → Used for sorting/prioritization
-- **Relation**: Linked to a context via `context_id`
+  - `priority` → Determines execution order
+  - `continue` → Optional; if set to `'true'`, proceeds to next extension
+- **Note**: Extensions are filtered by `enabled = TRUE` and linked to a context.
 
 ---
 
@@ -84,9 +83,9 @@ Each level of the generated XML maps directly to database entities:
 - **Description**: Specifies matching criteria for a dialplan element.  
 - **Table**: `core.dialplan_conditions`  
 - **Fields**:
-  - `field` → `<condition field="...">`
-  - `expression` → Regex or string to match
-  - `break` → Optional (`on-true`, `never`, etc.)
+  - `field` → Field to evaluate
+  - `expression` → Regex or pattern to match
+- **Note**: Conditions are filtered by `enabled = TRUE` and linked to an extension.
 
 ---
 
@@ -95,43 +94,42 @@ Each level of the generated XML maps directly to database entities:
 - **Description**: Executed if the condition matches.  
 - **Table**: `core.dialplan_actions`  
 - **Fields**:
-  - `application` → Dialplan application to run (e.g., `playback`)
-  - `data` → Optional arguments or parameters
-  - `inline` → (optional)
-  - `is_anti_action` → `false`
-- **Relation**: Belongs to a condition (`condition_id`)
+  - `application` → FreeSWITCH application (e.g., `playback`)
+  - `data` → Arguments for the application
+  - `type` → Must be `'action'`
+  - `sequence` → Execution order
+- **Note**: Actions are filtered by `enabled = TRUE` and linked to a condition.
 
 ---
 
 ### `<anti-action application="..." data="..."/>`
 
 - **Description**: Executed if the condition **fails**.  
-- **Table**: `core.dialplan_actions`  
+- **Same Table**: `core.dialplan_actions`  
 - **Fields**:
-  - Same as action
-  - `is_anti_action` → `true`
+  - Same as actions
+  - `type` → Must be `'anti-action'`
 
 ---
 
 ## 🧱 Database View: `view_dialplan_expanded`
 
-This unified view flattens the normalized schema into a single structure, simplifying retrieval:
+This view flattens the normalized schema into a single structure, simplifying retrieval:
 
 Includes:
 
+- `tenant_id`
 - `context_name`
-- `extension_name`
-- `condition_field`
-- `condition_expression`
-- `action_application`
-- `action_data`
-- `is_anti_action`
-- `position`, `priority`, and other sorting fields
+- `extension_id`, `extension_name`, `extension_priority`, `continue`
+- `condition_id`, `condition_field`, `condition_expr`
+- `action_id`, `app_name`, `app_data`, `action_type`, `action_sequence`
 
 Filtered by:
 
-- `tenant_id`
-- `enabled` flags at each level
+- `ctx.enabled = TRUE`  
+- `ext.enabled = TRUE`  
+- `cond.enabled = TRUE`  
+- `act.enabled = TRUE`
 
 ---
 
@@ -151,6 +149,7 @@ Filtered by:
   </section>
 </document>
 ```
+
 ---
 
 ## 🔧 Configuration Notes
@@ -167,6 +166,7 @@ When:
 ```lua
 section == "dialplan"
 ```
+
 ---
 
 ## 📁 File Location
@@ -174,6 +174,7 @@ section == "dialplan"
 ```
 /usr/share/freeswitch/scripts/main/xml_handlers/dialplan/dialplan.lua
 ```
+
 ---
 
 ## ✅ Status
