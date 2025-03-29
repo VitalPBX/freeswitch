@@ -134,7 +134,7 @@ This view flattens the normalized tables into a single queryable structure, expo
 - settings.lua — Global configuration module
 - sip_proifiles.lua - Load Sip Profiles for Main Tenant (internal, external, etc)
 
-📚 Suggested Improvements
+## 📚 Suggested Improvements
 - Add support for dialplan tags like <pre-process> and <post-process> (if needed).
 - Validate XML output using fs_cli or XSD if available.
 - Add caching layer for performance on high-traffic environments.
