@@ -1,115 +1,216 @@
-# FreeSWITCH XML Directory Handler (Ring2All)
+# FreeSWITCH XML Directory Handler (`sip_register.lua`)
 
-This module handles dynamic XML generation for SIP user registration (`directory` section) in FreeSWITCH. It’s designed for multi-tenant environments and reads user data directly from a PostgreSQL database via ODBC.
+**Project**: Ring2All  
+**Author**: Rodrigo Cuadra  
+**Component**: Dynamic SIP Directory XML Generator  
+**Database**: PostgreSQL (via ODBC)  
+**Target**: FreeSWITCH `<section name="directory">`
 
-## 🔧 What It Does
-- Handles `directory` XML requests triggered by SIP REGISTER.
-- Looks up the SIP user in the database using `username` and `domain`.
-- Resolves the tenant (`core.tenants`) from the domain.
-- Pulls SIP user credentials and settings from the view `view_sip_users`.
-- Inherits settings from a `sip_user` profile (`core.sip_profiles`) if one is linked to the user.
-- Returns FreeSWITCH-compatible `<user>` XML with `<params>` and `<variables>`.
+---
 
-## 🗃️ Database Structure
-Requires the following structure:
-- `core.tenants`: List of tenant domains.
-- `core.sip_users`: SIP user credentials.
-- `core.sip_user_settings`: User-specific SIP settings.
-- `core.sip_profiles`: Reusable configuration profiles.
-- `core.sip_profile_settings`: Settings grouped by profile.
-- `view_sip_users`: View joining users and their settings.
+## 📌 Purpose
 
-Sample SQL for the view:
- ``` console
+This module dynamically generates FreeSWITCH directory XML used during SIP user registration (`REGISTER` requests).  
+It is fully compatible with multi-tenant environments and retrieves user and profile settings from PostgreSQL.
+
+---
+
+## 🧠 How It Works
+
+### Domain Resolution
+
+Extracts the SIP domain from:
+
+```lua
+params:getHeader("domain") or params:getHeader("sip_host")
+```
+
+---
+
+### Tenant Lookup
+
+Maps the domain to a `tenant_id` using:
+
+- **Table**: `core.tenants`  
+- **Field**: `domain_name`
+
+---
+
+### SIP User Lookup
+
+Retrieves the SIP user based on `username` and `tenant_id`:
+
+- **View**: `view_sip_users`  
+- **Fields**:
+  - `username`
+  - `sip_profile_id`
+  - `enabled`
+
+---
+
+### User Settings
+
+Loaded from:
+
+- **Table**: `core.sip_user_settings`  
+- **Fields**:
+  - `name` → Parameter or variable name
+  - `type` → Must be `param` or `variable`
+  - `value` → Actual value
+
+Only `enabled = TRUE` entries are included.
+
+---
+
+### Profile Inheritance
+
+If the SIP user has a linked profile (`sip_profile_id`), and it belongs to category `sip_user`, then:
+
+- **Table**: `core.sip_profiles`
+- **Table**: `core.sip_profile_settings`  
+- **Category**: `'sip_user'`  
+- **Logic**: Profile settings are only inherited if not already defined in the user.
+
+---
+
+### Variable Substitution
+
+Supports FreeSWITCH-style global variable substitution via:
+
+```lua
+${var} or $${var}
+```
+
+Using:
+
+```lua
+api:execute("global_getvar", "")
+```
+
+---
+
+## 🧾 Database Structure
+
+### `core.sip_users`
+
+Stores basic SIP credentials.
+
+- `tenant_id` → Foreign key to `core.tenants`  
+- `username`, `password`  
+- `sip_profile_id` → Optional inheritance  
+- `enabled` → Must be true to allow registration
+
+---
+
+### `core.sip_user_settings`
+
+Defines per-user SIP parameters and variables.
+
+- `sip_user_id` → Foreign key to `core.sip_users`  
+- `name`, `type`, `value`  
+- `type` = `'param'` or `'variable'`  
+- `enabled` → Must be true
+
+---
+
+### `view_sip_users`
+
+Provides a flattened view joining users and their settings.
+
+```sql
 CREATE OR REPLACE VIEW view_sip_users AS
 SELECT
-    u.id AS sip_user_id,
-    u.tenant_id,
-    u.username,
-    u.password,
-    u.enabled,
-    u.sip_profile_id AS user_profile_id,
-    s.name AS setting_name,
-    s.value AS setting_value,
-    s.setting_type
-FROM core.sip_users u
-LEFT JOIN core.sip_user_settings s ON s.sip_user_id = u.id
-WHERE u.enabled = TRUE;
- ```
+    su.username,
+    su.enabled,
+    su.sip_profile_id,
+    su.id AS sip_user_id,
+    sus.name AS setting_name,
+    sus.type AS type,
+    sus.value AS setting_value,
+    sus.enabled AS setting_enabled,
+    su.tenant_id
+FROM
+    core.sip_users su
+LEFT JOIN core.sip_user_settings sus ON sus.sip_user_id = su.id
+WHERE
+    sus.enabled = true;
+```
+
+---
+
+## 🧩 Example XML Output
+
+```xml
+<user id="1000">
+  <params>
+    <param name="password" value="1234"/>
+  </params>
+  <variables>
+    <variable name="user_context" value="default"/>
+  </variables>
+</user>
+```
+
+---
 
 ## 🛠️ Configuration
-Ensure your ODBC source is defined in odbc.ini and matches odbc://ring2all.
 
-Example in Lua:
- ``` console
+Ensure your ODBC source is configured properly:
+
+```lua
 dbh = freeswitch.Dbh("odbc://ring2all")
- ```
+```
 
-## 📦 Directory Structure
- ``` console
+---
+
+## 📁 Directory Structure
+
+```
 /usr/share/freeswitch/scripts/
 ├── main.lua
 ├── main/
 │   ├── xml_handlers/
-│   │   ├── index.lua
 │   │   ├── directory/
 │   │   │   └── sip_register.lua
-│   │   ├── dialplan/
-│   │   │   └── dialplan.lua
-│   │   └── ...
 │   └── resources/
 │       └── settings/
 │           └── settings.lua
- ```
+```
 
-## ✅ How It Works
-FreeSWITCH receives a SIP REGISTER.
-1. FreeSWITCH receives a SIP REGISTER.
-2. `main.lua` dispatches the request to `sip_register.lua`.
-3. The database is queried to find the tenant and SIP user.
-4. If the user is linked to a `sip_user` profile, its settings are loaded.
-5. XML is generated and returned to FreeSWITCH.
+---
 
-### 📂 Related Files
+## ✅ Runtime Flow
 
-### 1. `main.lua`
-Entry point used by FreeSWITCH to dispatch XML requests.
-- Parses the `XML_REQUEST` table.
-- Routes to the appropriate handler (`directory`, `dialplan`, `configuration`).
-- Loads shared settings and logging.
+1. FreeSWITCH receives a SIP REGISTER request.
+2. `main.lua` dispatches it to `sip_register.lua`.
+3. The script resolves the tenant and SIP user.
+4. Settings are fetched and profile inheritance is applied.
+5. XML is constructed and returned to FreeSWITCH.
 
-### 2. `index.lua`
-Sub-dispatcher that lives under `scripts/main/<app_name>/index.lua`.
-- Handles:
-  - SIP registrations and authentication (`directory`)
-  - Call routing logic (`dialplan`)
-  - Config generation (e.g. `vars.xml`, `sofia.conf`, `ivr.conf`)
-
-### 3. `sip_register.lua`
-Dynamically generates the directory XML used in SIP registrations.
-- Queries `view_sip_users` using the tenant resolved from the SIP domain.
-- Outputs users with `<params>` and `<variables>`, supporting `$${}` substitution from FreeSWITCH global vars.
-- Example output:
-  ```xml
-  <user id="1000">
-    <params>
-      <param name="password" value="1234"/>
-    </params>
-    <variables>
-      <variable name="user_context" value="default"/>
-    </variables>
-  </user>
+---
 
 ## 🧪 Testing
-To test SIP registration:
-1. Point a SIP client to your FreeSWITCH instance.
-2. Register with username@domain.
-3. Confirm logs show:
-    - XML request being handled
-    - Database connection success
-    - XML output generated
+
+1. Point a SIP client to FreeSWITCH.
+2. Use `username@domain` to register.
+3. Check logs for:
+   - Domain and username extraction
+   - Database lookup success
+   - XML output generation
+
+---
+
+## 👀 Related Files
+
+- `main.lua`: Entry point for handling XML requests  
+- `index.lua`: Dispatches requests to modules  
+- `settings.lua`: Shared settings and logging
+
+---
 
 ## 📬 Contact
-For contributions or issues, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra) or fork the project on GitHub.<br>
-Rodrigo Cuadra<br>
-Project: Ring2All
+
+For questions or contributions, contact [Rodrigo Cuadra](https://github.com/rodrigocuadra)  
+Rodrigo Cuadra
+
+---
