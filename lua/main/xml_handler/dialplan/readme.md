@@ -180,7 +180,7 @@ This is a list of default dialplan extensions that come bundled with **FreeSWITC
 
 | Extension       | Description                                                                 |
 |-----------------|-----------------------------------------------------------------------------|
-| 1000 -1019      | Local extension 1000-1019                                                   |
+| 1000 -1019      | Internal extensions range 1000-1019                                         |
 | 101             | LADSPA audio processing demo (autotalent, chorus, phaser effects)          |
 | 9170            | Talking clock: announce current time                                       |
 | 9171            | Talking clock: announce current date                                       |
